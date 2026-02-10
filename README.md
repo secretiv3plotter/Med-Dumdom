@@ -23,8 +23,8 @@ Headings
 - Texts must be resizable up to 2x of original font size
 
 ICONS 
-Icon size: 24 × 24 px 
-Small icons: 20 × 20 px
+Icon size: 44 x 44 px 
+Small icons (not clickable): 24 × 24 px
 Large/feature icons: 32 px
 
 TOP BARS / NAVIGATION BARS
