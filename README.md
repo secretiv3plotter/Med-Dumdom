@@ -53,3 +53,10 @@ FIGURES / VISUAL ELEMENTS
 
 
 BACK BUTTONS ARE ALWAYS IN THE TOP-LEFT
+
+
+SPACING
+Line height - 1.5 times the font size
+Spacing following paragraphs - 2 times the font size;
+Letter spacing - at least 0.12 times the font size;
+Word spacing - times the font size.
