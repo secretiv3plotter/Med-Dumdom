@@ -61,4 +61,6 @@ Spacing following paragraphs - 2 times the font size;
 Letter spacing - at least 0.12 times the font size;
 Word spacing - times the font size.
 
-
+HEADER AND FOOTER
+Header height: 48-56 px
+Footer height: 44-48 px
