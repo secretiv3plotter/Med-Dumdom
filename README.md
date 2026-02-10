@@ -25,7 +25,7 @@ Headings
 ICONS 
 Icon size: 44 x 44 px 
 Small icons (not clickable): 24 × 24 px
-Large/feature icons: 32 px
+Large/feature icons: [subject to change]
 
 TOP BARS / NAVIGATION BARS
 Height: 56 px 
