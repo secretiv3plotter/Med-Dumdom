@@ -17,3 +17,13 @@ Secondary text / captions: 14 px
 Labels / helper text: 12–13 px 
 Section headers: 18–20 px
 Page titles: 24–32 px
+
+Body text:
+  Minimum: 16px
+  Preferred: 17–18px for comfortable reading
+Buttons / interactive text: At least 16px
+Captions / secondary text: 14px minimum (avoid smaller)
+Headings (typical ranges):
+  H1: 32px+
+  H2: 24–32px
+  H3: 18–24px
