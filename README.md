@@ -16,31 +16,29 @@ Body text: 16 px
 Buttons / interactive text: 24 px
 Captions / secondary text: 14 px
 Headings
-  H1: 32px 
-  H2: 28px 
-  H3: 22px 
+  H1: 32px (for main screen titles)
+  H2: 28px (major sections within a screen)
+  H3: 22px (subsections)
 
 - Texts must be resizable up to 2x of original font size
 
-ICONS
-
-Icon size: 24 × 24 px
+ICONS 
+Icon size: 24 × 24 px 
 Small icons: 20 × 20 px
 Large/feature icons: 32 px
 
 TOP BARS / NAVIGATION BARS
-Height: 56 px (Android) 
+Height: 56 px 
 
 BUTTONS
 Minimum height: 44–48 px
 Padding: 12–16 px vertical, 16–20 px horizontal
-Corner radius: 8–12 px (modern look)
+Corner radius: 8–12 px
 
 CONTAINERS
 Internal padding: 16 px
 Spacing between cards: 8–16 px
 Corner radius: 12–16 px
-Keep actions limited (1–2 icons max)
 
 SPACING & LAYOUT GRID
 Small spacing: 8 px
