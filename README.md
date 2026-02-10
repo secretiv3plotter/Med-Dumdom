@@ -13,15 +13,43 @@ Helvetica
 
 TEXT SIZE (Default)
 Body text: 16 px
-Secondary text / captions: 14 px
-Labels / helper text: 12–13 px 
-Section headers: 18–20 px
-Page titles: 24–32 px
-
-Body text: 16 px
 Buttons / interactive text: 24 px
 Captions / secondary text: 14 px
 Headings
-  H1: 32px
-  H2: 28px
-  H3: 22px
+  H1: 32px 
+  H2: 28px 
+  H3: 22px 
+  
+ICONS
+
+Icon size: 24 × 24 px
+Small icons: 20 × 20 px
+Large/feature icons: 32 px
+
+TOP BARS / NAVIGATION BARS
+Height: 56 px (Android) 
+
+BUTTONS
+Minimum height: 44–48 px
+Padding: 12–16 px vertical, 16–20 px horizontal
+Corner radius: 8–12 px (modern look)
+
+CONTAINERS
+Internal padding: 16 px
+Spacing between cards: 8–16 px
+Corner radius: 12–16 px
+Keep actions limited (1–2 icons max)
+
+SPACING & LAYOUT GRID
+Small spacing: 8 px
+Medium spacing: 16 px
+Large spacing: 24–32 px
+
+LISTS & ROWS
+Row height: 48–56 px minimum
+Icon-to-text spacing: 12–16 px
+
+FIGURES / VISUAL ELEMENTS 
+
+
+BACK BUTTONS ARE ALWAYS IN THE TOP-LEFT
