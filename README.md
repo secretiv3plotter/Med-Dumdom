@@ -19,7 +19,9 @@ Headings
   H1: 32px 
   H2: 28px 
   H3: 22px 
-  
+
+- Texts must be resizable up to 2x of original font size
+
 ICONS
 
 Icon size: 24 × 24 px
@@ -60,3 +62,5 @@ Line height - 1.5 times the font size
 Spacing following paragraphs - 2 times the font size;
 Letter spacing - at least 0.12 times the font size;
 Word spacing - times the font size.
+
+
