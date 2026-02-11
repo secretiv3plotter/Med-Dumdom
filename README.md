@@ -6,7 +6,7 @@ primary color – main brand color (buttons, highlights, active states):        
 secondary color – supports the primary (accents, secondary actions):           #489fb5
 neutral color – background:                                                    #F5FEFE
 text color:                                                                    #000000 / #FFFFFF                      
-accent color – alerts, emphasis, special states (success/error):               #894805
+accent color – alerts, emphasis, special states (success/error):               #D9D9D9
 
 FONT
 Helvetica
