@@ -1,5 +1,4 @@
 //text based button (currently only solid and outline variants)
-//add more variants (ghost variant)
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors, radius, spacing } from '../../constants/Themes';
 
