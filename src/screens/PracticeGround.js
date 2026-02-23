@@ -23,6 +23,36 @@ export default function HomeScreen() {
           details={homeContent.appointment.details}
         />
 
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
+        <AppointmentCard
+          title={homeContent.appointment.title}
+          details={homeContent.appointment.details}
+        />
+
         <View style={styles.row}>
           <ActionButton label={homeContent.actions.primary} />
           <ActionButton label={homeContent.actions.secondary} variant="outline" />

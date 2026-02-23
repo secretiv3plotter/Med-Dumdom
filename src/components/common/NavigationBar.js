@@ -12,11 +12,21 @@ export default function NavigationBar({
   appointmentDisabled = false,
   progressDisabled = false,
   notificationsUnread = false,
+  selectedTab: selectedTabProp,
+  onNavigate,
+  showPressAlert = true,
 }) {
-  const [selectedTab, setSelectedTab] = useState(null);
+  const [internalSelectedTab, setInternalSelectedTab] = useState('home');
+  const selectedTab = selectedTabProp ?? internalSelectedTab;
+
   const onTabPress = (tabKey, label) => {
-    setSelectedTab(tabKey);
-    Alert.alert('Navigation', `${label} pressed`);
+    if (selectedTabProp === undefined) {
+      setInternalSelectedTab(tabKey);
+    }
+    if (showPressAlert) {
+      Alert.alert('Navigation', `${label} pressed`);
+    }
+    onNavigate?.(tabKey);
   };
 
   return (

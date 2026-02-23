@@ -2,12 +2,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../constants/Themes';
 
-export default function MainDashboardCaregiver() {
+export default function MedTracker() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.content}>
-        <Text style={styles.title}>Main Dashboard</Text>
-        <Text style={styles.subtitle}>Home screen placeholder</Text>
+        <Text style={styles.title}>Med Tracker</Text>
+        <Text style={styles.subtitle}>Meds screen placeholder</Text>
       </View>
     </SafeAreaView>
   );
