@@ -3,15 +3,28 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors, radius, spacing } from '../../constants/Themes';
 
-export default function ActionButton({ label, onPress, variant = 'solid' }) {
+export default function ActionButton({
+  label,
+  onPress,
+  variant = 'solid',
+  style,
+  textStyle,
+  disabled = false,
+}) {
   const outline = variant === 'outline';
 
   return (
     <Pressable
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.button, outline ? styles.outlineButton : styles.solidButton]}
+      style={[
+        styles.button,
+        outline ? styles.outlineButton : styles.solidButton,
+        disabled && styles.disabled,
+        style,
+      ]}
     >
-      <Text style={[styles.text, outline ? styles.outlineText : styles.solidText]}>{label}</Text>
+      <Text style={[styles.text, outline ? styles.outlineText : styles.solidText, textStyle]}>{label}</Text>
     </Pressable>
   );
 }
@@ -39,5 +52,8 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: colors.brand,
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });
