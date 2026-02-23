@@ -1,10 +1,12 @@
+//practice ground for testing new components and styles
+
 import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import PrimaryButton from '../components/common/PrimaryButton';
-import AppointmentCard from '../components/home/AppointmentCard';
-import SearchBar from '../components/home/SearchBar';
-import { colors, spacing } from '../constants/theme';
-import { homeContent } from '../data/homeText';
+import ActionButton from '../components/common/ActionButton';
+import AppointmentCard from '../components/practice_ground/AppointmentCard';
+import SearchBar from '../components/common/SearchBar';
+import { colors, spacing } from '../constants/Themes';
+import { homeContent } from '../data/PracticeGroundText';
 
 export default function HomeScreen() {
   return (
@@ -21,8 +23,8 @@ export default function HomeScreen() {
         />
 
         <View style={styles.row}>
-          <PrimaryButton label={homeContent.actions.primary} />
-          <PrimaryButton label={homeContent.actions.secondary} variant="outline" />
+          <ActionButton label={homeContent.actions.primary} />
+          <ActionButton label={homeContent.actions.secondary} variant="outline" />
         </View>
       </ScrollView>
     </SafeAreaView>

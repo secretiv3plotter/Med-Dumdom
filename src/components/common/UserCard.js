@@ -1,0 +1,1 @@
+//content: profile icon, name, addtl details/action buttons

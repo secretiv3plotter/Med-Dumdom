@@ -1,5 +1,5 @@
 import { StyleSheet, TextInput } from 'react-native';
-import { colors, radius, spacing } from '../../constants/theme';
+import { colors, radius, spacing } from '../../constants/Themes';
 
 export default function SearchBar({ placeholder }) {
   return (

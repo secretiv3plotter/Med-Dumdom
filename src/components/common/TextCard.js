@@ -1,0 +1,1 @@
+//non-clickable card with text content

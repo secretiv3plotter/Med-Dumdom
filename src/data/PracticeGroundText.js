@@ -1,3 +1,5 @@
+//experimental text content for practice ground
+
 export const homeContent = {
   appName: 'Med Dumdom',
   greeting: 'How are you feeling todayy??',

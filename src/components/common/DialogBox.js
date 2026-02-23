@@ -1,0 +1,1 @@
+//content (input bars, error message), action buttons (confirm, cancel, delete, etc)
