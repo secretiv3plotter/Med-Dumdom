@@ -7,55 +7,27 @@ import { AddButton, DeleteButton, EditButton } from '../components/common/CrudBu
 import DashboardHeader from '../components/common/DashboardHeader';
 import HelpButton from '../components/dashboard_header/HelpButton';
 import ProfileButton from '../components/dashboard_header/ProfileButton';
-import AppointmentCard from '../components/practice_ground/AppointmentCard';
 import SearchBar from '../components/common/SearchBar';
-import NavigationBar from '../components/common/NavigationBar';
 import { colors, spacing } from '../constants/Themes';
 import { homeContent } from '../data/PracticeGroundText';
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.stickyHeader}>
+        <DashboardHeader
+          firstName="Mia"
+          onHelpPress={() => Alert.alert('DashboardHeader', 'Help pressed')}
+          onProfilePress={() => Alert.alert('DashboardHeader', 'Profile pressed')}
+          profileImageSource={{ uri: 'https://i.pravatar.cc/224?img=12' }}
+        />
+      </View>
+
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>{homeContent.appName}</Text>
         <Text style={styles.subtitle}>{homeContent.greeting}</Text>
 
         <SearchBar placeholder={homeContent.searchPlaceholder} />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
-
-        <AppointmentCard
-          title={homeContent.appointment.title}
-          details={homeContent.appointment.details}
-        />
 
         <View style={styles.row}>
           <ActionButton label={homeContent.actions.primary} />
@@ -98,9 +70,6 @@ export default function HomeScreen() {
         </View>
 
       </ScrollView>
-      <View style={styles.navWrap}>
-        <NavigationBar />
-      </View>
     </SafeAreaView>
   );
 }
@@ -123,7 +92,6 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 120,
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
     gap: 14,
   },
   title: {
@@ -144,9 +112,5 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 10,
-  },
-  navWrap: {
-    width: '100%',
-    backgroundColor: colors.surface,
   },
 });

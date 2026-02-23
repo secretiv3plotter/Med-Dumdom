@@ -127,7 +127,7 @@ export function EditButton(props) {
       icon="create-outline"
       variant="outline"
       iconSize={40}
-      circleStyle={[{ paddingLeft: 4 }, props.circleStyle]}v
+      circleStyle={[{ paddingLeft: 4 }, props.circleStyle]}
       textStyle={[{ marginTop: -10 }, props.textStyle]}
     />
   );
