@@ -44,6 +44,6 @@ export const typography = {
 };
 
 export const accessibility = {
-  minTouchTarget: 44,
+  minTouchTarget: 48,
   focusRingWidth: 2,
 };
