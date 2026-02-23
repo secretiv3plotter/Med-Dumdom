@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, SafeAreaView, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import PrimaryButton from '../components/common/PrimaryButton';
 import AppointmentCard from '../components/home/AppointmentCard';
 import SearchBar from '../components/home/SearchBar';

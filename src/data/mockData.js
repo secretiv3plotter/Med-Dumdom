@@ -1,6 +1,6 @@
 export const homeContent = {
   appName: 'Med Dumdom',
-  greeting: 'How are you feeling today???',
+  greeting: 'How are you feeling today?',
   searchPlaceholder: 'Search doctors, medicines, symptoms...',
   appointment: {
     title: 'Next Appointment',
