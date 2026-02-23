@@ -1,6 +1,6 @@
 export const homeContent = {
   appName: 'Med Dumdom',
-  greeting: 'How are you feeling today?',
+  greeting: 'How are you feeling todayy??',
   searchPlaceholder: 'Search doctors, medicines, symptoms...',
   appointment: {
     title: 'Next Appointment',
@@ -11,3 +11,4 @@ export const homeContent = {
     secondary: 'My Records',
   },
 };
+

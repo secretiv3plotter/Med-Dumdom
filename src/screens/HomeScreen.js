@@ -4,7 +4,7 @@ import PrimaryButton from '../components/common/PrimaryButton';
 import AppointmentCard from '../components/home/AppointmentCard';
 import SearchBar from '../components/home/SearchBar';
 import { colors, spacing } from '../constants/theme';
-import { homeContent } from '../data/mockData';
+import { homeContent } from '../data/homeText';
 
 export default function HomeScreen() {
   return (
