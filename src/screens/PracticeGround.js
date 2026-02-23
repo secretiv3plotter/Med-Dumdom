@@ -5,12 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../components/common/ActionButton';
 import AppointmentCard from '../components/practice_ground/AppointmentCard';
 import SearchBar from '../components/common/SearchBar';
+import NavigationBar from '../components/common/NavigationBar';
 import { colors, spacing } from '../constants/Themes';
 import { homeContent } from '../data/PracticeGroundText';
 
 export default function HomeScreen() {
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>{homeContent.appName}</Text>
         <Text style={styles.subtitle}>{homeContent.greeting}</Text>
@@ -27,6 +28,9 @@ export default function HomeScreen() {
           <ActionButton label={homeContent.actions.secondary} variant="outline" />
         </View>
       </ScrollView>
+      <View style={styles.navWrap}>
+        <NavigationBar />
+      </View>
     </SafeAreaView>
   );
 }
@@ -38,6 +42,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: spacing.lg,
+    paddingBottom: spacing.xxl,
     gap: 14,
   },
   title: {
@@ -52,5 +57,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 10,
+  },
+  navWrap: {
+    width: '100%',
+    backgroundColor: colors.surface,
   },
 });
