@@ -26,7 +26,15 @@ export default function BackButton({
     >
       <View style={styles.content}>
         <Text style={[styles.icon, iconStyle]}>{'\u2039'}</Text>
-        {showLabel && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+        {showLabel && (
+          <Text
+            style={[styles.label, labelStyle]}
+            onPress={disabled ? undefined : onPress}
+            suppressHighlighting
+          >
+            {label}
+          </Text>
+        )}
       </View>
     </Pressable>
   );
