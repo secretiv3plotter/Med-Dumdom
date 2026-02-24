@@ -36,10 +36,11 @@ const styles = StyleSheet.create({
   button: {
     minHeight: accessibility.minTouchTarget,
     minWidth: accessibility.minTouchTarget,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
     borderRadius: radius.md,
     alignSelf: 'flex-start',
     justifyContent: 'center',
+    marginLeft: -spacing.xs,
   },
   content: {
     flexDirection: 'row',
@@ -48,12 +49,14 @@ const styles = StyleSheet.create({
   },
   icon: {
     color: colors.body,
-    fontSize: 24,
-    lineHeight: 24,
+    fontSize: 48,
+    lineHeight: 48,
   },
   label: {
     ...typography.button,
     color: colors.body,
+    marginLeft: 4,   
+    marginTop: 7,    
   },
   pressed: {
     opacity: 0.75,

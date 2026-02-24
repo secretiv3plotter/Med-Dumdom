@@ -1,7 +1,9 @@
 export const ROUTES = {
-  HOME: 'Home',
-  DOCTORS: 'Doctors',
-  APPOINTMENTS: 'Appointments',
-  RECORDS: 'Records',
-  PROFILE: 'Profile',
+  HOME: 'PatientSpecificDashboard',
+  APPOINTMENT_TRACKER: 'ApptTracker',
+  MED_TRACKER: 'MedTracker',
+  PROGRESS_REPORT: 'ProgressReport',
+  HELP_AND_SUPPORT: 'HelpAndSupport',
+  NOTIFICATION: 'NotificationScreen',
+  PROFILE: 'ProfileScreen',
 };
