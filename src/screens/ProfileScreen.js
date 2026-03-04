@@ -13,7 +13,7 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-export default function HelpAndSupport({ navigation }) {
+export default function ProfileScreen({ navigation }) {
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -28,8 +28,8 @@ export default function HelpAndSupport({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Help and Support</Text>
-        <Text style={styles.subtitle}>How can we help you today?</Text>
+        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.subtitle}>User profile details and settings go here.</Text>
       </ScrollView>
 
       <View style={styles.footerNav}>

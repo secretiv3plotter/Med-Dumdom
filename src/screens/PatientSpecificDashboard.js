@@ -1,16 +1,35 @@
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BackButton from '../components/common/BackButton';
 import DashboardHeader from '../components/common/DashboardHeader';
+import NavigationBar from '../components/common/NavigationBar';
+import { ROUTES } from '../constants/routes';
 import { colors, spacing, typography } from '../constants/Themes';
 
-export default function PatientSpecificDashboard() {
+const TAB_KEY_TO_ROUTE = {
+  home: ROUTES.HOME,
+  appointment: ROUTES.APPOINTMENT_TRACKER,
+  med: ROUTES.MED_TRACKER,
+  progress: ROUTES.PROGRESS_REPORT,
+  notification: ROUTES.NOTIFICATION,
+};
+
+export default function PatientSpecificDashboard({ navigation }) {
+  const onTabNavigate = (tabKey) => {
+    const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+    if (targetRoute) {
+      navigation?.navigate?.(targetRoute);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyHeader}>
+        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
         <DashboardHeader
-          firstName="Patient"
-          onHelpPress={() => Alert.alert('DashboardHeader', 'Help pressed')}
-          onProfilePress={() => Alert.alert('DashboardHeader', 'Profile pressed')}
+          firstName="John"
+          onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
+          onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
           profileImageSource={{ uri: 'https://i.pravatar.cc/224?img=12' }}
         />
       </View>
@@ -19,6 +38,10 @@ export default function PatientSpecificDashboard() {
         <Text style={styles.title}>Patient Dashboard</Text>
         <Text style={styles.subtitle}>Patient-specific content goes here.</Text>
       </ScrollView>
+
+      <View style={styles.footerNav}>
+        <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -30,17 +53,19 @@ const styles = StyleSheet.create({
   },
   stickyHeader: {
     position: 'absolute',
-    top: spacing.xxl,
+    top: spacing.md,
     left: 0,
     right: 0,
     zIndex: 20,
     backgroundColor: colors.pageBg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    gap: spacing.xs,
   },
   container: {
-    paddingTop: 120,
+    paddingTop: 160,
     padding: spacing.lg,
+    paddingBottom: 170,
     gap: spacing.sm,
   },
   title: {
@@ -50,5 +75,12 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.subtitle,
     color: colors.body,
+  },
+  footerNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
   },
 });

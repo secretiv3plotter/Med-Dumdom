@@ -31,19 +31,19 @@ export default function NavigationBar({
 
   return (
     <View style={styles.container}>
-      <HomeButton
-        variant={selectedTab === 'home' ? 'solid' : 'outline'}
-        onPress={() => onTabPress('home', 'Home')}
+      <AppointmentTrackerButton
+        variant={selectedTab === 'appointment' ? 'solid' : 'outline'}
+        onPress={() => onTabPress('appointment', 'Appts')}
+        disabled={appointmentDisabled}
       />
       <MedTrackerButton
         variant={selectedTab === 'med' ? 'solid' : 'outline'}
         onPress={() => onTabPress('med', 'Med')}
         disabled={medDisabled}
       />
-      <AppointmentTrackerButton
-        variant={selectedTab === 'appointment' ? 'solid' : 'outline'}
-        onPress={() => onTabPress('appointment', 'Appts')}
-        disabled={appointmentDisabled}
+      <HomeButton
+        variant={selectedTab === 'home' ? 'solid' : 'outline'}
+        onPress={() => onTabPress('home', 'Home')}
       />
       <ProgressReportButton
         variant={selectedTab === 'progress' ? 'solid' : 'outline'}
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.sm,
     gap: spacing.xs,
     flexDirection: 'row',
   },

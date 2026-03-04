@@ -1,13 +1,43 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BackButton from '../components/common/BackButton';
+import NavigationBar from '../components/common/NavigationBar';
+import { ROUTES } from '../constants/routes';
 import { colors, spacing, typography } from '../constants/Themes';
 
-export default function ApptTracker() {
+const TAB_KEY_TO_ROUTE = {
+  home: ROUTES.HOME,
+  appointment: ROUTES.APPOINTMENT_TRACKER,
+  med: ROUTES.MED_TRACKER,
+  progress: ROUTES.PROGRESS_REPORT,
+  notification: ROUTES.NOTIFICATION,
+};
+
+export default function ApptTracker({ navigation }) {
+  const onTabNavigate = (tabKey) => {
+    const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+    if (targetRoute) {
+      navigation?.navigate?.(targetRoute);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.content}>
+      <View style={styles.stickyTop}>
+        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Appointment Tracker</Text>
         <Text style={styles.subtitle}>Appt screen placeholder</Text>
+      </ScrollView>
+
+      <View style={styles.footerNav}>
+        <NavigationBar
+          selectedTab="appointment"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+        />
       </View>
     </SafeAreaView>
   );
@@ -19,11 +49,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: spacing.lg,
-    gap: spacing.xs,
+    paddingTop: 84,
+    paddingBottom: 150,
+    gap: spacing.sm,
   },
   title: {
     ...typography.title,
@@ -32,5 +61,20 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,
+  },
+  footerNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+  },
+  stickyTop: {
+    position: 'absolute',
+    top: spacing.md + spacing.sm,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    paddingHorizontal: spacing.lg,
   },
 });
