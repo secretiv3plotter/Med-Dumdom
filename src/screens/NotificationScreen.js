@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../components/common/BackButton';
+import ClickableCard from '../components/common/ClickableCard';
 import NavigationBar from '../components/common/NavigationBar';
 import { ROUTES } from '../constants/routes';
 import { colors, spacing, typography } from '../constants/Themes';
@@ -29,7 +31,18 @@ export default function NotificationScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Notifications</Text>
-        <Text style={styles.subtitle}>All notification updates appear here.</Text>
+        <Text style={styles.subtitle}>Manage notification preferences and reminder timing.</Text>
+        <ClickableCard
+          size="landscape"
+          title="Notification Settings"
+          subtitle="Control reminders and alert behavior"
+          details="Permissions, schedule, duration, and channels"
+          leftSlot={<Ionicons name="notifications-outline" size={24} color={colors.title} />}
+          onPress={() => navigation?.navigate?.(ROUTES.NOTIFICATION_SETTINGS)}
+          cardStyle={styles.settingsCard}
+          titleStyle={styles.cardTitle}
+          subtitleStyle={styles.cardSubtitle}
+        />
       </ScrollView>
 
       <View style={styles.footerNav}>
@@ -61,6 +74,15 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,
+  },
+  settingsCard: {
+    marginTop: spacing.sm,
+  },
+  cardTitle: {
+    color: colors.title,
+  },
+  cardSubtitle: {
+    color: colors.body,
   },
   footerNav: {
     position: 'absolute',

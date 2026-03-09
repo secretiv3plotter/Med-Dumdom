@@ -6,7 +6,9 @@ import ApptTracker from './src/screens/ApptTracker';
 import HelpAndSupport from './src/screens/HelpAndSupport';
 import MedTracker from './src/screens/MedTracker';
 import NotificationScreen from './src/screens/NotificationScreen';
+import NotificationSettings from './src/screens/NotificationSettings';
 import PatientSpecificDashboard from './src/screens/PatientSpecificDashboard';
+import PrivacySettings from './src/screens/PrivacySettings';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProgressReport from './src/screens/ProgressReport';
 
@@ -51,8 +53,12 @@ export default function App() {
         return <HelpAndSupport navigation={navigation} />;
       case ROUTES.NOTIFICATION:
         return <NotificationScreen navigation={navigation} />;
+      case ROUTES.NOTIFICATION_SETTINGS:
+        return <NotificationSettings navigation={navigation} />;
       case ROUTES.PROFILE:
         return <ProfileScreen navigation={navigation} />;
+      case ROUTES.PRIVACY_SETTINGS:
+        return <PrivacySettings navigation={navigation} />;
       case ROUTES.HOME:
       default:
         return <PatientSpecificDashboard navigation={navigation} />;
