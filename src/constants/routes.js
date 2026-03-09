@@ -1,9 +1,15 @@
 export const ROUTES = {
+  SIGN_UP: 'SignUp',
+  LOG_IN: 'LogIn',
+  SETTINGS: 'SettingsScreen',
   HOME: 'PatientSpecificDashboard',
+  CAREGIVER_HOME: 'MainDashboardCaregiver',
   APPOINTMENT_TRACKER: 'ApptTracker',
   MED_TRACKER: 'MedTracker',
   PROGRESS_REPORT: 'ProgressReport',
   HELP_AND_SUPPORT: 'HelpAndSupport',
   NOTIFICATION: 'NotificationScreen',
+  PATIENT_PRIVACY: 'PatientPrivacy',
+  ACCESSIBILITY: 'Accessibility',
   PROFILE: 'ProfileScreen',
 };

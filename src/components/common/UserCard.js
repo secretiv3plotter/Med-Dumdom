@@ -1,3 +1,4 @@
+// A reusable user card component for displaying user information with primary and secondary actions.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { accessibility, colors, radius, spacing } from '../../constants/Themes';
 

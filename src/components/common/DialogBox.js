@@ -1,3 +1,4 @@
+// A reusable dialog box component for confirmation prompts, form inputs, and error messages.
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import ActionButton from './ActionButton';
 import { colors, radius, spacing } from '../../constants/Themes';
@@ -51,7 +52,12 @@ export default function DialogBox({
               variant={action.variant || 'solid'}
               disabled={action.disabled}
               style={styles.actionButton}
-              textStyle={styles.actionButtonText}
+              textStyle={[
+                styles.actionButtonText,
+                action.variant === 'outline'
+                  ? styles.outlineActionButtonText
+                  : styles.solidActionButtonText,
+              ]}
             />
           </View>
         ))}
@@ -107,6 +113,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionButton: {
+    flex: 0,
     borderRadius: 26,
     paddingVertical: spacing.sm,
     shadowColor: '#000',
@@ -118,5 +125,11 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 17,
     fontWeight: '600',
+  },
+  outlineActionButtonText: {
+    color: colors.brand,
+  },
+  solidActionButtonText: {
+    color: colors.surface,
   },
 });
