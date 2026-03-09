@@ -4,25 +4,37 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ROUTES } from './src/constants/routes';
 import ApptTracker from './src/screens/ApptTracker';
 import HelpAndSupport from './src/screens/HelpAndSupport';
+import EditProfileScreen from './src/screens/EditProfileScreen';
+import LinkRequestsPage from './src/screens/LinkRequestsPage';
+import LinktoPatientMainPage from './src/screens/LinktoPatientMainPage';
+import MainDashboardCaregiver from './src/screens/MainDashboardCaregiver';
 import MedTracker from './src/screens/MedTracker';
 import NotificationScreen from './src/screens/NotificationScreen';
 import PatientSpecificDashboard from './src/screens/PatientSpecificDashboard';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProgressReport from './src/screens/ProgressReport';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 export default function App() {
-  const [history, setHistory] = useState([ROUTES.HOME]);
-  const currentRoute = history[history.length - 1];
+  const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
+  const currentEntry = history[history.length - 1];
+  const currentRoute = currentEntry?.routeName;
+  const currentParams = currentEntry?.params ?? {};
 
   const navigation = useMemo(
     () => ({
-      navigate: (routeName) => {
+      navigate: (routeName, params = {}) => {
         setHistory((previousHistory) => {
-          const activeRoute = previousHistory[previousHistory.length - 1];
-          if (activeRoute === routeName) {
+          const activeEntry = previousHistory[previousHistory.length - 1];
+          const sameRoute = activeEntry?.routeName === routeName;
+          const sameParams = JSON.stringify(activeEntry?.params ?? {}) === JSON.stringify(params);
+          if (sameRoute && sameParams) {
             return previousHistory;
           }
-          return [...previousHistory, routeName];
+          if (sameRoute) {
+            return [...previousHistory.slice(0, -1), { routeName, params }];
+          }
+          return [...previousHistory, { routeName, params }];
         });
       },
       goBack: () => {
@@ -35,8 +47,9 @@ export default function App() {
       },
       canGoBack: history.length > 1,
       currentRoute,
+      currentParams,
     }),
-    [history, currentRoute],
+    [history, currentRoute, currentParams],
   );
 
   const renderCurrentScreen = () => {
@@ -53,9 +66,19 @@ export default function App() {
         return <NotificationScreen navigation={navigation} />;
       case ROUTES.PROFILE:
         return <ProfileScreen navigation={navigation} />;
+      case ROUTES.SETTINGS:
+        return <SettingsScreen navigation={navigation} />;
+      case ROUTES.EDIT_PROFILE:
+        return <EditProfileScreen navigation={navigation} />;
+      case ROUTES.PATIENT_SPECIFIC_DASHBOARD:
+        return <PatientSpecificDashboard navigation={navigation} />;
+      case ROUTES.LINK_TO_PATIENT_MAIN:
+        return <LinktoPatientMainPage navigation={navigation} />;
+      case ROUTES.LINK_REQUESTS:
+        return <LinkRequestsPage navigation={navigation} />;
       case ROUTES.HOME:
       default:
-        return <PatientSpecificDashboard navigation={navigation} />;
+        return <MainDashboardCaregiver navigation={navigation} />;
     }
   };
 
