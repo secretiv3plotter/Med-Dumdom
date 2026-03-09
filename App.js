@@ -3,15 +3,21 @@ import { useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ROUTES } from './src/constants/routes';
 import ApptTracker from './src/screens/ApptTracker';
+import Accessibility from './src/screens/Accessibility';
 import HelpAndSupport from './src/screens/HelpAndSupport';
+import LogIn from './src/screens/LogIn';
+import MainDashboardCaregiver from './src/screens/MainDashboardCaregiver';
 import MedTracker from './src/screens/MedTracker';
 import NotificationScreen from './src/screens/NotificationScreen';
+import PatientPrivacy from './src/screens/PatientPrivacy';
 import PatientSpecificDashboard from './src/screens/PatientSpecificDashboard';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProgressReport from './src/screens/ProgressReport';
+import SettingsScreen from './src/screens/SettingsScreen';
+import SignUp from './src/screens/SignUp';
 
 export default function App() {
-  const [history, setHistory] = useState([ROUTES.HOME]);
+  const [history, setHistory] = useState([ROUTES.SIGN_UP]);
   const currentRoute = history[history.length - 1];
 
   const navigation = useMemo(
@@ -41,8 +47,16 @@ export default function App() {
 
   const renderCurrentScreen = () => {
     switch (currentRoute) {
+      case ROUTES.SIGN_UP:
+        return <SignUp navigation={navigation} />;
+      case ROUTES.LOG_IN:
+        return <LogIn navigation={navigation} />;
+      case ROUTES.SETTINGS:
+        return <SettingsScreen navigation={navigation} />;
       case ROUTES.APPOINTMENT_TRACKER:
         return <ApptTracker navigation={navigation} />;
+      case ROUTES.CAREGIVER_HOME:
+        return <MainDashboardCaregiver navigation={navigation} />;
       case ROUTES.MED_TRACKER:
         return <MedTracker navigation={navigation} />;
       case ROUTES.PROGRESS_REPORT:
@@ -51,6 +65,10 @@ export default function App() {
         return <HelpAndSupport navigation={navigation} />;
       case ROUTES.NOTIFICATION:
         return <NotificationScreen navigation={navigation} />;
+      case ROUTES.PATIENT_PRIVACY:
+        return <PatientPrivacy navigation={navigation} />;
+      case ROUTES.ACCESSIBILITY:
+        return <Accessibility navigation={navigation} />;
       case ROUTES.PROFILE:
         return <ProfileScreen navigation={navigation} />;
       case ROUTES.HOME:

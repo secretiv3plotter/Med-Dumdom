@@ -1,3 +1,5 @@
+//create or add, edit, delete buttons with icon and label
+
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, spacing, typography } from '../../constants/Themes';

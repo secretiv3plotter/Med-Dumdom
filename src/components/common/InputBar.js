@@ -1,3 +1,4 @@
+// A reusable input bar component for forms, search fields, and password inputs with show/hide functionality.
 import { useState } from 'react';
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing, accessibility } from '../../constants/Themes';
