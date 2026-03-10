@@ -8,4 +8,5 @@ export const ROUTES = {
   NOTIFICATION_SETTINGS: 'NotificationSettings',
   PROFILE: 'ProfileScreen',
   PRIVACY_SETTINGS: 'PrivacySettings',
+  LINK_TO_CAREGIVER: 'LinkToCaregiver',
 };

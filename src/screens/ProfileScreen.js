@@ -1,8 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../components/common/BackButton';
-import ClickableCard from '../components/common/ClickableCard';
 import NavigationBar from '../components/common/NavigationBar';
 import { ROUTES } from '../constants/routes';
 import { colors, spacing, typography } from '../constants/Themes';
@@ -31,18 +29,7 @@ export default function ProfileScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Profile</Text>
-        <Text style={styles.subtitle}>Manage your account and caregiver permissions.</Text>
-        <ClickableCard
-          size="landscape"
-          title="Privacy Settings"
-          subtitle="Manage caregiver access"
-          details="Viewing, editing, reminders, and data sharing"
-          leftSlot={<Ionicons name="lock-closed-outline" size={24} color={colors.title} />}
-          onPress={() => navigation?.navigate?.(ROUTES.PRIVACY_SETTINGS)}
-          cardStyle={styles.privacyCard}
-          titleStyle={styles.cardTitle}
-          subtitleStyle={styles.cardSubtitle}
-        />
+        <Text style={styles.subtitle}>Manage your account details and preferences.</Text>
       </ScrollView>
 
       <View style={styles.footerNav}>
@@ -70,15 +57,6 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,
-  },
-  privacyCard: {
-    marginTop: spacing.sm,
-  },
-  cardTitle: {
-    color: colors.title,
-  },
-  cardSubtitle: {
-    color: colors.body,
   },
   footerNav: {
     position: 'absolute',

@@ -115,15 +115,18 @@ export default function PrivacySettings({ navigation }) {
             </View>
 
             <View style={styles.groupItems}>
-              {group.items.map((item) => {
+              {group.items.map((item, index) => {
                 const value = permissions[item.id];
                 return (
-                  <View key={item.id} style={styles.permissionRow}>
-                    <Text style={styles.permissionLabel}>{item.label}</Text>
-                    <View style={styles.permissionToggleWrap}>
-                      <Text style={styles.permissionValue}>{value ? 'Yes' : 'No'}</Text>
-                      <ToggleButton value={value} onChange={(nextValue) => updatePermission(item.id, nextValue)} size={20} />
+                  <View key={item.id}>
+                    <View style={styles.permissionRow}>
+                      <Text style={styles.permissionLabel}>{item.label}</Text>
+                      <View style={styles.permissionToggleWrap}>
+                        <Text style={styles.permissionValue}>{value ? 'Yes' : 'No'}</Text>
+                        <ToggleButton value={value} onChange={(nextValue) => updatePermission(item.id, nextValue)} size={20} />
+                      </View>
                     </View>
+                    {index < group.items.length - 1 ? <View style={styles.permissionDivider} /> : null}
                   </View>
                 );
               })}
@@ -174,7 +177,7 @@ const styles = StyleSheet.create({
     marginLeft: 1,
   },
   group: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   groupTitleRow: {
     flexDirection: 'row',
@@ -187,7 +190,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   groupItems: {
-    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
     marginLeft: 0,
   },
   permissionRow: {
@@ -195,17 +203,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    paddingVertical: spacing.md,
   },
   permissionLabel: {
     ...typography.body,
     color: colors.body,
     flex: 1,
+    lineHeight: 24,
   },
   permissionToggleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xxs,
-    minWidth: 78,
+    gap: spacing.xs,
+    minWidth: 88,
     justifyContent: 'flex-end',
     flexShrink: 0,
   },
@@ -213,6 +223,11 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.title,
     textAlign: 'left',
+  },
+  permissionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    opacity: 0.75,
   },
   footerNav: {
     position: 'absolute',
