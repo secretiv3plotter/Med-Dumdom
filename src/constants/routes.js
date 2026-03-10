@@ -5,5 +5,8 @@ export const ROUTES = {
   PROGRESS_REPORT: 'ProgressReport',
   HELP_AND_SUPPORT: 'HelpAndSupport',
   NOTIFICATION: 'NotificationScreen',
+  NOTIFICATION_SETTINGS: 'NotificationSettings',
   PROFILE: 'ProfileScreen',
+  PRIVACY_SETTINGS: 'PrivacySettings',
+  LINK_TO_CAREGIVER: 'LinkToCaregiver',
 };

@@ -29,7 +29,6 @@ export default function NotificationScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Notifications</Text>
-        <Text style={styles.subtitle}>All notification updates appear here.</Text>
       </ScrollView>
 
       <View style={styles.footerNav}>
