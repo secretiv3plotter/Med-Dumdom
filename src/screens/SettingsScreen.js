@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AntDesign, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../components/common/BackButton';
 import ActionButton from '../components/common/ActionButton';
 import DialogBox from '../components/common/DialogBox';
@@ -44,7 +44,6 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
-            <AntDesign name="setting" size={24} color="black" />
             <Text style={styles.title}>Settings</Text>
           </View>
           <Text style={styles.subtitle}>Manage your account and preferences.</Text>
@@ -106,7 +105,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.optionItem}>
               <Pressable
                 style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.NOTIFICATION)}
+                onPress={() => navigation?.navigate?.(ROUTES.NOTIFICATION_SETTINGS)}
               >
                 <Ionicons name="notifications-outline" size={28} color={colors.brandText} />
                 <View style={styles.optionTextBlock}>
@@ -118,11 +117,11 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.optionItem}>
               <Pressable
                 style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.PATIENT_PRIVACY)}
+                onPress={() => navigation?.navigate?.(ROUTES.PRIVACY_SETTINGS)}
               >
                 <Ionicons name="shield-checkmark-outline" size={28} color={colors.brandText} />
                 <View style={styles.optionTextBlock}>
-                  <Text style={styles.optionTitle}>Patient Privacy</Text>
+                  <Text style={styles.optionTitle}>Privacy Settings</Text>
                   <Text style={styles.optionSubtitle}>Control data visibility and permissions.</Text>
                 </View>
               </Pressable>
@@ -130,7 +129,7 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.optionItem}>
               <Pressable
                 style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.ACCESSIBILITY)}
+                onPress={() => navigation?.navigate?.(ROUTES.ACCESSIBILITY_SETTINGS)}
               >
                 <Ionicons name="accessibility-outline" size={28} color={colors.brandText} />
                 <View style={styles.optionTextBlock}>
@@ -191,15 +190,15 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     color: colors.title,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   headerBlock: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
   },
   titleRow: {

@@ -2,15 +2,21 @@ import { StatusBar } from 'expo-status-bar';
 import { useMemo, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ROUTES } from './src/constants/routes';
-import ApptTracker from './src/screens/ApptTracker';
 import Accessibility from './src/screens/Accessibility';
+import AccessibilitySettings from './src/screens/AccessibilitySettings';
+import ApptTracker from './src/screens/ApptTracker';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 import HelpAndSupport from './src/screens/HelpAndSupport';
+import LinkRequestsPage from './src/screens/LinkRequestsPage';
+import LinkToCaregiver from './src/screens/LinkToCaregiver';
+import LinktoPatientMainPage from './src/screens/LinktoPatientMainPage';
 import LogIn from './src/screens/LogIn';
 import MainDashboardCaregiver from './src/screens/MainDashboardCaregiver';
 import MedTracker from './src/screens/MedTracker';
 import NotificationScreen from './src/screens/NotificationScreen';
-import PatientPrivacy from './src/screens/PatientPrivacy';
+import NotificationSettings from './src/screens/NotificationSettings';
 import PatientSpecificDashboard from './src/screens/PatientSpecificDashboard';
+import PracticeGround from './src/screens/PracticeGround';
 import PrivacySettings from './src/screens/PrivacySettings';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProgressReport from './src/screens/ProgressReport';
@@ -18,8 +24,10 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import SignUp from './src/screens/SignUp';
 
 export default function App() {
-  const [history, setHistory] = useState([ROUTES.SIGN_UP]);
-  const currentRoute = history[history.length - 1];
+  const [history, setHistory] = useState([{ routeName: ROUTES.SIGN_UP, params: {} }]);
+  const currentEntry = history[history.length - 1];
+  const currentRoute = currentEntry?.routeName;
+  const currentParams = currentEntry?.params ?? {};
 
   const navigation = useMemo(
     () => ({
@@ -72,17 +80,30 @@ export default function App() {
         return <HelpAndSupport navigation={navigation} />;
       case ROUTES.NOTIFICATION:
         return <NotificationScreen navigation={navigation} />;
-      case ROUTES.PATIENT_PRIVACY:
-        return <PatientPrivacy navigation={navigation} />;
+      case ROUTES.NOTIFICATION_SETTINGS:
+        return <NotificationSettings navigation={navigation} />;
       case ROUTES.ACCESSIBILITY:
         return <Accessibility navigation={navigation} />;
+      case ROUTES.ACCESSIBILITY_SETTINGS:
+        return <AccessibilitySettings navigation={navigation} />;
       case ROUTES.PROFILE:
         return <ProfileScreen navigation={navigation} />;
+      case ROUTES.EDIT_PROFILE:
+        return <EditProfileScreen navigation={navigation} />;
       case ROUTES.PRIVACY_SETTINGS:
         return <PrivacySettings navigation={navigation} />;
       case ROUTES.LINK_TO_CAREGIVER:
         return <LinkToCaregiver navigation={navigation} />;
+      case ROUTES.LINK_TO_PATIENT_MAIN:
+        return <LinktoPatientMainPage navigation={navigation} />;
+      case ROUTES.LINK_REQUESTS:
+        return <LinkRequestsPage navigation={navigation} />;
+      case ROUTES.PATIENT_SPECIFIC_DASHBOARD:
+        return <PatientSpecificDashboard navigation={navigation} />;
+      case ROUTES.PRACTICE_GROUND:
+        return <PracticeGround navigation={navigation} />;
       case ROUTES.HOME:
+        return <PatientSpecificDashboard navigation={navigation} />;
       default:
         return <MainDashboardCaregiver navigation={navigation} />;
     }
