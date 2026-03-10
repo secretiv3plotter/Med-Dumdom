@@ -63,6 +63,16 @@ export default function MedTracker({ navigation }) {
   const [selectedMedicineId, setSelectedMedicineId] = useState(INITIAL_MEDICINES[0]?.id || null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editorMode, setEditorMode] = useState(null);
+  const [formState, setFormState] = useState({
+    name: '',
+    dosage: '',
+    amount: '',
+    dailySched: '',
+    startDate: '',
+    endDate: '',
+  });
+  const [formError, setFormError] = useState('');
   const [draftDetails, setDraftDetails] = useState({
     name: '',
     dosage: '',
@@ -166,21 +176,16 @@ export default function MedTracker({ navigation }) {
   };
 
   const handleAddMedicine = () => {
-    const nextIndex = medicines.length + 1;
-    const newMedicine = {
-      id: `med-${Date.now()}`,
-      name: `Placeholder Medicine ${nextIndex}`,
-      dosage: '100 mg',
-      amount: '14 tablets',
-      dailySched: '8:00 AM',
-      startDate: 'Mar 10, 2026',
-      endDate: 'Mar 24, 2026',
-      isDue: true,
-      takenAt: null,
-    };
-
-    setMedicines((prev) => [newMedicine, ...prev]);
-    setSelectedMedicineId(newMedicine.id);
+    setFormError('');
+    setFormState({
+      name: '',
+      dosage: '',
+      amount: '',
+      dailySched: '',
+      startDate: '',
+      endDate: '',
+    });
+    setEditorMode('create');
   };
 
   const handleToggleTaken = (nextValue) => {
@@ -243,6 +248,41 @@ export default function MedTracker({ navigation }) {
       )
     );
     setIsEditingDetails(false);
+  };
+
+  const closeEditor = () => {
+    setEditorMode(null);
+    setFormError('');
+  };
+
+  const saveMedicine = () => {
+    const requiredFields = [
+      formState.name.trim(),
+      formState.dosage.trim(),
+      formState.amount.trim(),
+      formState.dailySched.trim(),
+    ];
+
+    if (requiredFields.some((field) => !field)) {
+      setFormError('Complete all required medicine fields.');
+      return;
+    }
+
+    const newMedicine = {
+      id: `med-${Date.now()}`,
+      name: formState.name.trim(),
+      dosage: formState.dosage.trim(),
+      amount: formState.amount.trim(),
+      dailySched: formState.dailySched.trim(),
+      startDate: formState.startDate.trim() || 'Mar 10, 2026',
+      endDate: formState.endDate.trim() || 'Mar 24, 2026',
+      isDue: true,
+      takenAt: null,
+    };
+
+    setMedicines((prev) => [newMedicine, ...prev]);
+    setSelectedMedicineId(newMedicine.id);
+    closeEditor();
   };
 
   const handleCancelEdit = () => {
@@ -435,6 +475,59 @@ export default function MedTracker({ navigation }) {
         ) : null}
       </LargePopup>
 
+      <LargePopup
+        visible={editorMode === 'create'}
+        onClose={closeEditor}
+        header={
+          <View style={styles.detailsHeaderRow}>
+            <View style={styles.detailsHeaderTextBlock}>
+              <Text style={styles.detailsTitle}>Add Medicine</Text>
+            </View>
+          </View>
+        }
+        contentContainerStyle={styles.modalContent}
+      >
+        <View style={styles.formColumn}>
+          <InputBar
+            placeholder="Name of the medicine"
+            value={formState.name}
+            onChangeText={(value) => setFormState((current) => ({ ...current, name: value }))}
+          />
+          <InputBar
+            placeholder="Dosage"
+            value={formState.dosage}
+            onChangeText={(value) => setFormState((current) => ({ ...current, dosage: value }))}
+          />
+          <InputBar
+            placeholder="Amount"
+            value={formState.amount}
+            onChangeText={(value) => setFormState((current) => ({ ...current, amount: value }))}
+          />
+          <InputBar
+            placeholder="Daily schedule"
+            value={formState.dailySched}
+            onChangeText={(value) => setFormState((current) => ({ ...current, dailySched: value }))}
+          />
+          <InputBar
+            placeholder="Start date"
+            value={formState.startDate}
+            onChangeText={(value) => setFormState((current) => ({ ...current, startDate: value }))}
+          />
+          <InputBar
+            placeholder="End date"
+            value={formState.endDate}
+            onChangeText={(value) => setFormState((current) => ({ ...current, endDate: value }))}
+          />
+        </View>
+
+        {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+
+        <View style={styles.footerActionsRow}>
+          <ActionButton label="Cancel" variant="outline" onPress={closeEditor} />
+          <ActionButton label="Add Medicine" variant="solid" onPress={saveMedicine} />
+        </View>
+      </LargePopup>
+
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
@@ -566,6 +659,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  formColumn: {
+    gap: spacing.sm,
+  },
+  formError: {
+    ...typography.bodySmall,
+    color: colors.error,
+    fontWeight: '700',
   },
   footerNav: {
     position: 'absolute',

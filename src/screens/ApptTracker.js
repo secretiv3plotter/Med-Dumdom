@@ -18,6 +18,8 @@ import ToggleButton from '../components/common/ToggleButton';
 import { ROUTES } from '../constants/routes';
 import { colors, radius, spacing, typography } from '../constants/Themes';
 
+const TOP_OVERLAY_HEIGHT = 160;
+
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
@@ -231,6 +233,11 @@ export default function ApptTracker({ navigation }) {
   const [initialFormState, setInitialFormState] = useState(() => buildEmptyForm(new Date()));
   const [formError, setFormError] = useState('');
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -454,19 +461,23 @@ export default function ApptTracker({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
+        <View style={styles.backButtonWrap}>
+          <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} />
+        </View>
+
+        <View style={styles.headerMiddleLeft}>
+          <View style={styles.heroRow}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.title}>Appointment Tracker</Text>
+              <Text style={styles.subtitle}>Tap an appointment to view complete details.</Text>
+            </View>
+
+            <AddButton onPress={openCreateForm} style={styles.addButton} />
+          </View>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroRow}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>Appointment Tracker</Text>
-            <Text style={styles.subtitle}>Tap an appointment to view complete details.</Text>
-            <Text style={styles.timestamp}>Sorted by current time as of {now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</Text>
-          </View>
-
-          <AddButton onPress={openCreateForm} style={styles.addButton} />
-        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Current Tracker</Text>
@@ -769,15 +780,27 @@ const styles = StyleSheet.create({
   },
   stickyTop: {
     position: 'absolute',
-    top: spacing.md + spacing.sm,
+    top: 0,
     left: 0,
     right: 0,
     zIndex: 20,
+    backgroundColor: colors.pageBg,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md + spacing.sm,
+    paddingBottom: spacing.sm,
+    minHeight: TOP_OVERLAY_HEIGHT,
+  },
+  backButtonWrap: {
+    alignSelf: 'flex-start',
+  },
+  headerMiddleLeft: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingTop: 84,
+    paddingTop: TOP_OVERLAY_HEIGHT,
     paddingBottom: 160,
     gap: spacing.xl,
   },
@@ -933,8 +956,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   detailTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+    ...typography.titleSmall,
     fontWeight: '700',
     color: colors.title,
   },
