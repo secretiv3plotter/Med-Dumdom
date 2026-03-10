@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CrudButton from '../components/common/CrudButton';
 import DashboardHeader from '../components/common/DashboardHeader';
@@ -33,12 +33,7 @@ export default function MainDashboardCaregiver({ navigation }) {
     if (!query) {
       return patients;
     }
-    return patients.filter((patient) =>
-      patient.name
-        .toLowerCase()
-        .split(' ')
-        .some((part) => part.startsWith(query)),
-    );
+    return patients.filter((patient) => patient.name.toLowerCase().startsWith(query));
   }, [searchQuery]);
 
   return (
@@ -77,10 +72,13 @@ export default function MainDashboardCaregiver({ navigation }) {
           </TextCard>
 
           <View style={styles.searchBarWrap}>
-            <SearchBar
-              placeholder="Find a patient"
+            <SearchBar placeholder="Find a patient" />
+            <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
+              placeholder={searchQuery ? '' : 'Find a patient'}
+              placeholderTextColor={colors.placeholder}
+              style={styles.searchInputOverlay}
             />
           </View>
 
@@ -159,6 +157,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 2,
     elevation: 2,
+  },
+  searchInputOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.brandText,
   },
   patientPressable: {
     borderRadius: radius.lg,
