@@ -7,6 +7,7 @@ export default function TextCard({
   title = '',
   body = '',
   footer = '',
+  children,
   numberOfBodyLines = 0, // 0 = unlimited
   cardStyle,
   titleStyle,
@@ -22,6 +23,7 @@ export default function TextCard({
         </Text>
       )}
       {!!footer && <Text style={[styles.footer, footerStyle]}>{footer}</Text>}
+      {children}
     </View>
   );
 }

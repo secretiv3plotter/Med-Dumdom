@@ -1,12 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../components/common/BackButton';
 import ClickableCard from '../components/common/ClickableCard';
 import DashboardHeader from '../components/common/DashboardHeader';
 import NavigationBar from '../components/common/NavigationBar';
+import TextCard from '../components/common/TextCard';
 import { ROUTES } from '../constants/routes';
-import { colors, spacing, typography } from '../constants/Themes';
+import { colors, radius, spacing, typography } from '../constants/Themes';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -17,6 +17,12 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 export default function PatientSpecificDashboard({ navigation }) {
+  const selectedPatientName = navigation?.currentParams?.patientName || 'Patient';
+  const selectedPatientFirstName = selectedPatientName.split(' ')[0];
+  const patientPossessive = selectedPatientName.endsWith('s')
+    ? `${selectedPatientName}'`
+    : `${selectedPatientName}'s`;
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -26,52 +32,53 @@ export default function PatientSpecificDashboard({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyHeader}>
+      <View style={styles.topSection}>
         <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
         <DashboardHeader
-          firstName="John"
+          firstName={selectedPatientFirstName}
           onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
           onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
-          profileImageSource={{ uri: 'https://i.pravatar.cc/224?img=12' }}
+          style={styles.header}
         />
       </View>
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Patient Dashboard</Text>
-        <Text style={styles.subtitle}>Quick access to caregiver permissions and alerts.</Text>
+        <TextCard
+          title={patientPossessive}
+          body="Med+Dumdum"
+          cardStyle={styles.patientTitleCard}
+          titleStyle={styles.patientTitle}
+          bodyStyle={styles.patientProgram}
+        />
+
         <ClickableCard
           size="landscape"
-          title="Link to Caregiver"
-          subtitle="Invite a caregiver to support your care"
-          details="Browse available caregivers and send access requests"
-          leftSlot={<Ionicons name="people-outline" size={24} color={colors.title} />}
-          onPress={() => navigation?.navigate?.(ROUTES.LINK_TO_CAREGIVER)}
-          cardStyle={styles.card}
-          titleStyle={styles.cardTitle}
-          subtitleStyle={styles.cardSubtitle}
+          title="Progress Report"
+          subtitle="View progress report and history"
+          onPress={() => navigation?.navigate?.(ROUTES.PROGRESS_REPORT, { patientName: selectedPatientName })}
+          cardStyle={[styles.actionCard, styles.progressCardSize]}
+          titleStyle={styles.actionCardTitle}
+          subtitleStyle={styles.actionCardSubtitle}
         />
-        <ClickableCard
-          size="landscape"
-          title="Privacy Settings"
-          subtitle="Manage caregiver access"
-          details="Viewing, editing, reminders, and data sharing"
-          leftSlot={<Ionicons name="lock-closed-outline" size={24} color={colors.title} />}
-          onPress={() => navigation?.navigate?.(ROUTES.PRIVACY_SETTINGS)}
-          cardStyle={styles.card}
-          titleStyle={styles.cardTitle}
-          subtitleStyle={styles.cardSubtitle}
-        />
-        <ClickableCard
-          size="landscape"
-          title="Notification Settings"
-          subtitle="Control reminders and alert behavior"
-          details="Permissions, schedule, duration, and channels"
-          leftSlot={<Ionicons name="notifications-outline" size={24} color={colors.title} />}
-          onPress={() => navigation?.navigate?.(ROUTES.NOTIFICATION_SETTINGS)}
-          cardStyle={styles.card}
-          titleStyle={styles.cardTitle}
-          subtitleStyle={styles.cardSubtitle}
-        />
+
+        <View style={styles.bottomGrid}>
+          <ClickableCard
+            title="Medication Tracker"
+            subtitle="Track your medication"
+            onPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER, { patientName: selectedPatientName })}
+            cardStyle={[styles.actionCard, styles.bottomCardSize]}
+            titleStyle={styles.actionCardTitle}
+            subtitleStyle={styles.actionCardSubtitle}
+          />
+          <ClickableCard
+            title="Consultations"
+            subtitle="Schedule consultations"
+            onPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER, { patientName: selectedPatientName })}
+            cardStyle={[styles.actionCard, styles.bottomCardSize]}
+            titleStyle={styles.actionCardTitle}
+            subtitleStyle={styles.actionCardSubtitle}
+          />
+        </View>
       </ScrollView>
 
       <View style={styles.footerNav}>
@@ -84,32 +91,70 @@ export default function PatientSpecificDashboard({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.pageBg,
+    backgroundColor: '#ECEFF4',
   },
-  stickyHeader: {
-    position: 'absolute',
-    top: spacing.md,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    backgroundColor: colors.pageBg,
+  topSection: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
+    backgroundColor: '#ECEFF4',
     gap: spacing.xs,
   },
+  header: {
+    borderBottomWidth: 0,
+  },
   container: {
-    paddingTop: 160,
     padding: spacing.lg,
     paddingBottom: 170,
+    gap: spacing.md,
+  },
+  patientTitleCard: {
+    backgroundColor: colors.brandSoft,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  patientTitle: {
+    ...typography.title,
+    color: colors.brandText,
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  patientProgram: {
+    ...typography.title,
+    color: colors.brandText,
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  actionCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.brandText,
+    borderRadius: radius.lg,
+  },
+  progressCardSize: {
+    minHeight: 142,
+  },
+  actionCardTitle: {
+    color: colors.brandText,
+    ...typography.title,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+  },
+  actionCardSubtitle: {
+    color: colors.title,
+    ...typography.subtitle,
+    fontWeight: '400',
+  },
+  bottomGrid: {
+    flexDirection: 'row',
     gap: spacing.sm,
   },
-  title: {
-    ...typography.title,
-    color: colors.title,
-  },
-  subtitle: {
-    ...typography.subtitle,
-    color: colors.body,
+  bottomCardSize: {
+    flex: 1,
+    minHeight: 210,
   },
   card: {
     marginTop: spacing.sm,

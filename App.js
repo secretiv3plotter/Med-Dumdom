@@ -23,13 +23,18 @@ export default function App() {
 
   const navigation = useMemo(
     () => ({
-      navigate: (routeName) => {
+      navigate: (routeName, params = {}) => {
         setHistory((previousHistory) => {
-          const activeRoute = previousHistory[previousHistory.length - 1];
-          if (activeRoute === routeName) {
+          const activeEntry = previousHistory[previousHistory.length - 1];
+          const sameRoute = activeEntry?.routeName === routeName;
+          const sameParams = JSON.stringify(activeEntry?.params ?? {}) === JSON.stringify(params);
+          if (sameRoute && sameParams) {
             return previousHistory;
           }
-          return [...previousHistory, routeName];
+          if (sameRoute) {
+            return [...previousHistory.slice(0, -1), { routeName, params }];
+          }
+          return [...previousHistory, { routeName, params }];
         });
       },
       goBack: () => {
@@ -42,8 +47,9 @@ export default function App() {
       },
       canGoBack: history.length > 1,
       currentRoute,
+      currentParams,
     }),
-    [history, currentRoute],
+    [history, currentRoute, currentParams],
   );
 
   const renderCurrentScreen = () => {
@@ -78,7 +84,7 @@ export default function App() {
         return <LinkToCaregiver navigation={navigation} />;
       case ROUTES.HOME:
       default:
-        return <PatientSpecificDashboard navigation={navigation} />;
+        return <MainDashboardCaregiver navigation={navigation} />;
     }
   };
 
