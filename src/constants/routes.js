@@ -12,4 +12,6 @@ export const ROUTES = {
   PATIENT_PRIVACY: 'PatientPrivacy',
   ACCESSIBILITY: 'Accessibility',
   PROFILE: 'ProfileScreen',
+  PRIVACY_SETTINGS: 'PrivacySettings',
+  LINK_TO_CAREGIVER: 'LinkToCaregiver',
 };

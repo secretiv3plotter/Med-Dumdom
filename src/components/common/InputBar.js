@@ -26,7 +26,7 @@ export default function InputBar({
   };
 
   return (
-    <View style={[styles.container, isFocused && styles.containerFocused]}>
+    <View style={[styles.container, multiline && styles.multilineContainer, isFocused && styles.containerFocused]}>
       <TextInput
         placeholder={placeholder}
         accessibilityLabel={accessibilityLabel || placeholder}
@@ -47,7 +47,7 @@ export default function InputBar({
           setIsFocused(false);
           onBlur();
         }}
-        style={styles.input}
+        style={[styles.input, multiline && styles.multilineInput]}
       />
       {secureTextEntry && (
         <TouchableOpacity
@@ -85,11 +85,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingHorizontal: spacing.sm - 0.5, // Adjust for border width
   },
+  multilineContainer: {
+    alignItems: 'flex-start',
+  },
   input: {
     flex: 1,
     fontSize: 16,
     lineHeight: 24,
     color: colors.title,
     paddingRight: spacing.sm,
+  },
+  multilineInput: {
+    minHeight: 56,
+    textAlignVertical: 'top',
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
 });

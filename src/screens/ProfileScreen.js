@@ -29,7 +29,7 @@ export default function ProfileScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Profile</Text>
-        <Text style={styles.subtitle}>User profile details and settings go here.</Text>
+        <Text style={styles.subtitle}>Manage your account details and preferences.</Text>
       </ScrollView>
 
       <View style={styles.footerNav}>

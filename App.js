@@ -11,6 +11,7 @@ import MedTracker from './src/screens/MedTracker';
 import NotificationScreen from './src/screens/NotificationScreen';
 import PatientPrivacy from './src/screens/PatientPrivacy';
 import PatientSpecificDashboard from './src/screens/PatientSpecificDashboard';
+import PrivacySettings from './src/screens/PrivacySettings';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ProgressReport from './src/screens/ProgressReport';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -71,6 +72,10 @@ export default function App() {
         return <Accessibility navigation={navigation} />;
       case ROUTES.PROFILE:
         return <ProfileScreen navigation={navigation} />;
+      case ROUTES.PRIVACY_SETTINGS:
+        return <PrivacySettings navigation={navigation} />;
+      case ROUTES.LINK_TO_CAREGIVER:
+        return <LinkToCaregiver navigation={navigation} />;
       case ROUTES.HOME:
       default:
         return <PatientSpecificDashboard navigation={navigation} />;
