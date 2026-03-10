@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CrudButton from '../components/common/CrudButton';
 import DashboardHeader from '../components/common/DashboardHeader';
 import SearchBar from '../components/common/SearchBar';
 import TextCard from '../components/common/TextCard';
-import UserCard from '../components/common/UserCard';
 import { ROUTES } from '../constants/routes';
 import { colors, radius, spacing, typography } from '../constants/Themes';
 
@@ -18,6 +17,16 @@ const patients = [
   { name: 'Carlo Mendoza', age: '67', address: 'Poblacion, Cebu City, Cebu' },
   { name: 'Anne Villanueva', age: '70', address: 'Malinis, Bacoor City, Cavite' },
 ];
+
+function getInitials(name = '') {
+  return name
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
 
 export default function MainDashboardCaregiver({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,13 +98,18 @@ export default function MainDashboardCaregiver({ navigation }) {
                 onPress={() => openPatientDashboard(patient.name)}
                 style={styles.patientPressable}
               >
-                <UserCard
-                  name={patient.name}
-                  subtitle={patient.age}
-                  details={patient.address}
-                  showActions={false}
-                  cardStyle={styles.patientCard}
-                />
+                <View style={styles.patientCard}>
+                  <View style={styles.patientCardRow}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
+                    </View>
+                    <View style={styles.patientInfo}>
+                      <Text style={styles.patientName}>{patient.name}</Text>
+                      <Text style={styles.patientSubtitle}>{patient.age}</Text>
+                      <Text style={styles.patientDetails}>{patient.address}</Text>
+                    </View>
+                  </View>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -174,6 +188,45 @@ const styles = StyleSheet.create({
   patientCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  patientCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.brandText,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  patientInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  patientName: {
+    color: colors.title,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  patientSubtitle: {
+    color: colors.body,
+    fontSize: 14,
+    marginTop: 2,
+  },
+  patientDetails: {
+    color: colors.bodyMuted,
+    fontSize: 13,
+    marginTop: 2,
   },
 });

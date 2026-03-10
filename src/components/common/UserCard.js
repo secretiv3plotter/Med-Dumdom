@@ -15,72 +15,44 @@ export default function UserCard({
   name = 'Unknown User',
   subtitle = '',
   details = '',
-  showActions = true,
   primaryActionLabel = 'View',
   secondaryActionLabel = 'Message',
   onPrimaryAction = () => {},
   onSecondaryAction = () => {},
-  cardStyle,
-  topRowStyle,
-  avatarStyle,
-  avatarTextStyle,
-  textBlockStyle,
-  nameStyle,
-  subtitleStyle,
-  detailsStyle,
-  actionsRowStyle,
-  buttonStyle,
-  primaryButtonStyle,
-  secondaryButtonStyle,
-  buttonTextStyle,
-  primaryButtonTextStyle,
-  secondaryButtonTextStyle,
 }) {
-  const shouldShowActions = showActions && (primaryActionLabel || secondaryActionLabel);
-
   return (
-    <View style={[styles.card, cardStyle]}>
-      <View style={[styles.topRow, topRowStyle]}>
-        <View style={[styles.avatar, avatarStyle]}>
-          <Text style={[styles.avatarText, avatarTextStyle]}>{getInitials(name)}</Text>
+    <View style={styles.card}>
+      <View style={styles.topRow}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitials(name)}</Text>
         </View>
 
-        <View style={[styles.textBlock, textBlockStyle]}>
-          <Text style={[styles.name, nameStyle]}>{name}</Text>
-          {!!subtitle && <Text style={[styles.subtitle, subtitleStyle]}>{subtitle}</Text>}
-          {!!details && <Text style={[styles.details, detailsStyle]}>{details}</Text>}
+        <View style={styles.textBlock}>
+          <Text style={styles.name}>{name}</Text>
+          {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+          {!!details && <Text style={styles.details}>{details}</Text>}
         </View>
       </View>
 
-      {shouldShowActions ? (
-        <View style={[styles.actionsRow, actionsRowStyle]}>
-          {!!secondaryActionLabel && (
-            <Pressable
-              style={[styles.button, styles.secondaryButton, buttonStyle, secondaryButtonStyle]}
-              onPress={onSecondaryAction}
-              accessibilityRole="button"
-              accessibilityLabel={secondaryActionLabel}
-            >
-              <Text style={[styles.buttonText, styles.secondaryButtonText, buttonTextStyle, secondaryButtonTextStyle]}>
-                {secondaryActionLabel}
-              </Text>
-            </Pressable>
-          )}
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={[styles.button, styles.secondaryButton]}
+          onPress={onSecondaryAction}
+          accessibilityRole="button"
+          accessibilityLabel={secondaryActionLabel}
+        >
+          <Text style={[styles.buttonText, styles.secondaryButtonText]}>{secondaryActionLabel}</Text>
+        </Pressable>
 
-          {!!primaryActionLabel && (
-            <Pressable
-              style={[styles.button, styles.primaryButton, buttonStyle, primaryButtonStyle]}
-              onPress={onPrimaryAction}
-              accessibilityRole="button"
-              accessibilityLabel={primaryActionLabel}
-            >
-              <Text style={[styles.buttonText, styles.primaryButtonText, buttonTextStyle, primaryButtonTextStyle]}>
-                {primaryActionLabel}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      ) : null}
+        <Pressable
+          style={[styles.button, styles.primaryButton]}
+          onPress={onPrimaryAction}
+          accessibilityRole="button"
+          accessibilityLabel={primaryActionLabel}
+        >
+          <Text style={[styles.buttonText, styles.primaryButtonText]}>{primaryActionLabel}</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../components/common/BackButton';
 import ActionButton from '../components/common/ActionButton';
 import CrudButton from '../components/common/CrudButton';
-import DialogBox from '../components/common/DialogBox';
 import SearchBar from '../components/common/SearchBar';
 import TextCard from '../components/common/TextCard';
 import { colors, radius, spacing, typography } from '../constants/Themes';
@@ -61,7 +60,7 @@ export default function LinktoPatientMainPage({ navigation }) {
     return patients.filter((patient) => {
       const patientName = patient.name.toLowerCase();
       const patientEmail = patient.email.toLowerCase();
-      return patientName.includes(query) || patientEmail.includes(query);
+      return patientName.startsWith(query) || patientEmail.startsWith(query);
     });
   }, [searchQuery]);
 
@@ -71,7 +70,6 @@ export default function LinktoPatientMainPage({ navigation }) {
         <BackButton
           onPress={() => navigation?.goBack?.()}
           disabled={!navigation?.canGoBack}
-          showLabel={false}
           style={styles.backButton}
         />
 
@@ -84,11 +82,19 @@ export default function LinktoPatientMainPage({ navigation }) {
         </View>
 
         <TextCard cardStyle={styles.listCard}>
-          <SearchBar
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          <View style={styles.searchContainer}>
+            <View pointerEvents="none">
+              <SearchBar placeholder="Find a patient" />
+            </View>
+            <TextInput
+              placeholder={searchQuery ? '' : 'Find a patient'}
+              placeholderTextColor={colors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchOverlayInput}
+              returnKeyType="search"
+            />
+          </View>
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
             {filteredPatients.map((patient) => (
@@ -121,12 +127,8 @@ export default function LinktoPatientMainPage({ navigation }) {
       >
         <Pressable style={styles.overlay} onPress={() => setSelectedPatient(null)}>
           <Pressable style={styles.dialogWrap} onPress={() => {}}>
-            <DialogBox
-              title="Send Access Request"
-              message=""
-              titleStyle={styles.requestDialogTitle}
-              actions={[]}
-            >
+            <View style={styles.dialogCard}>
+              <Text style={styles.requestDialogTitle}>Send Access Request</Text>
               <View style={styles.dialogContent}>
                 <Ionicons name="person-circle-outline" size={88} color={colors.body} />
                 <Text style={styles.dialogName}>{selectedPatient?.name || ''}</Text>
@@ -146,7 +148,7 @@ export default function LinktoPatientMainPage({ navigation }) {
                   textStyle={styles.sendButtonText}
                 />
               </View>
-            </DialogBox>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -154,13 +156,9 @@ export default function LinktoPatientMainPage({ navigation }) {
       <Modal transparent visible={Boolean(requestStatus)} animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.dialogWrap}>
-            <DialogBox
-              title={requestStatus}
-              message=""
-              actions={[]}
-              cardStyle={styles.statusDialogCard}
-              titleStyle={styles.statusDialogTitle}
-            />
+            <View style={styles.statusDialogCard}>
+              <Text style={styles.statusDialogTitle}>{requestStatus}</Text>
+            </View>
           </View>
         </View>
       </Modal>
@@ -213,6 +211,21 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingBottom: spacing.sm,
   },
+  searchContainer: {
+    position: 'relative',
+    zIndex: 2,
+    elevation: 2,
+  },
+  searchOverlayInput: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.brandText,
+  },
   patientRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -258,6 +271,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
+  dialogCard: {
+    backgroundColor: '#E8EFF1',
+    borderRadius: 22,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
   dialogContent: {
     alignItems: 'center',
     gap: spacing.xs,
@@ -277,6 +297,7 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontSize: 34,
     lineHeight: 38,
+    textAlign: 'center',
   },
   requestDialogActionText: {
     fontSize: 16,
@@ -294,6 +315,7 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
   statusDialogCard: {
+    backgroundColor: '#E8EFF1',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     borderRadius: radius.lg,
@@ -302,5 +324,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     color: colors.brandText,
+    textAlign: 'center',
   },
 });
