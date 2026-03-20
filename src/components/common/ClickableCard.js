@@ -1,8 +1,69 @@
 //2 sizes: landscape and portrait 
 // variants: solid, ghost
 
+import React from 'react';
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { accessibility, colors, radius, spacing, typography } from '../../constants/Themes';
+
+function isBoldStyle(style) {
+  const flattened = StyleSheet.flatten(style);
+  const weight = flattened?.fontWeight;
+
+  if (!weight) {
+    return false;
+  }
+
+  if (typeof weight === 'number') {
+    return weight >= 600;
+  }
+
+  const normalized = String(weight).toLowerCase();
+  if (normalized === 'bold') {
+    return true;
+  }
+  if (normalized === 'normal') {
+    return false;
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed >= 600 : false;
+}
+
+function shouldApplyBoldStyle(style, minSize) {
+  const flattened = StyleSheet.flatten(style);
+  const fontSize = flattened?.fontSize;
+
+  if (!fontSize) {
+    return true;
+  }
+
+  return fontSize < minSize;
+}
+
+function forceBoldTextStyle(node, boldStyle) {
+  return React.Children.map(node, (child) => {
+    if (!React.isValidElement(child)) {
+      return child;
+    }
+
+    const isText = child.type === Text;
+    const nextChildren =
+      child.props && child.props.children
+        ? forceBoldTextStyle(child.props.children, boldStyle)
+        : child.props?.children;
+
+    const nextProps = {};
+
+    if (isText && isBoldStyle(child.props?.style) && shouldApplyBoldStyle(child.props?.style, boldStyle.fontSize)) {
+      nextProps.style = child.props?.style ? [child.props.style, boldStyle] : boldStyle;
+    }
+
+    if (nextChildren !== child.props?.children) {
+      nextProps.children = nextChildren;
+    }
+
+    return React.cloneElement(child, nextProps);
+  });
+}
 
 export default function ClickableCard({
   title = '',
@@ -30,6 +91,9 @@ export default function ClickableCard({
   const isGhost = variant === 'ghost';
   const isDisabled = disabled || (isGhost && !ghostInteractive);
   const hasImage = Boolean(imageSource);
+  const forcedLeftSlot = forceBoldTextStyle(leftSlot, styles.boldText);
+  const titleIsBold = isBoldStyle([styles.title, titleStyle]);
+  const shouldLockTitleSize = shouldApplyBoldStyle([styles.title, titleStyle], styles.boldText.fontSize);
 
   const content = (
     <View
@@ -43,14 +107,29 @@ export default function ClickableCard({
       {!!leftSlot || !!icon || !!rightSlot ? (
         <View style={styles.topRow}>
           <View style={styles.slot}>
-            {!!leftSlot ? leftSlot : !!icon && <Text style={[styles.icon, iconStyle]}>{icon}</Text>}
+            {!!leftSlot ? (
+              forcedLeftSlot
+            ) : (
+              !!icon && <Text style={[styles.icon, iconStyle, styles.iconLock]}>{icon}</Text>
+            )}
           </View>
           <View style={styles.slot}>{rightSlot}</View>
         </View>
       ) : null}
 
       <View style={styles.textBlock}>
-        {!!title && <Text style={[styles.title, titleStyle]}>{title}</Text>}
+        {!!title && (
+          <Text
+            style={[
+              styles.title,
+              titleStyle,
+              titleIsBold && styles.titleLock,
+              titleIsBold && shouldLockTitleSize && styles.boldText,
+            ]}
+          >
+            {title}
+          </Text>
+        )}
         {!!subtitle && <Text style={[styles.subtitle, subtitleStyle]}>{subtitle}</Text>}
         {!!details && <Text style={[styles.details, detailsStyle]}>{details}</Text>}
       </View>
@@ -68,9 +147,10 @@ export default function ClickableCard({
         styles.base,
         isLandscape ? styles.landscape : styles.portrait,
         isGhost ? styles.ghost : styles.solid,
+        cardStyle,
+        styles.surface,
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
-        cardStyle,
       ]}
     >
       {hasImage ? (
@@ -82,6 +162,7 @@ export default function ClickableCard({
       ) : (
         content
       )}
+      <View pointerEvents="none" style={styles.borderOverlay} />
     </Pressable>
   );
 }
@@ -89,10 +170,8 @@ export default function ClickableCard({
 const styles = StyleSheet.create({
   base: {
     minHeight: accessibility.minTouchTarget,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
+    position: 'relative',
   },
   portrait: {
     minHeight: 190,
@@ -101,14 +180,24 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
   solid: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.brandSoft,
   },
   ghost: {
-    backgroundColor: '#BCC2C9',
+    backgroundColor: colors.brandSoft,
+  },
+  surface: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.xl,
+  },
+  borderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.xl,
   },
   content: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   withImageContent: {
@@ -137,12 +226,24 @@ const styles = StyleSheet.create({
   icon: {
     fontSize: 32,
     lineHeight: 34,
+    color: colors.brandText,
+  },
+  iconLock: {
+    color: colors.brandText,
   },
   title: {
     ...typography.body,
     fontWeight: '700',
-    color: colors.title,
+    color: colors.brandText,
     flexShrink: 1,
+  },
+  titleLock: {
+    color: colors.brandText,
+  },
+  boldText: {
+    color: colors.brandText,
+    fontSize: 18,
+    lineHeight: 24,
   },
   subtitle: {
     ...typography.bodySmall,
