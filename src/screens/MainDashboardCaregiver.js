@@ -51,6 +51,7 @@ export default function MainDashboardCaregiver({ navigation }) {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
+        stickyHeaderIndices={[1]}
       >
         <View style={styles.contentCard}>
           <DashboardHeader
@@ -65,6 +66,8 @@ export default function MainDashboardCaregiver({ navigation }) {
               <CrudButton
                 label="Add a patient"
                 onPress={goToLinkPatientPage}
+                variant="outline"
+                iconSize={22}
                 style={styles.addButton}
                 circleStyle={styles.addButtonCircle}
                 textStyle={styles.addButtonText}
@@ -73,46 +76,48 @@ export default function MainDashboardCaregiver({ navigation }) {
                 label="Review patient requests"
                 icon="checkmark"
                 onPress={goToLinkRequestsPage}
+                variant="outline"
+                iconSize={22}
                 style={styles.addButton}
                 circleStyle={styles.addButtonCircle}
                 textStyle={styles.addButtonText}
               />
             </View>
           </TextCard>
+        </View>
 
-          <View style={styles.searchBarWrap}>
-            <SearchBar placeholder="Find a patient" />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={searchQuery ? '' : 'Find a patient'}
-              placeholderTextColor={colors.placeholder}
-              style={styles.searchInputOverlay}
-            />
-          </View>
+        <View style={styles.stickySearchBar}>
+          <SearchBar placeholder="Find a patient" />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={searchQuery ? '' : 'Find a patient'}
+            placeholderTextColor={colors.placeholder}
+            style={styles.searchInputOverlay}
+          />
+        </View>
 
-          <View style={styles.patientList}>
-            {filteredPatients.map((patient) => (
-              <Pressable
-                key={patient.name}
-                onPress={() => openPatientDashboard(patient.name)}
-                style={styles.patientPressable}
-              >
-                <View style={styles.patientCard}>
-                  <View style={styles.patientCardRow}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
-                    </View>
-                    <View style={styles.patientInfo}>
-                      <Text style={styles.patientName}>{patient.name}</Text>
-                      <Text style={styles.patientSubtitle}>{patient.age}</Text>
-                      <Text style={styles.patientDetails}>{patient.address}</Text>
-                    </View>
+        <View style={styles.patientList}>
+          {filteredPatients.map((patient) => (
+            <Pressable
+              key={patient.name}
+              onPress={() => openPatientDashboard(patient.name)}
+              style={styles.patientPressable}
+            >
+              <View style={styles.patientCard}>
+                <View style={styles.patientCardRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
+                  </View>
+                  <View style={styles.patientInfo}>
+                    <Text style={styles.patientName}>{patient.name}</Text>
+                    <Text style={styles.patientSubtitle}>{patient.age}</Text>
+                    <Text style={styles.patientDetails}>{patient.address}</Text>
                   </View>
                 </View>
-              </Pressable>
-            ))}
-          </View>
+              </View>
+            </Pressable>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -133,15 +138,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
     gap: spacing.sm,
   },
   header: {
     borderBottomWidth: 0,
   },
   addPatientTab: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
     minHeight: 78,
+    marginHorizontal: -spacing.sm,
   },
   addPatientTabContent: {
     flexDirection: 'column',
@@ -157,20 +164,24 @@ const styles = StyleSheet.create({
   addButtonCircle: {
     width: 44,
     height: 44,
+    backgroundColor: colors.surface,
   },
   addButtonText: {
-    color: colors.brand,
+    color: colors.surface,
     ...typography.body,
     fontWeight: '700',
     marginTop: 0,
   },
   patientList: {
     gap: spacing.xs,
+    marginTop: spacing.xs,
   },
-  searchBarWrap: {
+  stickySearchBar: {
     position: 'relative',
-    zIndex: 2,
-    elevation: 2,
+    zIndex: 4,
+    elevation: 4,
+    backgroundColor: '#ECEFF4',
+    paddingBottom: spacing.xxs,
   },
   searchInputOverlay: {
     ...StyleSheet.absoluteFillObject,
