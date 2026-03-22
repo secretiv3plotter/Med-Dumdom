@@ -11,13 +11,16 @@ export default function ProfileButton({
   icon = 'person-circle-outline',
   iconSize = PROFILE_BUTTON_SIZE,
   imageSource,
+  iconColor: iconColorOverride,
+  labelColor,
   style,
   iconWrapStyle,
   imageStyle,
   textStyle,
   ...pressableProps
 }) {
-  const iconColor = disabled ? colors.bodyMuted : colors.title;
+  const iconColor = disabled ? colors.bodyMuted : iconColorOverride || colors.title;
+  const effectiveLabelColor = disabled ? colors.bodyMuted : labelColor || colors.title;
 
   return (
     <Pressable
@@ -48,7 +51,7 @@ export default function ProfileButton({
         )}
       </View>
 
-      <Text style={[styles.label, disabled ? styles.disabledText : styles.defaultText, textStyle]}>
+      <Text style={[styles.label, { color: effectiveLabelColor }, textStyle]}>
         {label}
       </Text>
     </Pressable>
@@ -76,11 +79,5 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
     marginTop: -spacing.xxs / 2,
-  },
-  defaultText: {
-    color: colors.title,
-  },
-  disabledText: {
-    color: colors.bodyMuted,
   },
 });

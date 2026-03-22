@@ -18,7 +18,7 @@ const TAB_KEY_TO_ROUTE = {
 
 export default function PatientSpecificDashboard({ navigation }) {
   const selectedPatientName = navigation?.currentParams?.patientName || 'Patient';
-  const selectedPatientFirstName = selectedPatientName.split(' ')[0];
+  const selectedPatientFirstName = String(selectedPatientName || '').trim().split(/\s+/)[0] || 'Patient';
   const patientPossessive = selectedPatientName.endsWith('s')
     ? `${selectedPatientName}'`
     : `${selectedPatientName}'s`;
@@ -31,7 +31,7 @@ export default function PatientSpecificDashboard({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <View style={styles.topSection}>
         <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
         <DashboardHeader
@@ -39,6 +39,7 @@ export default function PatientSpecificDashboard({ navigation }) {
           onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
           onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
           style={styles.header}
+          accentColor={colors.brandText}
         />
       </View>
 
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
   },
   topSection: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     backgroundColor: '#ECEFF4',
     gap: spacing.xs,
   },

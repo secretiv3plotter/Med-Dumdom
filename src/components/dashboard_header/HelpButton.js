@@ -10,13 +10,16 @@ export default function HelpButton({
   label = 'Help',
   icon = 'help-circle-outline',
   iconSize = BUTTON_VISUAL_SIZE,
+  iconColor: iconColorOverride,
+  labelColor,
   style,
   iconWrapStyle,
   circleStyle,
   textStyle,
   ...pressableProps
 }) {
-  const iconColor = disabled ? colors.bodyMuted : colors.title;
+  const iconColor = disabled ? colors.bodyMuted : iconColorOverride || colors.title;
+  const effectiveLabelColor = disabled ? colors.bodyMuted : labelColor || colors.title;
 
   return (
     <Pressable
@@ -38,7 +41,7 @@ export default function HelpButton({
         />
       </View>
 
-      <Text style={[styles.label, disabled ? styles.disabledText : styles.defaultText, textStyle]}>
+      <Text style={[styles.label, { color: effectiveLabelColor }, textStyle]}>
         {label}
       </Text>
     </Pressable>
@@ -61,11 +64,5 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
     marginTop: -spacing.xxs,
-  },
-  defaultText: {
-    color: colors.title,
-  },
-  disabledText: {
-    color: colors.bodyMuted,
   },
 });

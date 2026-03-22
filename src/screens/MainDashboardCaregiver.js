@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CrudButton from '../components/common/CrudButton';
 import DashboardHeader from '../components/common/DashboardHeader';
 import SearchBar from '../components/common/SearchBar';
 import TextCard from '../components/common/TextCard';
+import UserCard from '../components/common/UserCard';
 import { ROUTES } from '../constants/routes';
 import { colors, radius, spacing, typography } from '../constants/Themes';
 
@@ -18,18 +20,17 @@ const patients = [
   { name: 'Anne Villanueva', age: '70', address: 'Malinis, Bacoor City, Cavite' },
 ];
 
-function getInitials(name = '') {
-  return name
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join('');
-}
+const TOP_PADDING = 36;
+const SEARCH_STICKY_OFFSET = TOP_PADDING + spacing.xs;
 
 export default function MainDashboardCaregiver({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchSticky, setIsSearchSticky] = useState(false);
+  const scrollRef = useRef(null);
+  const searchBarOffsetY = useRef(0);
+  const isSearchStickyRef = useRef(false);
+  const shouldFocusFloatingRef = useRef(false);
+  const floatingInputRef = useRef(null);
 
   const goToLinkPatientPage = () => navigation?.navigate?.(ROUTES.LINK_TO_PATIENT_MAIN);
   const goToLinkRequestsPage = () => navigation?.navigate?.(ROUTES.LINK_REQUESTS);
@@ -45,13 +46,64 @@ export default function MainDashboardCaregiver({ navigation }) {
     return patients.filter((patient) => patient.name.toLowerCase().startsWith(query));
   }, [searchQuery]);
 
+  const handleSearchFocus = () => {
+    shouldFocusFloatingRef.current = true;
+    if (!scrollRef.current) {
+      return;
+    }
+    const targetY = Math.max(0, searchBarOffsetY.current - SEARCH_STICKY_OFFSET);
+    scrollRef.current.scrollTo({ y: targetY, animated: true });
+  };
+
+  const handleScroll = (event) => {
+    if (!searchBarOffsetY.current) {
+      return;
+    }
+    const currentY = event.nativeEvent.contentOffset.y;
+    const stickyPoint = Math.max(0, searchBarOffsetY.current - SEARCH_STICKY_OFFSET);
+    const shouldStick = currentY >= stickyPoint;
+    if (shouldStick !== isSearchStickyRef.current) {
+      isSearchStickyRef.current = shouldStick;
+      setIsSearchSticky(shouldStick);
+      if (shouldStick && shouldFocusFloatingRef.current) {
+        shouldFocusFloatingRef.current = false;
+        requestAnimationFrame(() => {
+          floatingInputRef.current?.focus?.();
+        });
+      }
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <View
+        style={[
+          styles.floatingSearchBar,
+          isSearchSticky ? styles.floatingSearchBarVisible : styles.floatingSearchBarHidden,
+        ]}
+        pointerEvents={isSearchSticky ? 'auto' : 'none'}
+      >
+        <View style={styles.searchBarInner}>
+          <View pointerEvents="none">
+            <SearchBar placeholder="Find a patient" />
+          </View>
+          <TextInput
+            ref={floatingInputRef}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={searchQuery ? '' : 'Find a patient'}
+            placeholderTextColor={colors.placeholder}
+            style={styles.searchInputOverlay}
+          />
+        </View>
+      </View>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="always"
-        stickyHeaderIndices={[1]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
         <View style={styles.contentCard}>
           <DashboardHeader
@@ -59,12 +111,13 @@ export default function MainDashboardCaregiver({ navigation }) {
             onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
             onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
             style={styles.header}
+            accentColor={colors.brandText}
           />
 
-          <TextCard cardStyle={styles.addPatientTab}>
-            <View style={styles.addPatientTabContent}>
+          <View style={styles.addPatientCardsRow}>
+            <TextCard cardStyle={styles.addPatientCard}>
               <CrudButton
-                label="Add a patient"
+                label="Add A Patient"
                 onPress={goToLinkPatientPage}
                 variant="outline"
                 iconSize={22}
@@ -72,8 +125,10 @@ export default function MainDashboardCaregiver({ navigation }) {
                 circleStyle={styles.addButtonCircle}
                 textStyle={styles.addButtonText}
               />
+            </TextCard>
+            <TextCard cardStyle={styles.addPatientCard}>
               <CrudButton
-                label="Review patient requests"
+                label="Patient Requests"
                 icon="checkmark"
                 onPress={goToLinkRequestsPage}
                 variant="outline"
@@ -82,19 +137,30 @@ export default function MainDashboardCaregiver({ navigation }) {
                 circleStyle={styles.addButtonCircle}
                 textStyle={styles.addButtonText}
               />
-            </View>
-          </TextCard>
+            </TextCard>
+          </View>
         </View>
 
-        <View style={styles.stickySearchBar}>
-          <SearchBar placeholder="Find a patient" />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={searchQuery ? '' : 'Find a patient'}
-            placeholderTextColor={colors.placeholder}
-            style={styles.searchInputOverlay}
-          />
+        <View
+          style={[styles.stickySearchBar, isSearchSticky && styles.inlineSearchBarHidden]}
+          onLayout={(event) => {
+            searchBarOffsetY.current = event.nativeEvent.layout.y;
+          }}
+          pointerEvents={isSearchSticky ? 'none' : 'auto'}
+        >
+          <View style={styles.searchBarInner}>
+            <View pointerEvents="none">
+              <SearchBar placeholder="Find a patient" />
+            </View>
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={handleSearchFocus}
+              placeholder={searchQuery ? '' : 'Find a patient'}
+              placeholderTextColor={colors.placeholder}
+              style={styles.searchInputOverlay}
+            />
+          </View>
         </View>
 
         <View style={styles.patientList}>
@@ -104,18 +170,15 @@ export default function MainDashboardCaregiver({ navigation }) {
               onPress={() => openPatientDashboard(patient.name)}
               style={styles.patientPressable}
             >
-              <View style={styles.patientCard}>
-                <View style={styles.patientCardRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
-                  </View>
-                  <View style={styles.patientInfo}>
-                    <Text style={styles.patientName}>{patient.name}</Text>
-                    <Text style={styles.patientSubtitle}>{patient.age}</Text>
-                    <Text style={styles.patientDetails}>{patient.address}</Text>
-                  </View>
-                </View>
-              </View>
+              <UserCard
+                name={patient.name}
+                subtitle={patient.age}
+                details={patient.address}
+                variant="dashboard"
+                avatarContent={
+                  <Ionicons name="person-circle-outline" size={54} color={colors.brandText} />
+                }
+              />
             </Pressable>
           ))}
         </View>
@@ -130,7 +193,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECEFF4',
   },
   container: {
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: TOP_PADDING,
     paddingBottom: spacing.xl,
   },
   contentCard: {
@@ -138,25 +202,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
     gap: spacing.sm,
   },
   header: {
     borderBottomWidth: 0,
   },
-  addPatientTab: {
+  addPatientCardsRow: {
+    flexDirection: 'row',
+    gap: spacing.xxs,
+    marginHorizontal: -spacing.sm,
+  },
+  addPatientCard: {
     backgroundColor: colors.brand,
     borderColor: colors.brand,
     minHeight: 78,
-    marginHorizontal: -spacing.sm,
-  },
-  addPatientTabContent: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
+    flex: 1,
+    paddingHorizontal: spacing.sm,
   },
   addButton: {
     minWidth: 0,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xxs,
@@ -171,15 +237,35 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '700',
     marginTop: 0,
+    flexShrink: 1,
   },
   patientList: {
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
+  floatingSearchBar: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: spacing.sm,
+    top: SEARCH_STICKY_OFFSET,
+    zIndex: 10,
+  },
+  floatingSearchBarHidden: {
+    opacity: 0,
+  },
+  floatingSearchBarVisible: {
+    opacity: 1,
+  },
   stickySearchBar: {
     position: 'relative',
     zIndex: 4,
     elevation: 4,
+  },
+  inlineSearchBarHidden: {
+    opacity: 0,
+  },
+  searchBarInner: {
+    position: 'relative',
     backgroundColor: '#ECEFF4',
     paddingBottom: spacing.xxs,
   },
@@ -190,54 +276,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.brand,
     color: colors.brandText,
   },
   patientPressable: {
     borderRadius: radius.lg,
-  },
-  patientCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  patientCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.brandSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: colors.brandText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  patientInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  patientName: {
-    color: colors.brandText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  patientSubtitle: {
-    color: colors.body,
-    fontSize: 14,
-    marginTop: 2,
-  },
-  patientDetails: {
-    color: colors.bodyMuted,
-    fontSize: 13,
-    marginTop: 2,
   },
 });

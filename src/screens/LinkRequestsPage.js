@@ -7,6 +7,7 @@ import BackButton from '../components/common/BackButton';
 import CrudButton from '../components/common/CrudButton';
 import SearchBar from '../components/common/SearchBar';
 import TextCard from '../components/common/TextCard';
+import UserCard from '../components/common/UserCard';
 import { colors, radius, spacing, typography } from '../constants/Themes';
 
 const incomingRequests = [
@@ -63,21 +64,24 @@ export default function LinkRequestsPage({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.page}>
+      <View style={styles.topArea}>
         <BackButton
           onPress={() => navigation?.goBack?.()}
           disabled={!navigation?.canGoBack}
           style={styles.backButton}
+          iconStyle={styles.backButtonIcon}
+          labelStyle={styles.backButtonLabel}
         />
-
         <View style={styles.headerWrap}>
           <View style={styles.titleRow}>
-            <Ionicons name="git-pull-request-outline" size={24} color={colors.brandText} />
+            <Ionicons name="git-pull-request-outline" size={24} color={colors.surface} />
             <Text style={styles.title}>Link Requests</Text>
           </View>
           <Text style={styles.subtitle}>Review patient link requests.</Text>
         </View>
+      </View>
 
+      <View style={styles.page}>
         <TextCard cardStyle={styles.listCard}>
           <View style={styles.searchContainer}>
             <View pointerEvents="none">
@@ -95,23 +99,24 @@ export default function LinkRequestsPage({ navigation }) {
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
             {filteredRequests.map((request) => (
-              <View key={request.id} style={styles.requestRow}>
-                <View style={styles.rowLeft}>
-                  <Ionicons name="person-circle-outline" size={34} color={colors.brandText} />
-                  <View>
-                    <Text style={styles.requestName}>{request.name}</Text>
-                    <Text style={styles.requestEmail}>{request.email}</Text>
-                  </View>
-                </View>
-
-                <CrudButton
-                  label=""
-                  icon="checkmark"
-                  onPress={() => setSelectedRequest(request)}
-                  style={styles.checkButton}
-                  textStyle={styles.hiddenLabel}
-                />
-              </View>
+              <UserCard
+                key={request.id}
+                variant="link"
+                name={request.name}
+                subtitle={request.email}
+                avatarContent={<Ionicons name="person-circle-outline" size={54} color={colors.brandText} />}
+                rightAccessory={
+                  <CrudButton
+                    label=""
+                    icon="checkmark"
+                    onPress={() => setSelectedRequest(request)}
+                    style={styles.checkButton}
+                    circleStyle={styles.actionCircle}
+                    iconSize={14}
+                    textStyle={styles.hiddenLabel}
+                  />
+                }
+              />
             ))}
           </ScrollView>
         </TextCard>
@@ -167,35 +172,56 @@ export default function LinkRequestsPage({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.pageBg,
+    backgroundColor: colors.brand,
+  },
+  topArea: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xxs,
+    gap: spacing.xxs,
+    position: 'relative',
   },
   page: {
     flex: 1,
     backgroundColor: colors.pageBg,
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.md,
   },
   backButton: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    position: 'absolute',
+    left: spacing.md,
+    top: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+  },
+  backButtonIcon: {
+    color: colors.surface,
+  },
+  backButtonLabel: {
+    color: colors.surface,
   },
   headerWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    justifyContent: 'center',
   },
   title: {
     ...typography.title,
-    color: colors.brandText,
+    color: colors.surface,
     fontWeight: '700',
   },
   subtitle: {
     ...typography.bodySmall,
-    color: colors.brandText,
+    color: colors.surface,
+    textAlign: 'center',
   },
   listCard: {
     flex: 1,
@@ -221,41 +247,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.brand,
     color: colors.brandText,
     zIndex: 2,
     elevation: 3,
   },
-  requestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F2F6FB',
-    borderColor: '#0B5FFF',
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  requestName: {
-    ...typography.body,
-    color: colors.brandText,
-    fontWeight: '700',
-  },
-  requestEmail: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
-  },
   checkButton: {
     minWidth: 0,
-    marginTop: 2,
+    marginTop: 0,
+    gap: 0,
+    justifyContent: 'center',
+  },
+  actionCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   hiddenLabel: {
     fontSize: 0,

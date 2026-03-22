@@ -7,6 +7,7 @@ import ActionButton from '../components/common/ActionButton';
 import CrudButton from '../components/common/CrudButton';
 import SearchBar from '../components/common/SearchBar';
 import TextCard from '../components/common/TextCard';
+import UserCard from '../components/common/UserCard';
 import { colors, radius, spacing, typography } from '../constants/Themes';
 
 const patients = [
@@ -66,21 +67,24 @@ export default function LinktoPatientMainPage({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.page}>
+      <View style={styles.topArea}>
         <BackButton
           onPress={() => navigation?.goBack?.()}
           disabled={!navigation?.canGoBack}
           style={styles.backButton}
+          iconStyle={styles.backButtonIcon}
+          labelStyle={styles.backButtonLabel}
         />
-
         <View style={styles.headerWrap}>
           <View style={styles.titleRow}>
-            <Ionicons name="people-outline" size={24} color={colors.brandText} />
+            <Ionicons name="people-outline" size={24} color={colors.surface} />
             <Text style={styles.title}>Patients</Text>
           </View>
           <Text style={styles.subtitle}>Add a patient under your care.</Text>
         </View>
+      </View>
 
+      <View style={styles.page}>
         <TextCard cardStyle={styles.listCard}>
           <View style={styles.searchContainer}>
             <View pointerEvents="none">
@@ -98,22 +102,23 @@ export default function LinktoPatientMainPage({ navigation }) {
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
             {filteredPatients.map((patient) => (
-              <View key={patient.id} style={styles.patientRow}>
-                <View style={styles.rowLeft}>
-                  <Ionicons name="person-circle-outline" size={34} color={colors.brandText} />
-                  <View>
-                    <Text style={styles.patientName}>{patient.name}</Text>
-                    <Text style={styles.patientEmail}>{patient.email}</Text>
-                  </View>
-                </View>
-
-                <CrudButton
-                  label=""
-                  onPress={() => setSelectedPatient(patient)}
-                  style={styles.plusButton}
-                  textStyle={styles.hiddenLabel}
-                />
-              </View>
+              <UserCard
+                key={patient.id}
+                variant="link"
+                name={patient.name}
+                subtitle={patient.email}
+                avatarContent={<Ionicons name="person-circle-outline" size={54} color={colors.brandText} />}
+                rightAccessory={
+                  <CrudButton
+                    label=""
+                    onPress={() => setSelectedPatient(patient)}
+                    style={styles.plusButton}
+                    circleStyle={styles.actionCircle}
+                    iconSize={14}
+                    textStyle={styles.hiddenLabel}
+                  />
+                }
+              />
             ))}
           </ScrollView>
         </TextCard>
@@ -169,35 +174,56 @@ export default function LinktoPatientMainPage({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.pageBg,
+    backgroundColor: colors.brand,
+  },
+  topArea: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xxs,
+    gap: spacing.xxs,
+    position: 'relative',
   },
   page: {
     flex: 1,
     backgroundColor: colors.pageBg,
     paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.md,
   },
   backButton: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    position: 'absolute',
+    left: spacing.md,
+    top: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+  },
+  backButtonIcon: {
+    color: colors.surface,
+  },
+  backButtonLabel: {
+    color: colors.surface,
   },
   headerWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    justifyContent: 'center',
   },
   title: {
     ...typography.title,
-    color: colors.brandText,
+    color: colors.surface,
     fontWeight: '700',
   },
   subtitle: {
     ...typography.bodySmall,
-    color: colors.brandText,
+    color: colors.surface,
+    textAlign: 'center',
   },
   listCard: {
     flex: 1,
@@ -226,36 +252,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     color: colors.brandText,
   },
-  patientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F2F6FB',
-    borderColor: '#0B5FFF',
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  patientName: {
-    ...typography.body,
-    color: colors.brandText,
-    fontWeight: '700',
-  },
-  patientEmail: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
-  },
   plusButton: {
     minWidth: 0,
-    marginTop: 2,
+    marginTop: 0,
+    gap: 0,
+    justifyContent: 'center',
+  },
+  actionCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   hiddenLabel: {
     fontSize: 0,

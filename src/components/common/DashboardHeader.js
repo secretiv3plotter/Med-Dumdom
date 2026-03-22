@@ -8,10 +8,15 @@ export default function DashboardHeader({
   onHelpPress,
   onProfilePress,
   profileImageSource,
+  accentColor,
   helpDisabled = false,
   profileDisabled = false,
   style,
 }) {
+  const normalizedName = String(firstName || '').trim();
+  const displayName = normalizedName ? normalizedName.split(/\s+/)[0] : 'User';
+  const headerColor = accentColor || colors.title;
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.leftGroup}>
@@ -19,13 +24,21 @@ export default function DashboardHeader({
           onPress={onProfilePress}
           disabled={profileDisabled}
           imageSource={profileImageSource}
+          iconColor={headerColor}
+          labelColor={headerColor}
         />
-        <Text style={styles.greeting} numberOfLines={1}>
-          Hi, {firstName}
+        <Text style={[styles.greeting, { color: headerColor }]} numberOfLines={1}>
+          Hi, {displayName}
         </Text>
       </View>
 
-      <HelpButton onPress={onHelpPress} disabled={helpDisabled} style={styles.helpButton} />
+      <HelpButton
+        onPress={onHelpPress}
+        disabled={helpDisabled}
+        style={styles.helpButton}
+        iconColor={headerColor}
+        labelColor={headerColor}
+      />
     </View>
   );
 }
@@ -46,7 +59,6 @@ const styles = StyleSheet.create({
   },
   greeting: {
     ...typography.title,
-    color: colors.title,
     fontWeight: typography.button.fontWeight,
     maxWidth: 140,
   },

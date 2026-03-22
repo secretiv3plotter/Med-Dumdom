@@ -1,4 +1,4 @@
-// A reusable user card component for displaying user information with primary and secondary actions.
+// A reusable user card component for displaying user information across screens.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { accessibility, colors, radius, spacing } from '../../constants/Themes';
 
@@ -16,96 +16,92 @@ export default function UserCard({
   name = 'Unknown User',
   subtitle = '',
   details = '',
-  primaryActionLabel = 'View',
-  secondaryActionLabel = 'Message',
+  variant = 'dashboard',
+  avatarContent,
+  rightAccessory,
+  showActions = false,
+  primaryActionLabel,
+  secondaryActionLabel,
   onPrimaryAction = () => {},
   onSecondaryAction = () => {},
+  cardStyle,
+  rowStyle,
+  leftStyle,
+  textBlockStyle,
+  nameStyle,
+  subtitleStyle,
+  detailsStyle,
 }) {
+  const variantStyles = VARIANT_STYLES[variant] || VARIANT_STYLES.dashboard;
+  const showActionsRow = showActions && (primaryActionLabel || secondaryActionLabel);
+  const resolvedAvatar =
+    avatarContent ||
+    (variant === 'dashboard' ? (
+      <View style={variantStyles.avatar}>
+        <Text style={variantStyles.avatarText}>{getInitials(name)}</Text>
+      </View>
+    ) : null);
+
   return (
-    <View style={styles.card}>
-      <View style={styles.topRow}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{getInitials(name)}</Text>
+    <View style={[variantStyles.card, cardStyle]}>
+      <View style={[styles.row, rowStyle]}>
+        <View style={[variantStyles.left, leftStyle]}>
+          {resolvedAvatar}
+          <View style={[variantStyles.textBlock, textBlockStyle]}>
+            <Text style={[variantStyles.name, nameStyle]}>{name}</Text>
+            {!!subtitle && <Text style={[variantStyles.subtitle, subtitleStyle]}>{subtitle}</Text>}
+            {!!details && <Text style={[variantStyles.details, detailsStyle]}>{details}</Text>}
+          </View>
         </View>
-
-        <View style={styles.textBlock}>
-          <Text style={styles.name}>{name}</Text>
-          {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-          {!!details && <Text style={styles.details}>{details}</Text>}
-        </View>
+        {rightAccessory ? <View style={styles.right}>{rightAccessory}</View> : null}
       </View>
 
-      <View style={styles.actionsRow}>
-        <Pressable
-          style={[styles.button, styles.secondaryButton]}
-          onPress={onSecondaryAction}
-          accessibilityRole="button"
-          accessibilityLabel={secondaryActionLabel}
-        >
-          <Text style={[styles.buttonText, styles.secondaryButtonText]}>{secondaryActionLabel}</Text>
-        </Pressable>
+      {showActionsRow ? (
+        <View style={styles.actionsRow}>
+          {secondaryActionLabel ? (
+            <Pressable
+              style={[styles.button, styles.secondaryButton]}
+              onPress={onSecondaryAction}
+              accessibilityRole="button"
+              accessibilityLabel={secondaryActionLabel}
+            >
+              <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+                {secondaryActionLabel}
+              </Text>
+            </Pressable>
+          ) : null}
 
-        <Pressable
-          style={[styles.button, styles.primaryButton]}
-          onPress={onPrimaryAction}
-          accessibilityRole="button"
-          accessibilityLabel={primaryActionLabel}
-        >
-          <Text style={[styles.buttonText, styles.primaryButtonText]}>{primaryActionLabel}</Text>
-        </Pressable>
-      </View>
+          {primaryActionLabel ? (
+            <Pressable
+              style={[styles.button, styles.primaryButton]}
+              onPress={onPrimaryAction}
+              accessibilityRole="button"
+              accessibilityLabel={primaryActionLabel}
+            >
+              <Text style={[styles.buttonText, styles.primaryButtonText]}>
+                {primaryActionLabel}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  topRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.brandSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: colors.brandText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  textBlock: {
-    flex: 1,
-  },
-  name: {
-    color: colors.brandText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  subtitle: {
-    color: colors.body,
-    fontSize: 14,
-    marginTop: 2,
-  },
-  details: {
-    color: colors.bodyMuted,
-    fontSize: 13,
-    marginTop: 2,
+  right: {
+    marginLeft: spacing.sm,
   },
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   button: {
     flex: 1,
@@ -134,3 +130,94 @@ const styles = StyleSheet.create({
     color: colors.body,
   },
 });
+
+const DASHBOARD_STYLES = StyleSheet.create({
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.brandText,
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  textBlock: {
+    flex: 1,
+    gap: 1,
+  },
+  name: {
+    color: colors.brandText,
+    fontWeight: '700',
+    fontSize: 19,
+  },
+  subtitle: {
+    color: colors.body,
+    fontSize: 15,
+    marginTop: 1,
+  },
+  details: {
+    color: colors.bodyMuted,
+    fontSize: 14,
+    marginTop: 1,
+  },
+});
+
+const LINK_STYLES = StyleSheet.create({
+  card: {
+    backgroundColor: '#F2F6FB',
+    borderColor: '#0B5FFF',
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  textBlock: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 20,
+    lineHeight: 24,
+    color: colors.brandText,
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.bodyMuted,
+  },
+  details: {
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.bodyMuted,
+  },
+});
+
+const VARIANT_STYLES = {
+  dashboard: DASHBOARD_STYLES,
+  link: LINK_STYLES,
+};
