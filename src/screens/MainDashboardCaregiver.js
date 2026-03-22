@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   patientName: {
-    color: colors.title,
+    color: colors.brandText,
     fontWeight: '700',
     fontSize: 16,
   },

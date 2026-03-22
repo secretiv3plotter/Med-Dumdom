@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    color: colors.title,
+    color: colors.brandText,
     fontWeight: '700',
     fontSize: 16,
   },
