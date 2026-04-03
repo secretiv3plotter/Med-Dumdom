@@ -16,6 +16,8 @@ export default function ActionButton({
     <Pressable
       disabled={disabled}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={[
         styles.button,
         outline ? styles.outlineButton : styles.solidButton,
