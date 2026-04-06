@@ -29,6 +29,31 @@
 
 import PersonalProfile from './PersonalProfile';
 
+const normalizeOptionalString = (value, fieldName) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value.trim();
+};
+
+const normalizeRole = (value) => {
+  const role = normalizeOptionalString(value, 'role');
+  if (!role) {
+    return '';
+  }
+
+  if (!['patient', 'caregiver'].includes(role)) {
+    throw new RangeError('role must be either patient or caregiver.');
+  }
+
+  return role;
+};
+
 export default class User {
   constructor({
     userId = '',
@@ -38,24 +63,24 @@ export default class User {
     password = '',
     personalProfile = new PersonalProfile(),
   } = {}) {
-    this.userId = userId;
-    this.role = role;
-    this.phoneNum = phoneNum;
-    this.email = email;
-    this.password = password;
+    this.userId = normalizeOptionalString(userId, 'userId');
+    this.role = normalizeRole(role);
+    this.phoneNum = normalizeOptionalString(phoneNum, 'phoneNum');
+    this.email = normalizeOptionalString(email, 'email');
+    this.password = normalizeOptionalString(password, 'password');
     this.personalProfile =
       personalProfile instanceof PersonalProfile
         ? personalProfile
-        : new PersonalProfile(personalProfile);
+        : new PersonalProfile(personalProfile && typeof personalProfile === 'object' ? personalProfile : {});
   }
 
   updatePhoneNum(phoneNum) {
-    this.phoneNum = phoneNum;
+    this.phoneNum = normalizeOptionalString(phoneNum, 'phoneNum');
     return this.phoneNum;
   }
 
   updateEmail(email) {
-    this.email = email;
+    this.email = normalizeOptionalString(email, 'email');
     return this.email;
   }
 

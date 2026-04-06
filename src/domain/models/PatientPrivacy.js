@@ -23,57 +23,79 @@
 // toggleExportMedReportPermit()
 // toggleExportApptReportPermit()
 
+const normalizeBoolean = (value, fieldName) => {
+  if (typeof value !== 'boolean') {
+    throw new TypeError(`${fieldName} must be a boolean.`);
+  }
+
+  return value;
+};
+
 class PatientPrivacy {
-  constructor(
-    medTrackerPermit,
-    consultTrackerPermit,
-    viewReportPermit,
-    modifyMedTracker,
-    modifyApptTracker,
-    manualCaregiverReminderPermit,
-    exportMedReportPermit,
-    exportApptReportPermit
-  ) {
-    this.medTrackerPermit = medTrackerPermit;
-    this.consultTrackerPermit = consultTrackerPermit;
-    this.viewReportPermit = viewReportPermit;
-    this.modifyMedTracker = modifyMedTracker;
-    this.modifyApptTracker = modifyApptTracker;
-    this.manualCaregiverReminderPermit = manualCaregiverReminderPermit;
-    this.exportMedReportPermit = exportMedReportPermit;
-    this.exportApptReportPermit = exportApptReportPermit;
+  constructor({
+    medTrackerPermit = false,
+    consultTrackerPermit = false,
+    viewReportPermit = false,
+    modifyMedTracker = false,
+    modifyApptTracker = false,
+    manualCaregiverReminderPermit = false,
+    exportMedReportPermit = false,
+    exportApptReportPermit = false,
+  } = {}) {
+    this.medTrackerPermit = normalizeBoolean(medTrackerPermit, 'medTrackerPermit');
+    this.consultTrackerPermit = normalizeBoolean(consultTrackerPermit, 'consultTrackerPermit');
+    this.viewReportPermit = normalizeBoolean(viewReportPermit, 'viewReportPermit');
+    this.modifyMedTracker = normalizeBoolean(modifyMedTracker, 'modifyMedTracker');
+    this.modifyApptTracker = normalizeBoolean(modifyApptTracker, 'modifyApptTracker');
+    this.manualCaregiverReminderPermit = normalizeBoolean(
+      manualCaregiverReminderPermit,
+      'manualCaregiverReminderPermit'
+    );
+    this.exportMedReportPermit = normalizeBoolean(exportMedReportPermit, 'exportMedReportPermit');
+    this.exportApptReportPermit = normalizeBoolean(exportApptReportPermit, 'exportApptReportPermit');
   }
 
   toggleMedTrackerPermit() {
-    this.medTrackerPermit = !this.medTrackerPermit;
+    this.medTrackerPermit = !normalizeBoolean(this.medTrackerPermit, 'medTrackerPermit');
+    return this.medTrackerPermit;
   }
 
   toggleConsultTrackerPermit() {
-    this.consultTrackerPermit = !this.consultTrackerPermit;
+    this.consultTrackerPermit = !normalizeBoolean(this.consultTrackerPermit, 'consultTrackerPermit');
+    return this.consultTrackerPermit;
   }
 
   toggleViewReportPermit() {
-    this.viewReportPermit = !this.viewReportPermit;
+    this.viewReportPermit = !normalizeBoolean(this.viewReportPermit, 'viewReportPermit');
+    return this.viewReportPermit;
   }
 
   toggleModifyMedTracker() {
-    this.modifyMedTracker = !this.modifyMedTracker;
+    this.modifyMedTracker = !normalizeBoolean(this.modifyMedTracker, 'modifyMedTracker');
+    return this.modifyMedTracker;
   }
 
   toggleModifyApptTracker() {
-    this.modifyApptTracker = !this.modifyApptTracker;
+    this.modifyApptTracker = !normalizeBoolean(this.modifyApptTracker, 'modifyApptTracker');
+    return this.modifyApptTracker;
   }
 
   toggleManualCaregiverReminderPermit() {
-    this.manualCaregiverReminderPermit = !this.manualCaregiverReminderPermit;
+    this.manualCaregiverReminderPermit = !normalizeBoolean(
+      this.manualCaregiverReminderPermit,
+      'manualCaregiverReminderPermit'
+    );
+    return this.manualCaregiverReminderPermit;
   }
 
   toggleExportMedReportPermit() {
-    this.exportMedReportPermit = !this.exportMedReportPermit;
+    this.exportMedReportPermit = !normalizeBoolean(this.exportMedReportPermit, 'exportMedReportPermit');
+    return this.exportMedReportPermit;
   }
 
   toggleExportApptReportPermit() {
-    this.exportApptReportPermit = !this.exportApptReportPermit;
+    this.exportApptReportPermit = !normalizeBoolean(this.exportApptReportPermit, 'exportApptReportPermit');
+    return this.exportApptReportPermit;
   }
 }
 

@@ -22,6 +22,18 @@
 import User from './User';
 import PatientProfile from './PatientProfile';
 
+const normalizeOptionalString = (value, fieldName) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value.trim();
+};
+
 export default class Patient extends User {
   constructor({
     userId = '',
@@ -40,9 +52,9 @@ export default class Patient extends User {
       personalProfile:
         personalProfile instanceof PatientProfile
           ? personalProfile
-          : new PatientProfile(personalProfile),
+          : new PatientProfile(personalProfile && typeof personalProfile === 'object' ? personalProfile : {}),
     });
-    this.caregiverId = caregiverId;
+    this.caregiverId = normalizeOptionalString(caregiverId, 'caregiverId');
   }
 
   hasCaregiver() {

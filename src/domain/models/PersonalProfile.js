@@ -21,8 +21,47 @@
 // calculateAge()
 // updateAddress(newAddress)
 
+const normalizeOptionalString = (value, fieldName) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value.trim();
+};
+
+const normalizeDate = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsedDate = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new RangeError(`${fieldName} must be a valid date.`);
+  }
+
+  return parsedDate;
+};
+
+const normalizeAge = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  const numericAge = Number(value);
+  if (!Number.isInteger(numericAge) || numericAge < 0) {
+    throw new RangeError('age must be a non-negative integer.');
+  }
+
+  return numericAge;
+};
+
 export default class PersonalProfile {
   constructor(profileData = {}) {
+    const safeProfileData = profileData && typeof profileData === 'object' ? profileData : {};
     const {
       fullName = '',
       name = fullName,
@@ -31,34 +70,34 @@ export default class PersonalProfile {
       birthDate = null,
       age = 0,
       address = '',
-    } = profileData;
+    } = safeProfileData;
 
-    const resolvedFullName = fullName || name;
-    const resolvedProfilePicture = profilePicture || profilePictureUrl;
+    const resolvedFullName = normalizeOptionalString(fullName || name, 'fullName');
+    const resolvedProfilePicture = normalizeOptionalString(profilePicture || profilePictureUrl, 'profilePicture');
 
     this.fullName = resolvedFullName;
     this.name = resolvedFullName;
     this.profilePicture = resolvedProfilePicture;
     this.profilePictureUrl = resolvedProfilePicture;
-    this.birthDate = birthDate ? new Date(birthDate) : null;
-    this.age = this.birthDate ? this.calculateAge(this.birthDate) : age;
-    this.address = address;
+    this.birthDate = normalizeDate(birthDate, 'birthDate');
+    this.age = this.birthDate ? this.calculateAge(this.birthDate) : normalizeAge(age);
+    this.address = normalizeOptionalString(address, 'address');
   }
 
   updateName(newName) {
-    this.fullName = newName;
-    this.name = newName;
+    this.fullName = normalizeOptionalString(newName, 'fullName');
+    this.name = this.fullName;
     return this.fullName;
   }
 
   updateProfilePicture(newPictureUrl) {
-    this.profilePicture = newPictureUrl;
-    this.profilePictureUrl = newPictureUrl;
+    this.profilePicture = normalizeOptionalString(newPictureUrl, 'profilePicture');
+    this.profilePictureUrl = this.profilePicture;
     return this.profilePicture;
   }
 
   updateBirthDate(newBirthDate) {
-    this.birthDate = newBirthDate ? new Date(newBirthDate) : null;
+    this.birthDate = normalizeDate(newBirthDate, 'birthDate');
     this.age = this.birthDate ? this.calculateAge(this.birthDate) : 0;
     return this.birthDate;
   }
@@ -89,7 +128,7 @@ export default class PersonalProfile {
   }
 
   updateAddress(newAddress) {
-    this.address = newAddress;
+    this.address = normalizeOptionalString(newAddress, 'address');
     return this.address;
   }
 }

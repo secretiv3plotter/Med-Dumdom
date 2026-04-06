@@ -10,8 +10,21 @@
 
 import PersonalProfile from './PersonalProfile';
 
+const normalizeOptionalString = (value, fieldName) => {
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value.trim();
+};
+
 export default class PatientProfile extends PersonalProfile {
   constructor(profileData = {}) {
+    const safeProfileData = profileData && typeof profileData === 'object' ? profileData : {};
     const {
       fullName = '',
       name = fullName,
@@ -22,7 +35,7 @@ export default class PatientProfile extends PersonalProfile {
       address = '',
       emergencyContact = '',
       emergencyNum = '',
-    } = profileData;
+    } = safeProfileData;
 
     super({
       fullName,
@@ -33,17 +46,17 @@ export default class PatientProfile extends PersonalProfile {
       age,
       address,
     });
-    this.emergencyContact = emergencyContact;
-    this.emergencyNum = emergencyNum;
+    this.emergencyContact = normalizeOptionalString(emergencyContact, 'emergencyContact');
+    this.emergencyNum = normalizeOptionalString(emergencyNum, 'emergencyNum');
   }
 
   updateEmergencyContact(newContact) {
-    this.emergencyContact = newContact;
+    this.emergencyContact = normalizeOptionalString(newContact, 'emergencyContact');
     return this.emergencyContact;
   }
 
   updateEmergencyNum(newNum) {
-    this.emergencyNum = newNum;
+    this.emergencyNum = normalizeOptionalString(newNum, 'emergencyNum');
     return this.emergencyNum;
   }
 }

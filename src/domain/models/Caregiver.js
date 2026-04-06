@@ -14,6 +14,25 @@
 
 import User from './User';
 
+const normalizePatientIds = (patientIds) => {
+  if (!Array.isArray(patientIds)) {
+    throw new TypeError('patientIds must be an array.');
+  }
+
+  return patientIds.map((patientId) => {
+    if (typeof patientId !== 'string' && typeof patientId !== 'number') {
+      throw new TypeError('Each patientId must be a string or finite number.');
+    }
+
+    const normalizedPatientId = String(patientId).trim();
+    if (!normalizedPatientId) {
+      throw new RangeError('Each patientId cannot be empty.');
+    }
+
+    return normalizedPatientId;
+  });
+};
+
 export default class Caregiver extends User {
   constructor({
     userId = '',
@@ -31,6 +50,6 @@ export default class Caregiver extends User {
       password,
       personalProfile,
     });
-    this.patientIds = Array.isArray(patientIds) ? [...patientIds] : [];
+    this.patientIds = normalizePatientIds(patientIds);
   }
 }
