@@ -18,3 +18,27 @@
 
 // link-request approval workflow
 // Those belong in services.
+
+import User from './User';
+
+export default class Patient extends User {
+  constructor({
+    userId = '',
+    role = 'patient',
+    phoneNum = '',
+    email = '',
+    password = '',
+    caregiverId = '',
+  } = {}) {
+    super({ userId, role, phoneNum, email, password });
+    this.caregiverId = caregiverId;
+  }
+
+  hasCaregiver() {
+    return Boolean(this.caregiverId);
+  }
+
+  getCaregiverId() {
+    return this.caregiverId;
+  }
+}

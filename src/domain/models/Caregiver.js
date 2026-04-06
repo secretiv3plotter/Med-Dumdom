@@ -11,3 +11,19 @@
 // a constructor(...) that assigns those fields
 
 // no methods for now because all caregiver-specific behaviors will be implemented in services
+
+import User from './User';
+
+export default class Caregiver extends User {
+  constructor({
+    userId = '',
+    role = 'caregiver',
+    phoneNum = '',
+    email = '',
+    password = '',
+    patientIds = [],
+  } = {}) {
+    super({ userId, role, phoneNum, email, password });
+    this.patientIds = patientIds;
+  }
+}

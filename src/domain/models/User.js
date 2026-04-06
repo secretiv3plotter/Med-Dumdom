@@ -26,3 +26,41 @@
 // register()
 // changePassword()
 // softDeleteAccount()
+
+export default class User {
+  constructor({
+    userId = '',
+    role = '',
+    phoneNum = '',
+    email = '',
+    password = '',
+  } = {}) {
+    this.userId = userId;
+    this.role = role;
+    this.phoneNum = phoneNum;
+    this.email = email;
+    this.password = password;
+  }
+
+  updatePhoneNum(phoneNum) {
+    this.phoneNum = phoneNum;
+    return this.phoneNum;
+  }
+
+  updateEmail(email) {
+    this.email = email;
+    return this.email;
+  }
+
+  getRole() {
+    return this.role;
+  }
+
+  isPatient() {
+    return this.role === 'patient';
+  }
+
+  isCaregiver() {
+    return this.role === 'caregiver';
+  }
+}
