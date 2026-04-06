@@ -17,13 +17,20 @@ import User from './User';
 export default class Caregiver extends User {
   constructor({
     userId = '',
-    role = 'caregiver',
     phoneNum = '',
     email = '',
     password = '',
     patientIds = [],
+    personalProfile,
   } = {}) {
-    super({ userId, role, phoneNum, email, password });
-    this.patientIds = patientIds;
+    super({
+      userId,
+      role: 'caregiver',
+      phoneNum,
+      email,
+      password,
+      personalProfile,
+    });
+    this.patientIds = Array.isArray(patientIds) ? [...patientIds] : [];
   }
 }

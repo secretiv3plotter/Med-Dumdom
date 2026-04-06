@@ -20,17 +20,28 @@
 // Those belong in services.
 
 import User from './User';
+import PatientProfile from './PatientProfile';
 
 export default class Patient extends User {
   constructor({
     userId = '',
-    role = 'patient',
     phoneNum = '',
     email = '',
     password = '',
     caregiverId = '',
+    personalProfile = new PatientProfile(),
   } = {}) {
-    super({ userId, role, phoneNum, email, password });
+    super({
+      userId,
+      role: 'patient',
+      phoneNum,
+      email,
+      password,
+      personalProfile:
+        personalProfile instanceof PatientProfile
+          ? personalProfile
+          : new PatientProfile(personalProfile),
+    });
     this.caregiverId = caregiverId;
   }
 

@@ -27,6 +27,8 @@
 // changePassword()
 // softDeleteAccount()
 
+import PersonalProfile from './PersonalProfile';
+
 export default class User {
   constructor({
     userId = '',
@@ -34,12 +36,17 @@ export default class User {
     phoneNum = '',
     email = '',
     password = '',
+    personalProfile = new PersonalProfile(),
   } = {}) {
     this.userId = userId;
     this.role = role;
     this.phoneNum = phoneNum;
     this.email = email;
     this.password = password;
+    this.personalProfile =
+      personalProfile instanceof PersonalProfile
+        ? personalProfile
+        : new PersonalProfile(personalProfile);
   }
 
   updatePhoneNum(phoneNum) {
@@ -54,6 +61,10 @@ export default class User {
 
   getRole() {
     return this.role;
+  }
+
+  getPersonalProfile() {
+    return this.personalProfile;
   }
 
   isPatient() {

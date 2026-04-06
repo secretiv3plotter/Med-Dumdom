@@ -22,28 +22,39 @@
 // updateAddress(newAddress)
 
 export default class PersonalProfile {
-  constructor({
-    name = '',
-    profilePictureUrl = '',
-    birthDate = null,
-    age = 0,
-    address = '',
-  } = {}) {
-    this.name = name;
-    this.profilePictureUrl = profilePictureUrl;
+  constructor(profileData = {}) {
+    const {
+      fullName = '',
+      name = fullName,
+      profilePicture = '',
+      profilePictureUrl = profilePicture,
+      birthDate = null,
+      age = 0,
+      address = '',
+    } = profileData;
+
+    const resolvedFullName = fullName || name;
+    const resolvedProfilePicture = profilePicture || profilePictureUrl;
+
+    this.fullName = resolvedFullName;
+    this.name = resolvedFullName;
+    this.profilePicture = resolvedProfilePicture;
+    this.profilePictureUrl = resolvedProfilePicture;
     this.birthDate = birthDate ? new Date(birthDate) : null;
     this.age = this.birthDate ? this.calculateAge(this.birthDate) : age;
     this.address = address;
   }
 
   updateName(newName) {
+    this.fullName = newName;
     this.name = newName;
-    return this.name;
+    return this.fullName;
   }
 
   updateProfilePicture(newPictureUrl) {
+    this.profilePicture = newPictureUrl;
     this.profilePictureUrl = newPictureUrl;
-    return this.profilePictureUrl;
+    return this.profilePicture;
   }
 
   updateBirthDate(newBirthDate) {

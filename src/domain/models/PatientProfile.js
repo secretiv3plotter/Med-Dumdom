@@ -11,16 +11,28 @@
 import PersonalProfile from './PersonalProfile';
 
 export default class PatientProfile extends PersonalProfile {
-  constructor({
-    name = '',
-    profilePictureUrl = '',
-    birthDate = null,
-    age = 0,
-    address = '',
-    emergencyContact = '',
-    emergencyNum = '',
-  } = {}) {
-    super({ name, profilePictureUrl, birthDate, age, address });
+  constructor(profileData = {}) {
+    const {
+      fullName = '',
+      name = fullName,
+      profilePicture = '',
+      profilePictureUrl = profilePicture,
+      birthDate = null,
+      age = 0,
+      address = '',
+      emergencyContact = '',
+      emergencyNum = '',
+    } = profileData;
+
+    super({
+      fullName,
+      name,
+      profilePicture,
+      profilePictureUrl,
+      birthDate,
+      age,
+      address,
+    });
     this.emergencyContact = emergencyContact;
     this.emergencyNum = emergencyNum;
   }
