@@ -1,4 +1,4 @@
-// In NotifSetting.js, put:
+// In NotifSettingModel.js, put:
 
 // attributes for notification preferences, like:
 // medRemindersEnabled

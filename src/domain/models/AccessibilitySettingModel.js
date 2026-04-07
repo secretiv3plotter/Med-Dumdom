@@ -1,4 +1,4 @@
-// In AccessibilitySetting.js, put:
+// In AccessibilitySettingModel.js, put:
 
 // attributes for accessibility preferences, like:
 // textSizeLevel: small | medium | large

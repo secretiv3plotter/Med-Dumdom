@@ -1,4 +1,4 @@
-// PatientProfile extends PersonalProfile
+// PatientProfile extends PersonalProfileModel
 
 // patient-only profile fields
 // emergencyContact
@@ -8,7 +8,7 @@
 
 //constructor(...) that assigns those fields
 
-import PersonalProfile from './PersonalProfile';
+import PersonalProfile from './PersonalProfileModel';
 
 const normalizeOptionalString = (value, fieldName) => {
   if (value === undefined || value === null) {

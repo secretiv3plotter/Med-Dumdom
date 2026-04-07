@@ -1,0 +1,39 @@
+There are two kinds of users: Patient and Caregiver.
+Patients can:
+    manage their personal profile (view, add, edit, delete)
+    manage their settings (preferences)
+    in privacy settings, they can set what data caregivers can only access
+
+    go to help and support and search for or scroll through FAQs
+    
+    manage their med tracker (view, add, edit, delete, confirm taken meds)
+    manage their appt tracker as well (view, add, edit, cancel, finish appts, and add notes)
+
+    receive reminders which will become a pop up notification and also visible in the notifications screen
+
+    manage their progress report (view med and appt summaries over days, weeks, months, or years)
+    export their progress report
+
+Caregivers can:
+    only manage what their patient only allowed them to
+    they can view their patients' personal profile
+    they cannot manage their patients' settings
+    
+    go to help and support and search for or scroll through FAQs
+
+
+*the use cases above only focus on offline features although caregivers cannot really perform actions without internet*
+
+below are the use cases that will rely on internet:
+Patients:
+    can link to one caregiver and view their personal profile
+    enter a question in help and support and get a suggested faq based on that
+    receive real time manual reminders from caregivers
+
+Cargivers:
+    can link to many patients
+    send manual reminders to their patients (message and the med entry or appt entry they want their patient to be reminded)
+
+*please be reminded that deletions here are only soft deletions, a cron job will be implemented later for actual deletions*
+
+

@@ -2,7 +2,7 @@
 // They should only contain the attributes and behaviors that are specific to that role.
 
 // Patient
-// In Patient.js, put:
+// In PatientModel.js, put:
 
 // extends User
 // patient-specific attributes, like:
@@ -19,8 +19,8 @@
 // link-request approval workflow
 // Those belong in services.
 
-import User from './User';
-import PatientProfile from './PatientProfile';
+import User from './UserModel';
+import PatientProfile from './PatientProfileModel';
 
 const normalizeOptionalString = (value, fieldName) => {
   if (value === undefined || value === null) {

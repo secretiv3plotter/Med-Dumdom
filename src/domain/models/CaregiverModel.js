@@ -2,7 +2,7 @@
 // They should only contain the attributes and behaviors that are specific to that role.
 
 // Caregiver
-// In Caregiver.js, put:
+// In CaregiverModel.js, put:
 
 // extends User
 // caregiver-specific attributes, like:
@@ -12,7 +12,7 @@
 
 // no methods for now because all caregiver-specific behaviors will be implemented in services
 
-import User from './User';
+import User from './UserModel';
 
 const normalizePatientIds = (patientIds) => {
   if (!Array.isArray(patientIds)) {

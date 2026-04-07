@@ -1,5 +1,5 @@
-import MedEntry from './MedEntry';
-import ApptEntry from './ApptEntry';
+import MedEntry from './MedEntryModel';
+import ApptEntry from './ApptEntryModel';
 
 const normalizeOptionalString = (value, fieldName) => {
   if (value === undefined || value === null) {

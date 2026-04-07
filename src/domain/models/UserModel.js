@@ -1,6 +1,6 @@
-// Write User as the base user model that only contains data and behavior shared by both Patient and Caregiver.
+// Write User as the base UserModel that only contains data and behavior shared by both Patient and Caregiver.
 
-// In User.js, put:
+// In UserModel.js, put:
 
 // shared attributes:
 
@@ -27,7 +27,7 @@
 // changePassword()
 // softDeleteAccount()
 
-import PersonalProfile from './PersonalProfile';
+import PersonalProfile from './PersonalProfileModel';
 
 const normalizeOptionalString = (value, fieldName) => {
   if (value === undefined || value === null) {

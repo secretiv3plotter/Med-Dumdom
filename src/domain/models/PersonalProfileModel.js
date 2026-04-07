@@ -1,5 +1,5 @@
 //1 User owns 1 PersonalProfile class
-// In PersonalProfile.js, put:
+// In PersonalProfileModel.js, put:
 
 // attributes for personal details
 // a constructor

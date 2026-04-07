@@ -1,5 +1,5 @@
 // PatientPrivacy
-// In PatientPrivacy.js, put:
+// In PatientPrivacyModel.js, put:
 
 // attributes for privacy choices, like:
 // medTrackerPermit: boolean
