@@ -10,7 +10,8 @@
 // - updating medication reminder time
 // - updating appointment reminder time
 // - toggling vibration
-// - updating snooze duration
+// - updating medication snooze duration
+// - updating appointment snooze duration
 // - deciding whether a reminder should surface as a notification
 //
 // Use cases covered:
@@ -29,7 +30,8 @@
 // - updateMedReminderTime(newTime)
 // - updateApptReminderTime(newTime)
 // - toggleVibration()
-// - updateSnoozeDuration(newDuration)
+// - updateMedSnoozeDuration(newDuration)
+// - updateApptSnoozeDuration(newDuration)
 //
 // Suggested service methods:
 // - getSettings(userId)
@@ -38,7 +40,8 @@
 // - updateMedReminderTime(userId, newTime)
 // - updateApptReminderTime(userId, newTime)
 // - toggleVibration(userId)
-// - updateSnoozeDuration(userId, duration)
+// - updateMedSnoozeDuration(userId, duration)
+// - updateApptSnoozeDuration(userId, duration)
 // - shouldTriggerNotification(entry, settings, now)
 //
 // Notes:
@@ -52,8 +55,6 @@
 
 import NotifSetting from '../models/NotifSettingModel';
 
-const CLOCK_TIME_PATTERN = /^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/;
-
 const cloneSettings = (settings) =>
   new NotifSetting({
     medRemindersEnabled: settings.medRemindersEnabled,
@@ -61,7 +62,8 @@ const cloneSettings = (settings) =>
     medReminderTime: settings.medReminderTime,
     apptReminderTime: settings.apptReminderTime,
     vibrationEnabled: settings.vibrationEnabled,
-    snoozeDuration: settings.snoozeDuration,
+    medSnoozeDuration: settings.medSnoozeDuration,
+    apptSnoozeDuration: settings.apptSnoozeDuration,
   });
 
 const normalizeUserId = (userId) => {
@@ -102,37 +104,6 @@ const toSettingsModel = (settings) => {
   return new NotifSetting();
 };
 
-const parseClockTime = (value) => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const match = value.trim().match(CLOCK_TIME_PATTERN);
-  if (!match) {
-    return null;
-  }
-
-  let hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  const meridiem = match[3]?.toUpperCase() ?? null;
-
-  if (minutes < 0 || minutes > 59) {
-    return null;
-  }
-
-  if (meridiem) {
-    if (hours < 1 || hours > 12) {
-      return null;
-    }
-
-    hours = meridiem === 'AM' ? (hours === 12 ? 0 : hours) : hours === 12 ? 12 : hours + 12;
-  } else if (hours < 0 || hours > 23) {
-    return null;
-  }
-
-  return { hours, minutes };
-};
-
 const parseDateValue = (value) => {
   if (!value) {
     return null;
@@ -142,13 +113,30 @@ const parseDateValue = (value) => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-const getScheduledDate = (entry, now) => {
+const getScheduledDateTime = (entry, now) => {
   if (!entry || typeof entry !== 'object') {
-    return new Date(now.getTime());
+    return null;
+  }
+
+  const reminderDueAt = parseDateValue(entry.dueAt);
+  if (reminderDueAt) {
+    return reminderDueAt;
   }
 
   if (typeof entry.getScheduledDateTime === 'function') {
     const scheduledDateTime = parseDateValue(entry.getScheduledDateTime());
+    if (scheduledDateTime) {
+      return scheduledDateTime;
+    }
+  }
+
+  if (
+    typeof entry.dateSched === 'string' &&
+    entry.dateSched.trim() &&
+    typeof entry.timeSched === 'string' &&
+    entry.timeSched.trim()
+  ) {
+    const scheduledDateTime = parseDateValue(`${entry.dateSched.trim()}T${entry.timeSched.trim()}:00`);
     if (scheduledDateTime) {
       return scheduledDateTime;
     }
@@ -161,18 +149,26 @@ const getScheduledDate = (entry, now) => {
     }
   }
 
-  return new Date(now.getTime());
+  return null;
 };
 
-const buildReminderGate = (entry, reminderTime, now) => {
-  const clockTime = parseClockTime(reminderTime);
-  if (!clockTime) {
+const normalizeLeadMinutes = (value) => {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
 
-  const gateDate = getScheduledDate(entry, now);
-  gateDate.setHours(clockTime.hours, clockTime.minutes, 0, 0);
-  return gateDate;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
+};
+
+const buildReminderGate = (entry, leadMinutes, now) => {
+  const scheduledDateTime = getScheduledDateTime(entry, now);
+  const normalizedLeadMinutes = normalizeLeadMinutes(leadMinutes);
+  if (!scheduledDateTime || normalizedLeadMinutes === null) {
+    return null;
+  }
+
+  return new Date(scheduledDateTime.getTime() - normalizedLeadMinutes * 60 * 1000);
 };
 
 const inferEntryType = (entry) => {
@@ -306,10 +302,20 @@ export class NotifSettingsService {
     return cloneSettings(settings);
   }
 
-  updateSnoozeDuration(userId, duration) {
+  updateMedSnoozeDuration(userId, duration) {
     const settings = this._getStoredSettings(userId);
-    settings.updateSnoozeDuration(duration);
+    settings.updateMedSnoozeDuration(duration);
     return cloneSettings(settings);
+  }
+
+  updateApptSnoozeDuration(userId, duration) {
+    const settings = this._getStoredSettings(userId);
+    settings.updateApptSnoozeDuration(duration);
+    return cloneSettings(settings);
+  }
+
+  updateSnoozeDuration(userId, duration) {
+    return this.updateMedSnoozeDuration(userId, duration);
   }
 
   shouldTriggerNotification(entry, settings, now = new Date()) {
@@ -333,14 +339,19 @@ export class NotifSettingsService {
       return false;
     }
 
-    const reminderTime =
+    const reminderLeadTime =
       entryType === 'medication' ? resolvedSettings.medReminderTime : resolvedSettings.apptReminderTime;
 
-    if (!reminderTime) {
+    if (reminderLeadTime === null) {
+      const scheduledDateTime = getScheduledDateTime(entry, currentDateTime);
+      if (scheduledDateTime) {
+        return currentDateTime.getTime() >= scheduledDateTime.getTime();
+      }
+
       return true;
     }
 
-    const reminderGate = buildReminderGate(entry, reminderTime, currentDateTime);
+    const reminderGate = buildReminderGate(entry, reminderLeadTime, currentDateTime);
     return !reminderGate || currentDateTime.getTime() >= reminderGate.getTime();
   }
 

@@ -1,18 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import DurationPicker from '../../../shared/components/common/DurationPicker';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
+import notifSettingsService from '../../../domain/services/NotifSettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { colors, spacing, typography } from '../../../shared/theme';
 
-const MIN_TIME_VALUE = 0;
-const MAX_TIME_VALUE = 59;
-const DEFAULT_MEDICINE_TIME = { hours: 0, minutes: 5 };
-const DEFAULT_APPOINTMENT_TIME = { days: 1, hours: 0, minutes: 0 };
+const CURRENT_USER_ID = 'current-user';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -22,22 +20,52 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
+const minutesToDurationParts = (value) => {
+  const totalMinutes = Math.max(0, Number(value) || 0);
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = totalMinutes % 60;
+
+  return { days, hours, minutes };
+};
+
+const durationPartsToMinutes = ({ days = 0, hours = 0, minutes = 0 }) =>
+  Number(days || 0) * 24 * 60 + Number(hours || 0) * 60 + Number(minutes || 0);
+
+const toEditableDraft = (settings) => ({
+  vibrationEnabled: settings.vibrationEnabled,
+  medRemindersEnabled: settings.medRemindersEnabled,
+  apptRemindersEnabled: settings.apptRemindersEnabled,
+  medReminderTime:
+    settings.medReminderTime === null || settings.medReminderTime === undefined
+      ? ''
+      : String(settings.medReminderTime),
+  apptReminderTime:
+    settings.apptReminderTime === null || settings.apptReminderTime === undefined
+      ? ''
+      : String(settings.apptReminderTime),
+  medSnoozeDuration:
+    settings.medSnoozeDuration === null || settings.medSnoozeDuration === undefined
+      ? ''
+      : String(settings.medSnoozeDuration),
+  apptSnoozeDuration:
+    settings.apptSnoozeDuration === null || settings.apptSnoozeDuration === undefined
+      ? ''
+      : String(settings.apptSnoozeDuration),
+});
+
 export default function NotificationSettingsScreen({ navigation }) {
-  const [settings, setSettings] = useState({
-    vibration: true,
-    medicineReminders: true,
-    appointmentReminders: true,
-    medicineOnTime: false,
-    appointmentOnTime: false,
-    medicineHours: DEFAULT_MEDICINE_TIME.hours,
-    medicineMinutes: DEFAULT_MEDICINE_TIME.minutes,
-    appointmentDays: DEFAULT_APPOINTMENT_TIME.days,
-    appointmentHours: DEFAULT_APPOINTMENT_TIME.hours,
-    appointmentMinutes: DEFAULT_APPOINTMENT_TIME.minutes,
-  });
+  const [settings, setSettings] = useState(() => notifSettingsService.getSettings(CURRENT_USER_ID));
+  const [draft, setDraft] = useState(() => toEditableDraft(settings));
+  const [statusMessage, setStatusMessage] = useState('');
   const { height } = useWindowDimensions();
   const contentTopPadding = Math.max(spacing.lg, Math.min(56, Math.round(height * 0.055)));
   const contentBottomPadding = Math.max(136, Math.round(height * 0.19));
+
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -46,46 +74,61 @@ export default function NotificationSettingsScreen({ navigation }) {
     }
   };
 
-  const updateSetting = (key, value) => {
-    setSettings((previousState) => ({
-      ...previousState,
-      [key]: value,
-    }));
+  const updateDraft = (key, value) => {
+    setDraft((current) => ({ ...current, [key]: value }));
   };
 
-  const setOnTime = (sectionKey, enabled) => {
-    if (sectionKey === 'medicine') {
-      setSettings((previousState) => ({
-        ...previousState,
-        medicineOnTime: enabled,
-        medicineHours: enabled ? 0 : DEFAULT_MEDICINE_TIME.hours,
-        medicineMinutes: enabled ? 0 : DEFAULT_MEDICINE_TIME.minutes,
-      }));
-      return;
+  const syncToggle = (key, toggleMethod) => {
+    const nextValue = !draft[key];
+    const nextSettings = notifSettingsService[toggleMethod](CURRENT_USER_ID);
+    setSettings(nextSettings);
+    setDraft((current) => ({ ...current, [key]: nextValue }));
+  };
+
+  const saveFields = () => {
+    let nextSettings = notifSettingsService.getSettings(CURRENT_USER_ID);
+
+    if (draft.medReminderTime !== String(nextSettings.medReminderTime ?? '')) {
+      nextSettings = notifSettingsService.updateMedReminderTime(CURRENT_USER_ID, draft.medReminderTime || null);
     }
 
-    setSettings((previousState) => ({
-      ...previousState,
-      appointmentOnTime: enabled,
-      appointmentDays: enabled ? 0 : DEFAULT_APPOINTMENT_TIME.days,
-      appointmentHours: enabled ? 0 : DEFAULT_APPOINTMENT_TIME.hours,
-      appointmentMinutes: enabled ? 0 : DEFAULT_APPOINTMENT_TIME.minutes,
-    }));
-  };
+    if (draft.apptReminderTime !== String(nextSettings.apptReminderTime ?? '')) {
+      nextSettings = notifSettingsService.updateApptReminderTime(CURRENT_USER_ID, draft.apptReminderTime || null);
+    }
 
-  const medicineTimingLabel = useMemo(
-    () => `${settings.medicineHours}h ${settings.medicineMinutes}m`,
-    [settings.medicineHours, settings.medicineMinutes],
-  );
-  const appointmentTimingLabel = useMemo(
-    () => `${settings.appointmentDays}d ${settings.appointmentHours}h ${settings.appointmentMinutes}m`,
-    [settings.appointmentDays, settings.appointmentHours, settings.appointmentMinutes],
-  );
+    const nextMedSnooze = draft.medSnoozeDuration.trim();
+    const normalizedMedSnooze = nextMedSnooze === '' ? null : Number(nextMedSnooze);
+    if ((nextSettings.medSnoozeDuration ?? null) !== normalizedMedSnooze) {
+      nextSettings = notifSettingsService.updateMedSnoozeDuration(CURRENT_USER_ID, normalizedMedSnooze);
+    }
+
+    const nextApptSnooze = draft.apptSnoozeDuration.trim();
+    const normalizedApptSnooze = nextApptSnooze === '' ? null : Number(nextApptSnooze);
+    if ((nextSettings.apptSnoozeDuration ?? null) !== normalizedApptSnooze) {
+      nextSettings = notifSettingsService.updateApptSnoozeDuration(CURRENT_USER_ID, normalizedApptSnooze);
+    }
+
+    if (draft.vibrationEnabled !== nextSettings.vibrationEnabled) {
+      nextSettings = notifSettingsService.toggleVibration(CURRENT_USER_ID);
+    }
+
+    if (draft.medRemindersEnabled !== nextSettings.medRemindersEnabled) {
+      nextSettings = notifSettingsService.toggleMedReminders(CURRENT_USER_ID);
+    }
+
+    if (draft.apptRemindersEnabled !== nextSettings.apptRemindersEnabled) {
+      nextSettings = notifSettingsService.toggleApptReminders(CURRENT_USER_ID);
+    }
+
+    setSettings(nextSettings);
+    setDraft(toEditableDraft(nextSettings));
+    setStatusMessage('Notification settings saved');
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} showLabel={false} />
+        <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} showLabel={false} />
       </View>
 
       <ScrollView
@@ -98,149 +141,155 @@ export default function NotificationSettingsScreen({ navigation }) {
         ]}
       >
         <View style={styles.header}>
-          <View style={styles.headerTitleRow}>
-            <Ionicons name="notifications-outline" size={28} color={colors.title} />
-            <Text style={styles.title}>Notification Settings</Text>
-          </View>
-          <Text style={styles.subtitle}>Manage how you receive alerts and reminders.</Text>
+          <Text style={styles.title}>Notification Settings</Text>
+          <Text style={styles.subtitle}>Match the reminder options defined in the notification model.</Text>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.rowHeader}>
-            <View style={styles.rowTitleWrap}>
-              <Ionicons name="phone-portrait-outline" size={24} color={colors.title} />
-              <Text style={styles.rowTitle}>Vibration</Text>
-            </View>
-            <ToggleButton value={settings.vibration} onChange={(nextValue) => updateSetting('vibration', nextValue)} size={20} />
-          </View>
-        </View>
+        <SettingCard title="Vibration">
+          <ToggleRow
+            label="Enable vibration"
+            value={draft.vibrationEnabled}
+            onChange={() => syncToggle('vibrationEnabled', 'toggleVibration')}
+          />
+        </SettingCard>
 
-        <View style={styles.section}>
-          <View style={styles.rowHeader}>
-            <View style={styles.rowTitleWrap}>
-              <Ionicons name="medkit-outline" size={24} color={colors.title} />
-              <Text style={styles.rowTitle}>Medicine Reminders</Text>
-            </View>
-            <ToggleButton
-              value={settings.medicineReminders}
-              onChange={(nextValue) => updateSetting('medicineReminders', nextValue)}
-              size={20}
-            />
-          </View>
+        <SettingCard title="Medication reminders">
+          <ToggleRow
+            label="Enable medication reminders"
+            value={draft.medRemindersEnabled}
+            onChange={() => syncToggle('medRemindersEnabled', 'toggleMedReminders')}
+          />
+          <FieldLabel label="Lead time in minutes before the schedule" />
+          <TextInput
+            value={draft.medReminderTime}
+            onChangeText={(value) => updateDraft('medReminderTime', value.replace(/[^\d]/g, ''))}
+            placeholder="5"
+            placeholderTextColor={colors.placeholder}
+            keyboardType="numeric"
+            style={styles.textInput}
+          />
+          <FieldLabel label="Snooze in minutes" />
+          <TextInput
+            value={draft.medSnoozeDuration}
+            onChangeText={(value) => updateDraft('medSnoozeDuration', value.replace(/[^\d]/g, ''))}
+            placeholder="10"
+            placeholderTextColor={colors.placeholder}
+            keyboardType="numeric"
+            style={styles.textInput}
+          />
+        </SettingCard>
 
-          <View style={styles.timingBlock}>
-            <View style={styles.timingHeaderRow}>
-              <Text style={styles.timingTitle}>Reminder Timing</Text>
-              <Pressable
-                onPress={() => setOnTime('medicine', !settings.medicineOnTime)}
-                accessibilityRole="button"
-                accessibilityLabel="Set medicine reminder to on time"
-                accessibilityState={{ selected: settings.medicineOnTime, disabled: !settings.medicineReminders }}
-                disabled={!settings.medicineReminders}
-                style={[
-                  styles.onTimeChip,
-                  !settings.medicineReminders && styles.onTimeChipDisabled,
-                  settings.medicineOnTime && styles.onTimeChipSelected,
-                ]}
-              >
-                <Text style={[styles.onTimeChipText, settings.medicineOnTime && styles.onTimeChipTextSelected]}>On Time</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.timingSummary}>
-              {settings.medicineOnTime ? 'On time (0m before schedule)' : `${medicineTimingLabel} before schedule`}
-            </Text>
-            <View style={styles.separator} />
-
-            <DurationPicker
-              disabled={!settings.medicineReminders || settings.medicineOnTime}
-              units={[
-                {
-                  key: 'medicineHours',
-                  label: 'Hours',
-                  value: settings.medicineHours,
-                  min: MIN_TIME_VALUE,
-                  max: MAX_TIME_VALUE,
-                  onChange: (nextValue) => updateSetting('medicineHours', nextValue),
+        <SettingCard title="Appointment reminders">
+          <ToggleRow
+            label="Enable appointment reminders"
+            value={draft.apptRemindersEnabled}
+            onChange={() => syncToggle('apptRemindersEnabled', 'toggleApptReminders')}
+          />
+          <FieldLabel label="Lead time before the schedule" />
+          <DurationPicker
+            units={[
+              {
+                key: 'days',
+                label: 'Days',
+                value: minutesToDurationParts(draft.apptReminderTime).days,
+                min: 0,
+                max: 30,
+                maxLength: 2,
+                onChange: (nextDays) => {
+                  const current = minutesToDurationParts(draft.apptReminderTime);
+                  updateDraft(
+                    'apptReminderTime',
+                    String(durationPartsToMinutes({ ...current, days: nextDays }))
+                  );
                 },
-                {
-                  key: 'medicineMinutes',
-                  label: 'Minutes',
-                  value: settings.medicineMinutes,
-                  min: MIN_TIME_VALUE,
-                  max: MAX_TIME_VALUE,
-                  onChange: (nextValue) => updateSetting('medicineMinutes', nextValue),
+              },
+              {
+                key: 'hours',
+                label: 'Hours',
+                value: minutesToDurationParts(draft.apptReminderTime).hours,
+                min: 0,
+                max: 23,
+                maxLength: 2,
+                onChange: (nextHours) => {
+                  const current = minutesToDurationParts(draft.apptReminderTime);
+                  updateDraft(
+                    'apptReminderTime',
+                    String(durationPartsToMinutes({ ...current, hours: nextHours }))
+                  );
                 },
-              ]}
-            />
-          </View>
-        </View>
+              },
+              {
+                key: 'minutes',
+                label: 'Minutes',
+                value: minutesToDurationParts(draft.apptReminderTime).minutes,
+                min: 0,
+                max: 59,
+                maxLength: 2,
+                onChange: (nextMinutes) => {
+                  const current = minutesToDurationParts(draft.apptReminderTime);
+                  updateDraft(
+                    'apptReminderTime',
+                    String(durationPartsToMinutes({ ...current, minutes: nextMinutes }))
+                  );
+                },
+              },
+            ]}
+          />
+          <FieldLabel label="Snooze duration" />
+          <DurationPicker
+            units={[
+              {
+                key: 'snooze-days',
+                label: 'Days',
+                value: minutesToDurationParts(draft.apptSnoozeDuration).days,
+                min: 0,
+                max: 30,
+                maxLength: 2,
+                onChange: (nextDays) => {
+                  const current = minutesToDurationParts(draft.apptSnoozeDuration);
+                  updateDraft(
+                    'apptSnoozeDuration',
+                    String(durationPartsToMinutes({ ...current, days: nextDays }))
+                  );
+                },
+              },
+              {
+                key: 'snooze-hours',
+                label: 'Hours',
+                value: minutesToDurationParts(draft.apptSnoozeDuration).hours,
+                min: 0,
+                max: 23,
+                maxLength: 2,
+                onChange: (nextHours) => {
+                  const current = minutesToDurationParts(draft.apptSnoozeDuration);
+                  updateDraft(
+                    'apptSnoozeDuration',
+                    String(durationPartsToMinutes({ ...current, hours: nextHours }))
+                  );
+                },
+              },
+              {
+                key: 'snooze-minutes',
+                label: 'Minutes',
+                value: minutesToDurationParts(draft.apptSnoozeDuration).minutes,
+                min: 0,
+                max: 59,
+                maxLength: 2,
+                onChange: (nextMinutes) => {
+                  const current = minutesToDurationParts(draft.apptSnoozeDuration);
+                  updateDraft(
+                    'apptSnoozeDuration',
+                    String(durationPartsToMinutes({ ...current, minutes: nextMinutes }))
+                  );
+                },
+              },
+            ]}
+          />
+        </SettingCard>
 
-        <View style={styles.section}>
-          <View style={styles.rowHeader}>
-            <View style={styles.rowTitleWrap}>
-              <Ionicons name="calendar-outline" size={24} color={colors.title} />
-              <Text style={styles.rowTitle}>Appointment Reminders</Text>
-            </View>
-            <ToggleButton
-              value={settings.appointmentReminders}
-              onChange={(nextValue) => updateSetting('appointmentReminders', nextValue)}
-              size={20}
-            />
-          </View>
-
-          <View style={styles.timingBlock}>
-            <View style={styles.timingHeaderRow}>
-              <Text style={styles.timingTitle}>Reminder Timing</Text>
-              <Pressable
-                onPress={() => setOnTime('appointment', !settings.appointmentOnTime)}
-                accessibilityRole="button"
-                accessibilityLabel="Set appointment reminder to on time"
-                accessibilityState={{ selected: settings.appointmentOnTime, disabled: !settings.appointmentReminders }}
-                disabled={!settings.appointmentReminders}
-                style={[
-                  styles.onTimeChip,
-                  !settings.appointmentReminders && styles.onTimeChipDisabled,
-                  settings.appointmentOnTime && styles.onTimeChipSelected,
-                ]}
-              >
-                <Text style={[styles.onTimeChipText, settings.appointmentOnTime && styles.onTimeChipTextSelected]}>On Time</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.timingSummary}>
-              {settings.appointmentOnTime ? 'On time (0m before schedule)' : `${appointmentTimingLabel} before schedule`}
-            </Text>
-            <View style={styles.separator} />
-
-            <DurationPicker
-              disabled={!settings.appointmentReminders || settings.appointmentOnTime}
-              units={[
-                {
-                  key: 'appointmentDays',
-                  label: 'Days',
-                  value: settings.appointmentDays,
-                  min: 0,
-                  max: 30,
-                  onChange: (nextValue) => updateSetting('appointmentDays', nextValue),
-                },
-                {
-                  key: 'appointmentHours',
-                  label: 'Hours',
-                  value: settings.appointmentHours,
-                  min: MIN_TIME_VALUE,
-                  max: MAX_TIME_VALUE,
-                  onChange: (nextValue) => updateSetting('appointmentHours', nextValue),
-                },
-                {
-                  key: 'appointmentMinutes',
-                  label: 'Minutes',
-                  value: settings.appointmentMinutes,
-                  min: MIN_TIME_VALUE,
-                  max: MAX_TIME_VALUE,
-                  onChange: (nextValue) => updateSetting('appointmentMinutes', nextValue),
-                },
-              ]}
-            />
-          </View>
+        <View style={styles.saveWrap}>
+          <ActionButton label="Save Changes" variant="solid" onPress={saveFields} />
+          {statusMessage ? <Text style={styles.statusMessage}>{statusMessage}</Text> : null}
         </View>
       </ScrollView>
 
@@ -249,6 +298,28 @@ export default function NotificationSettingsScreen({ navigation }) {
       </View>
     </SafeAreaView>
   );
+}
+
+function SettingCard({ title, children }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionCard}>{children}</View>
+    </View>
+  );
+}
+
+function ToggleRow({ label, value, onChange }) {
+  return (
+    <View style={styles.rowHeader}>
+      <Text style={styles.rowTitle}>{label}</Text>
+      <ToggleButton value={value} onChange={onChange} size={20} />
+    </View>
+  );
+}
+
+function FieldLabel({ label }) {
+  return <Text style={styles.fieldLabel}>{label}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -266,15 +337,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.xxl,
+    gap: spacing.lg,
   },
   header: {
     gap: 2,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   title: {
     ...typography.title,
@@ -282,10 +348,22 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...typography.body,
-    color: colors.body,
-    marginLeft: 1,
+    color: colors.bodyMuted,
   },
   section: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    ...typography.subtitle,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
     gap: spacing.sm,
   },
   rowHeader: {
@@ -294,65 +372,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  rowTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
   rowTitle: {
-    ...typography.subtitle,
-    color: colors.title,
-    fontWeight: '700',
+    ...typography.body,
+    color: colors.body,
+    flex: 1,
   },
-  timingBlock: {
-    gap: spacing.sm,
-    marginLeft: 0,
-    alignItems: 'center',
-  },
-  timingHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    width: '100%',
-  },
-  timingTitle: {
-    ...typography.subtitle,
-    color: colors.title,
-    fontWeight: '500',
-  },
-  onTimeChip: {
-    borderWidth: 1,
-    borderColor: colors.brand,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  onTimeChipSelected: {
-    backgroundColor: colors.brand,
-  },
-  onTimeChipDisabled: {
-    borderColor: colors.border,
-    opacity: 0.55,
-  },
-  onTimeChipText: {
-    ...typography.bodySmall,
-    color: colors.brand,
-    fontWeight: '600',
-  },
-  onTimeChipTextSelected: {
-    color: colors.surface,
-  },
-  timingSummary: {
+  fieldLabel: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
-    width: '100%',
   },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-    width: '100%',
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    color: colors.body,
+  },
+  saveWrap: {
+    gap: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  statusMessage: {
+    ...typography.bodySmall,
+    color: colors.success,
+    fontWeight: '700',
   },
   footerNav: {
     position: 'absolute',

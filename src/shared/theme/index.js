@@ -1,3 +1,5 @@
+import { moderateScale, moderateVerticalScale, roundToPixel } from './scaling';
+
 export const colors = {
   // High-contrast neutrals and action colors for accessible defaults.
   pageBg: '#F3F6FA',
@@ -18,33 +20,59 @@ export const colors = {
 };
 
 export const spacing = {
-  xxs: 4,
-  xs: 8,
-  sm: 12,
-  md: 16,
-  lg: 20,
-  xl: 24,
-  xxl: 32,
+  xxs: roundToPixel(moderateScale(4)),
+  xs: roundToPixel(moderateScale(8)),
+  sm: roundToPixel(moderateScale(12)),
+  md: roundToPixel(moderateScale(16)),
+  lg: roundToPixel(moderateScale(20)),
+  xl: roundToPixel(moderateScale(24)),
+  xxl: roundToPixel(moderateScale(32)),
 };
 
 export const radius = {
-  xs: 8,
-  sm: 10,
-  md: 12,
-  lg: 14,
-  xl: 18,
+  xs: roundToPixel(moderateScale(8)),
+  sm: roundToPixel(moderateScale(10)),
+  md: roundToPixel(moderateScale(12)),
+  lg: roundToPixel(moderateScale(14)),
+  xl: roundToPixel(moderateScale(18)),
 };
 
 export const typography = {
-  title: { fontSize: 28, lineHeight: 36, fontWeight: '700' },
-  titleSmall: { fontSize: 22, lineHeight: 30, fontWeight: '700' },
-  subtitle: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  bodySmall: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
-  button: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
+  title: {
+    fontSize: roundToPixel(moderateScale(28)),
+    lineHeight: roundToPixel(moderateVerticalScale(36)),
+    fontWeight: '700',
+  },
+  titleSmall: {
+    fontSize: roundToPixel(moderateScale(22)),
+    lineHeight: roundToPixel(moderateVerticalScale(30)),
+    fontWeight: '700',
+  },
+  subtitle: {
+    fontSize: roundToPixel(moderateScale(16)),
+    lineHeight: roundToPixel(moderateVerticalScale(24)),
+    fontWeight: '400',
+  },
+  body: {
+    fontSize: roundToPixel(moderateScale(16)),
+    lineHeight: roundToPixel(moderateVerticalScale(24)),
+    fontWeight: '400',
+  },
+  bodySmall: {
+    fontSize: roundToPixel(moderateScale(14)),
+    lineHeight: roundToPixel(moderateVerticalScale(20)),
+    fontWeight: '400',
+  },
+  button: {
+    fontSize: roundToPixel(moderateScale(16)),
+    lineHeight: roundToPixel(moderateVerticalScale(24)),
+    fontWeight: '600',
+  },
 };
 
 export const accessibility = {
-  minTouchTarget: 48,
-  focusRingWidth: 2,
+  minTouchTarget: roundToPixel(moderateScale(48)),
+  focusRingWidth: roundToPixel(moderateScale(2)),
 };
+
+export { moderateScale, moderateVerticalScale, roundToPixel };

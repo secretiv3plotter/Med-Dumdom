@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -9,57 +9,12 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
+import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
 
+const CURRENT_USER_ID = 'current-user';
 const TOP_OVERLAY_HEIGHT = 130;
-
-const INITIAL_APPOINTMENTS = [
-  {
-    id: 'appt-1',
-    concern: 'Primary Care Follow-up',
-    address: 'Makati Medical Center, Room 204',
-    contactNum: '+63 917 555 0198',
-    dateSched: '2026-03-20',
-    timeSched: '08:30',
-    note: 'Bring your latest blood pressure log and lab results.',
-    isCompleted: false,
-    completedAt: null,
-  },
-  {
-    id: 'appt-2',
-    concern: 'Lab Results Consultation',
-    address: 'Teleconsult via patient portal',
-    contactNum: '+63 2 8123 4567',
-    dateSched: '2026-03-21',
-    timeSched: '10:15',
-    note: 'Review CBC, fasting glucose, and cholesterol levels.',
-    isCompleted: false,
-    completedAt: null,
-  },
-  {
-    id: 'appt-3',
-    concern: 'Physical Therapy Check-in',
-    address: 'St. Luke’s BGC Rehab Wing',
-    contactNum: '+63 917 555 0271',
-    dateSched: '2026-03-24',
-    timeSched: '14:00',
-    note: 'Wear loose clothing for mobility assessment.',
-    isCompleted: false,
-    completedAt: null,
-  },
-  {
-    id: 'appt-4',
-    concern: 'Dental Cleaning',
-    address: 'Rivera Dental Clinic',
-    contactNum: '+63 917 555 0180',
-    dateSched: '2026-03-18',
-    timeSched: '09:00',
-    note: 'Routine cleaning completed without issues.',
-    isCompleted: true,
-    completedAt: '2026-03-18T09:42:00.000Z',
-  },
-];
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -69,11 +24,21 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-function toAppointmentDateTime(entry) {
-  return new Date(`${entry.dateSched}T${entry.timeSched}:00`);
-}
+const EMPTY_FORM = {
+  concern: '',
+  address: '',
+  contactNumber: '',
+  dateSched: '',
+  timeSched: '',
+  note: '',
+};
 
-function formatDate(dateString) {
+const parseDateTime = (dateSched, timeSched) => {
+  const parsed = new Date(`${dateSched}T${timeSched}:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDate = (dateString) => {
   if (!dateString) {
     return '--';
   }
@@ -83,9 +48,9 @@ function formatDate(dateString) {
     day: 'numeric',
     year: 'numeric',
   });
-}
+};
 
-function formatTime(timeString) {
+const formatTime = (timeString) => {
   if (!timeString) {
     return '--';
   }
@@ -102,9 +67,9 @@ function formatTime(timeString) {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
+};
 
-function formatIsoDateTime(isoString) {
+const formatIsoDateTime = (isoString) => {
   if (!isoString) {
     return '--';
   }
@@ -114,9 +79,9 @@ function formatIsoDateTime(isoString) {
     day: 'numeric',
     year: 'numeric',
   });
-}
+};
 
-function formatIsoTime(isoString) {
+const formatIsoTime = (isoString) => {
   if (!isoString) {
     return '--';
   }
@@ -125,15 +90,19 @@ function formatIsoTime(isoString) {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
+};
 
-function getAppointmentStatus(appointment) {
+const getAppointmentStatus = (appointment) => {
   if (appointment.isCompleted) {
     return { label: 'Completed', bgColor: '#E9F8EF', textColor: colors.success };
   }
 
+  const appointmentDate = parseDateTime(appointment.dateSched, appointment.timeSched);
+  if (!appointmentDate) {
+    return { label: 'Upcoming', bgColor: '#FFF5E8', textColor: colors.warning };
+  }
+
   const now = new Date();
-  const appointmentDate = toAppointmentDateTime(appointment);
   const diffMinutes = Math.round((appointmentDate.getTime() - now.getTime()) / (60 * 1000));
 
   if (diffMinutes <= 60) {
@@ -141,58 +110,29 @@ function getAppointmentStatus(appointment) {
   }
 
   return { label: 'Upcoming', bgColor: '#FFF5E8', textColor: colors.warning };
-}
+};
 
 export default function AppointmentTrackerScreen({ navigation }) {
-  const [appointments, setAppointments] = useState(INITIAL_APPOINTMENTS);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState(
-    INITIAL_APPOINTMENTS[0]?.id || null
-  );
+  const [version, setVersion] = useState(0);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editorMode, setEditorMode] = useState(null);
-  const [formState, setFormState] = useState({
-    concern: '',
-    address: '',
-    contactNum: '',
-    dateSched: '',
-    timeSched: '',
-    note: '',
-  });
+  const [formState, setFormState] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
-  const [draftDetails, setDraftDetails] = useState({
-    concern: '',
-    address: '',
-    contactNum: '',
-    dateSched: '',
-    timeSched: '',
-    note: '',
-  });
+  const [draftDetails, setDraftDetails] = useState(EMPTY_FORM);
 
   const canGoBack =
     typeof navigation?.canGoBack === 'function'
       ? navigation.canGoBack()
       : Boolean(navigation?.canGoBack);
 
+  const appointments = useMemo(() => apptTrackerService.listApptEntries(CURRENT_USER_ID), [version]);
+
   const selectedAppointment = useMemo(
-    () => appointments.find((appointment) => appointment.id === selectedAppointmentId) || null,
+    () => appointments.find((appointment) => appointment.apptEntryId === selectedAppointmentId) || null,
     [appointments, selectedAppointmentId]
   );
-
-  useEffect(() => {
-    if (!selectedAppointment) {
-      return;
-    }
-
-    setDraftDetails({
-      concern: selectedAppointment.concern,
-      address: selectedAppointment.address,
-      contactNum: selectedAppointment.contactNum,
-      dateSched: selectedAppointment.dateSched,
-      timeSched: selectedAppointment.timeSched,
-      note: selectedAppointment.note,
-    });
-  }, [selectedAppointment]);
 
   const sortedAppointments = useMemo(() => {
     return [...appointments].sort((left, right) => {
@@ -207,7 +147,9 @@ export default function AppointmentTrackerScreen({ navigation }) {
         return new Date(right.completedAt || 0).getTime() - new Date(left.completedAt || 0).getTime();
       }
 
-      return toAppointmentDateTime(left).getTime() - toAppointmentDateTime(right).getTime();
+      const leftDate = parseDateTime(left.dateSched, left.timeSched);
+      const rightDate = parseDateTime(right.dateSched, right.timeSched);
+      return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
     });
   }, [appointments]);
 
@@ -218,16 +160,11 @@ export default function AppointmentTrackerScreen({ navigation }) {
     }
   };
 
+  const refresh = () => setVersion((current) => current + 1);
+
   const handleAddAppointment = () => {
     setFormError('');
-    setFormState({
-      concern: '',
-      address: '',
-      contactNum: '',
-      dateSched: '',
-      timeSched: '',
-      note: '',
-    });
+    setFormState(EMPTY_FORM);
     setEditorMode('create');
   };
 
@@ -236,6 +173,14 @@ export default function AppointmentTrackerScreen({ navigation }) {
       return;
     }
 
+    setDraftDetails({
+      concern: selectedAppointment.concern,
+      address: selectedAppointment.address,
+      contactNumber: selectedAppointment.contactNumber,
+      dateSched: selectedAppointment.dateSched,
+      timeSched: selectedAppointment.timeSched,
+      note: selectedAppointment.note,
+    });
     setIsEditingDetails(true);
   };
 
@@ -244,13 +189,11 @@ export default function AppointmentTrackerScreen({ navigation }) {
       return;
     }
 
-    setAppointments((prev) => {
-      const nextAppointments = prev.filter((appointment) => appointment.id !== selectedAppointment.id);
-      setSelectedAppointmentId(nextAppointments[0]?.id || null);
-      return nextAppointments;
-    });
+    apptTrackerService.cancelApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId);
     setIsEditingDetails(false);
     setIsDetailsVisible(false);
+    setSelectedAppointmentId(null);
+    refresh();
   };
 
   const handleSaveDetails = () => {
@@ -258,48 +201,37 @@ export default function AppointmentTrackerScreen({ navigation }) {
       return;
     }
 
-    setAppointments((prev) =>
-      prev.map((appointment) =>
-        appointment.id === selectedAppointment.id
-          ? {
-              ...appointment,
-              concern: draftDetails.concern.trim() || appointment.concern,
-              address: draftDetails.address.trim() || appointment.address,
-              contactNum: draftDetails.contactNum.trim() || appointment.contactNum,
-              dateSched: draftDetails.dateSched.trim() || appointment.dateSched,
-              timeSched: draftDetails.timeSched.trim() || appointment.timeSched,
-              note: draftDetails.note.trim() || appointment.note,
-            }
-          : appointment
-      )
-    );
+    apptTrackerService.updateApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId, {
+      concern: draftDetails.concern.trim() || selectedAppointment.concern,
+      address: draftDetails.address.trim() || selectedAppointment.address,
+      contactNumber: draftDetails.contactNumber.trim() || selectedAppointment.contactNumber,
+      dateSched: draftDetails.dateSched.trim() || selectedAppointment.dateSched,
+      timeSched: draftDetails.timeSched.trim() || selectedAppointment.timeSched,
+      note: draftDetails.note.trim() || selectedAppointment.note,
+    });
     setIsEditingDetails(false);
+    refresh();
   };
 
-  const handleCancelEdit = () => {
-    if (selectedAppointment) {
-      setDraftDetails({
-        concern: selectedAppointment.concern,
-        address: selectedAppointment.address,
-        contactNum: selectedAppointment.contactNum,
-        dateSched: selectedAppointment.dateSched,
-        timeSched: selectedAppointment.timeSched,
-        note: selectedAppointment.note,
-      });
+  const handleToggleCompleted = (nextValue) => {
+    if (!selectedAppointment) {
+      return;
     }
-    setIsEditingDetails(false);
-  };
 
-  const closeEditor = () => {
-    setEditorMode(null);
-    setFormError('');
+    if (nextValue) {
+      apptTrackerService.markApptCompleted(CURRENT_USER_ID, selectedAppointment.apptEntryId, new Date());
+    } else {
+      apptTrackerService.undoApptCompleted(CURRENT_USER_ID, selectedAppointment.apptEntryId);
+    }
+
+    refresh();
   };
 
   const saveAppointment = () => {
     const requiredFields = [
       formState.concern.trim(),
       formState.address.trim(),
-      formState.contactNum.trim(),
+      formState.contactNumber.trim(),
       formState.dateSched.trim(),
       formState.timeSched.trim(),
     ];
@@ -309,39 +241,26 @@ export default function AppointmentTrackerScreen({ navigation }) {
       return;
     }
 
-    const newAppointment = {
-      id: `appt-${Date.now()}`,
-      concern: formState.concern.trim(),
-      address: formState.address.trim(),
-      contactNum: formState.contactNum.trim(),
-      dateSched: formState.dateSched.trim(),
-      timeSched: formState.timeSched.trim(),
-      note: formState.note.trim(),
-      isCompleted: false,
-      completedAt: null,
-    };
-
-    setAppointments((prev) => [newAppointment, ...prev]);
-    setSelectedAppointmentId(newAppointment.id);
-    closeEditor();
-  };
-
-  const handleToggleCompleted = (nextValue) => {
-    if (!selectedAppointment) {
+    const scheduledDateTime = parseDateTime(formState.dateSched.trim(), formState.timeSched.trim());
+    if (!scheduledDateTime) {
+      setFormError('Use YYYY-MM-DD for the date and HH:MM for the time.');
       return;
     }
 
-    setAppointments((prev) =>
-      prev.map((appointment) =>
-        appointment.id === selectedAppointment.id
-          ? {
-              ...appointment,
-              isCompleted: nextValue,
-              completedAt: nextValue ? new Date().toISOString() : null,
-            }
-          : appointment
-      )
-    );
+    apptTrackerService.addApptEntry(CURRENT_USER_ID, {
+      concern: formState.concern.trim(),
+      address: formState.address.trim(),
+      contactNumber: formState.contactNumber.trim(),
+      timeSched: formState.timeSched.trim(),
+      dateSched: formState.dateSched.trim(),
+      note: formState.note.trim(),
+      isCompleted: false,
+      completedAt: null,
+    });
+
+    setEditorMode(null);
+    setSelectedAppointmentId(null);
+    refresh();
   };
 
   return (
@@ -354,7 +273,7 @@ export default function AppointmentTrackerScreen({ navigation }) {
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
             <Text style={styles.title}>Appointment Tracker</Text>
-            <Text style={styles.subtitle}>Tap an appointment to view complete details.</Text>
+            <Text style={styles.subtitle}>Use the appointment fields defined in the model.</Text>
           </View>
           <AddButton onPress={handleAddAppointment} />
         </View>
@@ -364,15 +283,23 @@ export default function AppointmentTrackerScreen({ navigation }) {
         <View style={styles.listSection}>
           {sortedAppointments.map((appointment) => {
             const status = getAppointmentStatus(appointment);
-            const isSelected = appointment.id === selectedAppointmentId;
+            const isSelected = appointment.apptEntryId === selectedAppointmentId;
 
             return (
               <ClickableCard
-                key={appointment.id}
+                key={appointment.apptEntryId}
                 size="landscape"
                 variant="solid"
                 onPress={() => {
-                  setSelectedAppointmentId(appointment.id);
+                  setSelectedAppointmentId(appointment.apptEntryId);
+                  setDraftDetails({
+                    concern: appointment.concern,
+                    address: appointment.address,
+                    contactNumber: appointment.contactNumber,
+                    dateSched: appointment.dateSched,
+                    timeSched: appointment.timeSched,
+                    note: appointment.note,
+                  });
                   setIsDetailsVisible(true);
                 }}
                 cardStyle={[styles.appointmentCard, isSelected && styles.selectedAppointmentCard]}
@@ -439,9 +366,9 @@ export default function AppointmentTrackerScreen({ navigation }) {
             />
             <EditableDetailItem
               label="Contact number"
-              value={isEditingDetails ? draftDetails.contactNum : selectedAppointment.contactNum}
+              value={isEditingDetails ? draftDetails.contactNumber : selectedAppointment.contactNumber}
               editable={isEditingDetails}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, contactNum: text }))}
+              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, contactNumber: text }))}
             />
             <EditableDetailItem
               label="Date scheduled"
@@ -477,7 +404,7 @@ export default function AppointmentTrackerScreen({ navigation }) {
             <View style={styles.footerActionsRow}>
               {isEditingDetails ? (
                 <>
-                  <ActionButton label="Cancel" variant="outline" onPress={handleCancelEdit} />
+                  <ActionButton label="Cancel" variant="outline" onPress={() => setIsEditingDetails(false)} />
                   <ActionButton label="Save" variant="solid" onPress={handleSaveDetails} />
                 </>
               ) : (
@@ -497,7 +424,7 @@ export default function AppointmentTrackerScreen({ navigation }) {
 
       <LargePopup
         visible={editorMode === 'create'}
-        onClose={closeEditor}
+        onClose={() => setEditorMode(null)}
         header={
           <View style={styles.detailsHeaderRow}>
             <View style={styles.detailsHeaderTextBlock}>
@@ -520,8 +447,8 @@ export default function AppointmentTrackerScreen({ navigation }) {
           />
           <InputBar
             placeholder="Contact number"
-            value={formState.contactNum}
-            onChangeText={(value) => setFormState((current) => ({ ...current, contactNum: value }))}
+            value={formState.contactNumber}
+            onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
           />
           <InputBar
             placeholder="Date scheduled (YYYY-MM-DD)"
@@ -543,19 +470,37 @@ export default function AppointmentTrackerScreen({ navigation }) {
         {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
         <View style={styles.footerActionsRow}>
-          <ActionButton label="Cancel" variant="outline" onPress={closeEditor} />
+          <ActionButton label="Cancel" variant="outline" onPress={() => setEditorMode(null)} />
           <ActionButton label="Add Appointment" variant="solid" onPress={saveAppointment} />
         </View>
       </LargePopup>
 
       <View style={styles.footerNav}>
-        <NavigationBar
-          selectedTab="appointment"
-          showPressAlert={false}
-          onNavigate={onTabNavigate}
-        />
+        <NavigationBar selectedTab="appointment" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
+  );
+}
+
+function DetailItem({ label, value }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  );
+}
+
+function EditableDetailItem({ label, value, editable, onChangeText }) {
+  if (!editable) {
+    return <DetailItem label={label} value={value} />;
+  }
+
+  return (
+    <View style={styles.detailRow}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <InputBar value={value} onChangeText={onChangeText} placeholder={label} />
+    </View>
   );
 }
 
@@ -712,25 +657,3 @@ const styles = StyleSheet.create({
     minHeight: TOP_OVERLAY_HEIGHT,
   },
 });
-
-function DetailItem({ label, value }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
-    </View>
-  );
-}
-
-function EditableDetailItem({ label, value, editable, onChangeText }) {
-  if (!editable) {
-    return <DetailItem label={label} value={value} />;
-  }
-
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <InputBar value={value} onChangeText={onChangeText} placeholder={label} />
-    </View>
-  );
-}

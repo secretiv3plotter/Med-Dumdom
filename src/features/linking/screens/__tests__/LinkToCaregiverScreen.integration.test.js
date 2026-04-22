@@ -4,9 +4,10 @@ import { fireEvent, render } from '@testing-library/react-native';
 import LinkToCaregiver from '../LinkToCaregiverScreen';
 import { ROUTES } from '../../../../app/navigation/routes';
 import { createNavigation } from '../../../../shared/test-utils/integrationTestUtils';
+import patientCaregiverLinkService from '../../../../domain/services/PatientCaregiverLinkService';
 
 describe('LinkToCaregiver integration', () => {
-  it('filters caregivers and moves through the send/cancel request flow', () => {
+  it('filters caregivers and sends a request', () => {
     const navigation = createNavigation();
     const { getByPlaceholderText, getByText, queryByText } = render(
       <LinkToCaregiver navigation={navigation} />
@@ -17,14 +18,8 @@ describe('LinkToCaregiver integration', () => {
     expect(queryByText('John Doe')).toBeNull();
 
     fireEvent.press(getByText('Jane Doe'));
-    expect(getByText('Send Access Request')).toBeTruthy();
-    fireEvent.press(getByText('Send Request'));
     expect(getByText('Request sent')).toBeTruthy();
-
-    fireEvent.press(getByText('Jane Doe'));
-    expect(getByText('Cancel Access Request')).toBeTruthy();
-    fireEvent.press(getByText('Cancel Request'));
-    expect(getByText('Request cancelled')).toBeTruthy();
+    expect(patientCaregiverLinkService.getOutgoingRequestsForPatient('current-patient').length).toBeGreaterThan(0);
   });
 
   it('routes through the navigation bar and back button', () => {

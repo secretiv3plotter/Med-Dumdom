@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { accessibility, colors, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
 
 const BUTTON_VISUAL_SIZE = accessibility.minTouchTarget + spacing.xs;
 
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   label: {
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
-    marginTop: -spacing.xxs,
+    marginTop: -moderateScale(4),
   },
   defaultText: {
     color: colors.title,

@@ -119,11 +119,7 @@ const countCompletedMedications = (medEntry) => {
     return 0;
   }
 
-  if (!medEntry.isTaken) {
-    return 0;
-  }
-
-  return Array.isArray(medEntry.timesTaken) && medEntry.timesTaken.length ? medEntry.timesTaken.length : 1;
+  return medEntry.isTaken ? Number(medEntry.totalDailyAmount ?? medEntry.amount ?? 0) : 0;
 };
 
 const countScheduledMedications = (medEntry) => {
@@ -131,7 +127,15 @@ const countScheduledMedications = (medEntry) => {
     return 0;
   }
 
-  return Array.isArray(medEntry.dailySched) ? medEntry.dailySched.length : 0;
+  if (typeof medEntry.totalDailyAmount === 'number') {
+    return medEntry.totalDailyAmount;
+  }
+
+  if (Array.isArray(medEntry.dailySched)) {
+    return medEntry.dailySched.reduce((total, entry) => total + Number(entry?.doseSize || 0), 0);
+  }
+
+  return 0;
 };
 
 const hasDateOverlap = (startDate, endDate, reportStart, reportEnd) => {

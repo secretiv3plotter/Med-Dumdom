@@ -12,7 +12,7 @@ describe('HelpAndSupport screen integration', () => {
       <HelpAndSupport navigation={navigation} />
     );
 
-    fireEvent.changeText(getByPlaceholderText('Search'), 'password');
+    fireEvent.changeText(getByPlaceholderText('Search FAQs'), 'password');
 
     expect(getByText('How can I change my password?')).toBeTruthy();
     expect(queryByText('How do I contact support?')).toBeNull();

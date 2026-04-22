@@ -8,7 +8,7 @@ import { createNavigation } from '../../../../shared/test-utils/integrationTestU
 describe('MedTracker integration', () => {
   it('opens the medicine details editor and saves updated values', () => {
     const navigation = createNavigation();
-    const { getAllByText, getByText, getByLabelText } = render(
+    const { getByText, getByLabelText } = render(
       <MedTracker navigation={navigation} />
     );
 
@@ -17,24 +17,27 @@ describe('MedTracker integration', () => {
 
     fireEvent.press(getByText('Edit'));
     fireEvent.changeText(getByLabelText('Name of the medicine'), 'Metformin XR');
-    fireEvent.press(getAllByText('Save')[0]);
+    fireEvent.press(getByText('Save Medicine'));
 
-    expect(getAllByText('Metformin XR').length).toBeGreaterThan(0);
+    expect(getByText('Metformin XR')).toBeTruthy();
   });
 
   it('adds a new medicine through the popup form', () => {
     const navigation = createNavigation();
-    const { getAllByText, getByText, getByLabelText } = render(
+    const { getByText, getByLabelText } = render(
       <MedTracker navigation={navigation} />
     );
 
     fireEvent.press(getByText('Add'));
     fireEvent.changeText(getByLabelText('Name of the medicine'), 'Aspirin');
-    fireEvent.changeText(getByLabelText('Dosage'), '100 mg');
-    fireEvent.changeText(getByLabelText('Amount'), '10 tablets');
-    fireEvent.changeText(getByLabelText('Daily schedule'), '7:00 AM');
-    const addButtons = getAllByText('Add Medicine');
-    fireEvent.press(addButtons[addButtons.length - 1]);
+    fireEvent.changeText(getByLabelText('Unit strength (e.g. 500 mg)'), '100 mg');
+    fireEvent.press(getByText('Tablet'));
+    fireEvent.changeText(getByLabelText('Total daily amount'), '1');
+    fireEvent.changeText(getByLabelText('Start date (YYYY-MM-DD)'), '2026-04-20');
+    fireEvent.changeText(getByLabelText('Dose size'), '1');
+    fireEvent.changeText(getByLabelText('Scheduled time (e.g. 08:00 or 8:00 AM)'), '7:00 AM');
+    fireEvent.press(getByText('Add schedule item'));
+    fireEvent.press(getByText('Add Medicine'));
 
     expect(getByText('Aspirin')).toBeTruthy();
   });

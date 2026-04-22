@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 function isBoldStyle(style) {
   const flattened = StyleSheet.flatten(style);
@@ -174,10 +174,10 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   portrait: {
-    minHeight: 190,
+    minHeight: moderateScale(190),
   },
   landscape: {
-    minHeight: 140,
+    minHeight: moderateScale(140),
   },
   solid: {
     backgroundColor: colors.brandSoft,
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   icon: {
-    fontSize: 32,
-    lineHeight: 34,
+    fontSize: moderateScale(32),
+    lineHeight: moderateScale(34),
     color: colors.brandText,
   },
   iconLock: {
@@ -242,8 +242,8 @@ const styles = StyleSheet.create({
   },
   boldText: {
     color: colors.brandText,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: moderateScale(18),
+    lineHeight: moderateScale(24),
   },
   subtitle: {
     ...typography.bodySmall,

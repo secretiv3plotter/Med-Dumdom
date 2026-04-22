@@ -102,6 +102,9 @@ const toPrivacyModel = (settings) => {
   return new PatientPrivacy();
 };
 
+const normalizeAccessChecker = (value) =>
+  typeof value === 'function' ? value : null;
+
 const validatePayload = (payload) => {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new TypeError('payload must be a plain object.');
@@ -122,8 +125,10 @@ const validatePayload = (payload) => {
 };
 
 export class PrivacySettingsService {
-  constructor(initialSettingsByPatientId = null) {
+  constructor(initialSettingsByPatientId = null, options = {}) {
     this.settingsByPatientId = new Map();
+    this.caregiverAccessChecker =
+      normalizeAccessChecker(options.canCaregiverAccessPatient) ?? (() => false);
 
     if (initialSettingsByPatientId instanceof Map) {
       initialSettingsByPatientId.forEach((settings, patientId) => {
@@ -187,46 +192,92 @@ export class PrivacySettingsService {
 
   canCaregiverViewMedTracker(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     return this._getStoredSettings(patientId).medTrackerPermit;
   }
 
   canCaregiverViewApptTracker(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     return this._getStoredSettings(patientId).consultTrackerPermit;
   }
 
   canCaregiverViewReports(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     return this._getStoredSettings(patientId).viewReportPermit;
   }
 
   canCaregiverModifyMedTracker(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     const settings = this._getStoredSettings(patientId);
     return settings.medTrackerPermit && settings.modifyMedTracker;
   }
 
   canCaregiverModifyApptTracker(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     const settings = this._getStoredSettings(patientId);
     return settings.consultTrackerPermit && settings.modifyApptTracker;
   }
 
   canCaregiverSendManualReminder(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     return this._getStoredSettings(patientId).manualCaregiverReminderPermit;
   }
 
   canCaregiverExportMedReport(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     const settings = this._getStoredSettings(patientId);
     return settings.viewReportPermit && settings.exportMedReportPermit;
   }
 
   canCaregiverExportApptReport(patientId, caregiverId) {
     this._assertCaregiverAccessInputs(patientId, caregiverId);
+    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
+      return false;
+    }
+
     const settings = this._getStoredSettings(patientId);
     return settings.viewReportPermit && settings.exportApptReportPermit;
+  }
+
+  canCaregiverAccessPatient(patientId, caregiverId) {
+    this._assertCaregiverAccessInputs(patientId, caregiverId);
+
+    try {
+      return Boolean(this.caregiverAccessChecker(patientId, caregiverId));
+    } catch {
+      return false;
+    }
+  }
+
+  _canCaregiverAccessPatient(patientId, caregiverId) {
+    return this.canCaregiverAccessPatient(patientId, caregiverId);
   }
 
   _getStoredSettings(patientId) {

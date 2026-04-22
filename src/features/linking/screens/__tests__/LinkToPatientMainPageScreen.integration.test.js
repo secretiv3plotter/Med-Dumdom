@@ -6,9 +6,10 @@ import {
   createNavigation,
   getLastByPlaceholderText,
 } from '../../../../shared/test-utils/integrationTestUtils';
+import patientCaregiverLinkService from '../../../../domain/services/PatientCaregiverLinkService';
 
 describe('LinktoPatientMainPage integration', () => {
-  it('filters patients and sends a patient access request', () => {
+  it('filters patients and sends a patient link request', () => {
     const navigation = createNavigation();
     const screen = render(<LinktoPatientMainPage navigation={navigation} />);
 
@@ -17,10 +18,10 @@ describe('LinktoPatientMainPage integration', () => {
     expect(screen.queryByText('John Doe')).toBeNull();
 
     fireEvent.press(screen.getAllByRole('button')[1]);
-    expect(screen.getByText('Send Access Request')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('Send Request'));
     expect(screen.getByText('Request sent')).toBeTruthy();
+    expect(
+      patientCaregiverLinkService.getPendingRequestsForCaregiver('current-caregiver').length
+    ).toBeGreaterThan(0);
   });
 
   it('uses the back button handler', () => {

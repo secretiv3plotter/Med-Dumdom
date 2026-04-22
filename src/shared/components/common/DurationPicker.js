@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stepBtn: {
-    width: 52,
-    height: 52,
+    width: moderateScale(52),
+    height: moderateScale(52),
     borderWidth: 1,
     borderRadius: radius.sm,
     alignItems: 'center',
@@ -149,8 +149,8 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   input: {
-    minWidth: 72,
-    height: 52,
+    minWidth: moderateScale(72),
+    height: moderateScale(52),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.sm,

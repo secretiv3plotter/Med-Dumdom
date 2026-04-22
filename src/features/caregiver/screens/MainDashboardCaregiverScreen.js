@@ -1,21 +1,25 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import CrudButton from '../../../shared/components/common/CrudButton';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
 import SearchBar from '../../../shared/components/common/SearchBar';
 import TextCard from '../../../shared/components/common/TextCard';
+import patientCaregiverLinkService from '../../../domain/services/PatientCaregiverLinkService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 
-const patients = [
-  { name: 'Andrea Santos', age: '36', address: 'Gorordo, Lahug, Cebu' },
-  { name: 'John Doe', age: '27', address: 'Bulacao, Cebu City, Cebu' },
-  { name: 'Pedro Penduks', age: '50', address: 'Liloan, Minglanilla, Cebu' },
-  { name: 'Miguel Santos', age: '60', address: 'San Isidro, Quezon City, Metro Manila' },
-  { name: 'Alyssa Mae Rivera', age: '16', address: 'Mabini, Davao City, Davao del Sur' },
-  { name: 'Carlo Mendoza', age: '67', address: 'Poblacion, Cebu City, Cebu' },
-  { name: 'Anne Villanueva', age: '70', address: 'Malinis, Bacoor City, Cavite' },
+const CURRENT_CAREGIVER_ID = 'current-caregiver';
+
+const PATIENT_DIRECTORY = [
+  { id: 'patient-1', name: 'Andrea Santos', age: '36', address: 'Gorordo, Lahug, Cebu' },
+  { id: 'patient-2', name: 'John Doe', age: '27', address: 'Bulacao, Cebu City, Cebu' },
+  { id: 'patient-3', name: 'Pedro Penduks', age: '50', address: 'Liloan, Minglanilla, Cebu' },
+  { id: 'patient-4', name: 'Miguel Santos', age: '60', address: 'San Isidro, Quezon City, Metro Manila' },
+  { id: 'patient-5', name: 'Alyssa Mae Rivera', age: '16', address: 'Mabini, Davao City, Davao del Sur' },
+  { id: 'patient-6', name: 'Carlo Mendoza', age: '67', address: 'Poblacion, Cebu City, Cebu' },
+  { id: 'patient-7', name: 'Anne Villanueva', age: '70', address: 'Malinis, Bacoor City, Cavite' },
 ];
 
 function getInitials(name = '') {
@@ -31,19 +35,27 @@ function getInitials(name = '') {
 export default function MainDashboardCaregiverScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const goToLinkPatientPage = () => navigation?.navigate?.(ROUTES.LINK_TO_PATIENT_MAIN);
-  const goToLinkRequestsPage = () => navigation?.navigate?.(ROUTES.LINK_REQUESTS);
-
-  const openPatientDashboard = (patientName) =>
-    navigation?.navigate?.(ROUTES.PATIENT_SPECIFIC_DASHBOARD, { patientName });
+  const linkedPatientIds = new Set(patientCaregiverLinkService.getLinkedPatients(CURRENT_CAREGIVER_ID));
 
   const filteredPatients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const linkedPatients = PATIENT_DIRECTORY.filter((patient) => linkedPatientIds.has(patient.id));
+
     if (!query) {
-      return patients;
+      return linkedPatients;
     }
-    return patients.filter((patient) => patient.name.toLowerCase().startsWith(query));
-  }, [searchQuery]);
+
+    return linkedPatients.filter((patient) => patient.name.toLowerCase().includes(query));
+  }, [linkedPatientIds, searchQuery]);
+
+  const goToLinkPatientPage = () => navigation?.navigate?.(ROUTES.LINK_TO_PATIENT_MAIN);
+  const goToLinkRequestsPage = () => navigation?.navigate?.(ROUTES.LINK_REQUESTS);
+
+  const openPatientDashboard = (patient) =>
+    navigation?.navigate?.(ROUTES.PATIENT_SPECIFIC_DASHBOARD, {
+      patientId: patient.id,
+      patientName: patient.name,
+    });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -81,11 +93,11 @@ export default function MainDashboardCaregiverScreen({ navigation }) {
           </TextCard>
 
           <View style={styles.searchBarWrap}>
-            <SearchBar placeholder="Find a patient" />
+            <SearchBar placeholder="Find a linked patient" />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder={searchQuery ? '' : 'Find a patient'}
+              placeholder={searchQuery ? '' : 'Find a linked patient'}
               placeholderTextColor={colors.placeholder}
               style={styles.searchInputOverlay}
             />
@@ -94,8 +106,8 @@ export default function MainDashboardCaregiverScreen({ navigation }) {
           <View style={styles.patientList}>
             {filteredPatients.map((patient) => (
               <Pressable
-                key={patient.name}
-                onPress={() => openPatientDashboard(patient.name)}
+                key={patient.id}
+                onPress={() => openPatientDashboard(patient)}
                 style={styles.patientPressable}
               >
                 <View style={styles.patientCard}>
@@ -112,6 +124,14 @@ export default function MainDashboardCaregiverScreen({ navigation }) {
                 </View>
               </Pressable>
             ))}
+
+            {!filteredPatients.length ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={32} color={colors.bodyMuted} />
+                <Text style={styles.emptyTitle}>No linked patients yet</Text>
+                <Text style={styles.emptySubtitle}>Use the add patient flow to request access first.</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -228,5 +248,24 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
     fontSize: 13,
     marginTop: 2,
+  },
+  emptyState: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.subtitle,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.bodyMuted,
+    textAlign: 'center',
   },
 });

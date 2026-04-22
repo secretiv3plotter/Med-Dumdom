@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { accessibility, colors, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 export default function ProgressReportButton({ onPress, variant = 'outline', disabled = false }) {
   const isSolid = variant === 'solid';
@@ -20,7 +20,7 @@ export default function ProgressReportButton({ onPress, variant = 'outline', dis
     >
       <Ionicons
         name={isSolid ? 'bar-chart' : 'bar-chart-outline'}
-        size={30}
+        size={moderateScale(30)}
         color={iconColor}
       />
       <Text style={[styles.text, { color: textColor }]}>Report</Text>
@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   button: {
     minHeight: accessibility.minTouchTarget,
     flex: 1,
-    minWidth: 62,
+    minWidth: moderateScale(62),
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',

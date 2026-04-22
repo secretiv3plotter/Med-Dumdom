@@ -21,7 +21,10 @@ import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import TextCard from '../../../shared/components/common/TextCard';
 import SettingsButton from '../components/SettingsButton';
+import personalProfileService from '../../../domain/services/PersonalProfileService';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
+
+const CURRENT_USER_ID = 'current-user';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -31,25 +34,35 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
+const FALLBACK_PROFILE = {
+  fullName: 'Jane Doe',
+  profilePicture: '',
+  birthDate: new Date('1975-06-15'),
+  address: 'Cebu City',
+};
+
+const toDraft = (profile) => ({
+  fullName: profile.fullName || '',
+  profilePicture: profile.profilePicture || '',
+  birthDate: profile.birthDate ? profile.birthDate.toISOString().slice(0, 10) : '',
+  address: profile.address || '',
+});
+
 export default function ProfileScreen({ navigation }) {
-  const [fullName, setFullName] = useState('Jane Doe');
-  const [age, setAge] = useState('50 years old');
-  const [address, setAddress] = useState('Cebu City');
-  const [email, setEmail] = useState('jane.doe@email.com');
-  const [phone, setPhone] = useState('+63 912 345 6789');
+  const [profile, setProfile] = useState(() => {
+    const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
+    if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
+      return currentProfile;
+    }
+
+    return personalProfileService.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+  });
+  const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [showSavedDialog, setShowSavedDialog] = useState(false);
   const timeoutRef = useRef(null);
-
-  const personalInfoRows = [
-    { label: 'Full Name', value: fullName },
-    { label: 'Age', value: age },
-    { label: 'Address', value: address },
-    { label: 'Email', value: email },
-    { label: 'Phone #', value: phone },
-  ];
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -64,6 +77,11 @@ export default function ProfileScreen({ navigation }) {
     };
   }, []);
 
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -71,7 +89,21 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const syncDraft = (nextProfile) => {
+    const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
+    setProfile(savedProfile);
+    setDraft(toDraft(savedProfile));
+  };
+
   const confirmSaveChanges = () => {
+    const nextProfile = {
+      fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
+      profilePicture: draft.profilePicture.trim(),
+      birthDate: draft.birthDate ? new Date(`${draft.birthDate}T00:00:00`) : null,
+      address: draft.address.trim(),
+    };
+
+    syncDraft(nextProfile);
     setShowConfirmSave(false);
     setIsEditing(false);
     setShowSavedDialog(true);
@@ -85,6 +117,9 @@ export default function ProfileScreen({ navigation }) {
     }, 3000);
   };
 
+  const ageLabel = profile.birthDate ? `${profile.age} years old` : 'Add your birth date';
+  const displayPicture = profile.profilePicture?.trim();
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
@@ -94,7 +129,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.stickyTop}>
           <View style={styles.topBar}>
             <View style={styles.sideControl}>
-              <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
+              <BackButton onPress={() => navigation?.goBack?.()} disabled={!canGoBack} />
             </View>
             <Text style={styles.headerTitle}>My Profile</Text>
             <View style={styles.settingsControl}>
@@ -112,11 +147,17 @@ export default function ProfileScreen({ navigation }) {
           keyboardDismissMode="on-drag"
         >
           <TextCard cardStyle={styles.profileCardTop}>
-            <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
-            <Text style={styles.name}>{fullName}</Text>
+            <View style={styles.avatarShell}>
+              {displayPicture ? (
+                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+              ) : (
+                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+              )}
+            </View>
+            <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
             <View style={styles.metaRow}>
-              <Text style={styles.meta}>{email}</Text>
-              <Text style={styles.badge}>Caregiver</Text>
+              <Text style={styles.meta}>{ageLabel}</Text>
+              <Text style={styles.badge}>Profile</Text>
             </View>
           </TextCard>
 
@@ -147,38 +188,59 @@ export default function ProfileScreen({ navigation }) {
 
             {isEditing ? (
               <>
-                <Text style={styles.label}>Full Name:</Text>
-                <InputBar value={fullName} onChangeText={setFullName} placeholder="Enter full name" />
-
-                <Text style={styles.label}>Age:</Text>
-                <InputBar value={age} onChangeText={setAge} placeholder="Age" />
-
-                <Text style={styles.label}>Address:</Text>
-                <InputBar value={address} onChangeText={setAddress} placeholder="Address" />
-
-                <Text style={styles.label}>Email:</Text>
+                <Text style={styles.label}>Full name:</Text>
                 <InputBar
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Enter email"
-                  keyboardType="email-address"
+                  value={draft.fullName}
+                  onChangeText={(value) => setDraft((current) => ({ ...current, fullName: value }))}
+                  placeholder="Enter full name"
                 />
 
-                <Text style={styles.label}>Phone #:</Text>
+                <Text style={styles.label}>Profile picture URL:</Text>
                 <InputBar
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Enter phone number"
-                  keyboardType="phone-pad"
+                  value={draft.profilePicture}
+                  onChangeText={(value) => setDraft((current) => ({ ...current, profilePicture: value }))}
+                  placeholder="Enter profile picture URL or file path"
+                />
+
+                <Text style={styles.label}>Birth date:</Text>
+                <InputBar
+                  value={draft.birthDate}
+                  onChangeText={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
+                  placeholder="YYYY-MM-DD"
+                />
+
+                <Text style={styles.label}>Address:</Text>
+                <InputBar
+                  value={draft.address}
+                  onChangeText={(value) => setDraft((current) => ({ ...current, address: value }))}
+                  placeholder="Enter address"
                 />
               </>
             ) : (
-              personalInfoRows.map((row) => (
-                <View key={row.label} style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>{row.label}:</Text>
-                  <Text style={styles.infoValue}>{row.value}</Text>
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Name:</Text>
+                  <Text style={styles.infoValue}>{profile.fullName || '--'}</Text>
                 </View>
-              ))
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Birth date:</Text>
+                  <Text style={styles.infoValue}>
+                    {profile.birthDate ? profile.birthDate.toISOString().slice(0, 10) : '--'}
+                  </Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Age:</Text>
+                  <Text style={styles.infoValue}>{profile.birthDate ? String(profile.age) : '--'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Address:</Text>
+                  <Text style={styles.infoValue}>{profile.address || '--'}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Picture:</Text>
+                  <Text style={styles.infoValue}>{profile.profilePicture || '--'}</Text>
+                </View>
+              </>
             )}
           </TextCard>
 
@@ -290,6 +352,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.lg,
+  },
+  avatarShell: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileCard: {
     backgroundColor: colors.surface,

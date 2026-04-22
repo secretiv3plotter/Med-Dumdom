@@ -2,10 +2,12 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { accessibility, colors, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
 
 const CIRCLE_SIZE = accessibility.minTouchTarget + spacing.xs;
 const DEFAULT_ICON_SIZE = spacing.lg;
+const EDIT_ICON_SIZE = moderateScale(40);
+const LABEL_LIFT = moderateScale(10);
 
 export default function CrudButton({
   label,
@@ -130,7 +132,7 @@ export function EditButton(props) {
       variant="outline"
       iconSize={40}
       circleStyle={[{ paddingLeft: 4 }, props.circleStyle]}
-      textStyle={[{ marginTop: -10 }, props.textStyle]}
+      textStyle={[{ marginTop: -LABEL_LIFT }, props.textStyle]}
     />
   );
 }
@@ -142,8 +144,8 @@ export function CancelButton(props) {
       label="Cancel"
       icon="close-outline"
       variant="outline"
-      iconSize={40}
-      textStyle={[{ marginTop: -10 }, props.textStyle]}
+      iconSize={EDIT_ICON_SIZE}
+      textStyle={[{ marginTop: -LABEL_LIFT }, props.textStyle]}
     />
   );
 }

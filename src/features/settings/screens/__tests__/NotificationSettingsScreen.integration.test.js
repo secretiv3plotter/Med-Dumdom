@@ -6,17 +6,16 @@ import { ROUTES } from '../../../../app/navigation/routes';
 import { createNavigation } from '../../../../shared/test-utils/integrationTestUtils';
 
 describe('NotificationSettings integration', () => {
-  it('updates reminder timing when the on-time chip is pressed', () => {
+  it('updates reminder lead time and saves the settings', () => {
     const navigation = createNavigation();
-    const { getByLabelText, getByText } = render(
+    const { getByPlaceholderText, getByText } = render(
       <NotificationSettings navigation={navigation} />
     );
 
-    expect(getByText('0h 5m before schedule')).toBeTruthy();
+    fireEvent.changeText(getByPlaceholderText('5'), '10');
+    fireEvent.press(getByText('Save Changes'));
 
-    fireEvent.press(getByLabelText('Set medicine reminder to on time'));
-
-    expect(getByText('On time (0m before schedule)')).toBeTruthy();
+    expect(getByText('Notification settings saved')).toBeTruthy();
   });
 
   it('routes through the navigation bar and back button', () => {

@@ -1,12 +1,13 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
-import ClickableCard from '../../../shared/components/common/ClickableCard';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import reminderService from '../../../domain/services/ReminderService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
 
-const TOP_OVERLAY_HEIGHT = 100;
+const CURRENT_USER_ID = 'current-user';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -16,80 +17,57 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-const PLACEHOLDER_NOTIFICATIONS = [
-  {
-    id: 'notif-1',
-    title: 'Medication Reminder',
-    body: "It's almost time to take your 8:00 AM medication dose.",
-    footer: 'Today, 7:45 AM',
-  },
-  {
-    id: 'notif-2',
-    title: 'Appointment Update',
-    body: 'Your check-up with Dr. Santos is scheduled for tomorrow at 10:30 AM.',
-    footer: 'Today, 6:20 AM',
-  },
-  {
-    id: 'notif-3',
-    title: 'Progress Alert',
-    body: "You've completed all medication logs for this week.",
-    footer: 'Yesterday, 8:10 PM',
-  },
-  {
-    id: 'notif-4',
-    title: 'System Notice',
-    body: 'New health tips are available in your dashboard feed.',
-    footer: 'Yesterday, 3:05 PM',
-  },
-  {
-    id: 'notif-5',
-    title: 'Hydration Check',
-    body: 'Log your water intake for the afternoon.',
-    footer: 'Yesterday, 1:30 PM',
-  },
-  {
-    id: 'notif-6',
-    title: 'Medication Reminder',
-    body: "Don't forget your evening dose at 8:00 PM.",
-    footer: 'Monday, 7:45 PM',
-  },
-  {
-    id: 'notif-7',
-    title: 'Appointment Reminder',
-    body: 'You have a lab visit in 2 days at 9:00 AM.',
-    footer: 'Monday, 9:15 AM',
-  },
-  {
-    id: 'notif-8',
-    title: 'Streak Milestone',
-    body: 'Great work. You have logged medication for 10 days straight.',
-    footer: 'Sunday, 8:05 PM',
-  },
-  {
-    id: 'notif-9',
-    title: 'Profile Tip',
-    body: 'Add your emergency contact for better account safety.',
-    footer: 'Sunday, 4:40 PM',
-  },
-  {
-    id: 'notif-10',
-    title: 'Sleep Reminder',
-    body: 'Set your preferred bedtime notification in settings.',
-    footer: 'Saturday, 10:10 PM',
-  },
-  {
-    id: 'notif-11',
-    title: 'Medication Supply',
-    body: 'Your current medication may run out in 3 days.',
-    footer: 'Saturday, 7:20 AM',
-  },
-  {
-    id: 'notif-12',
-    title: 'Weekly Summary',
-    body: 'Your adherence report for this week is ready.',
-    footer: 'Friday, 6:00 PM',
-  },
-];
+const formatDateTime = (value) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return '--';
+  }
+
+  return value.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
+
+const getReminderDate = (item) => {
+  const value = item?.dueAt || item?.createdAt || null;
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  return value;
+};
+
+const formatTimeAgo = (value, now = new Date()) => {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return '--';
+  }
+
+  const seconds = Math.max(0, Math.floor((now.getTime() - value.getTime()) / 1000));
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+
+  return `${Math.floor(seconds / 604800)}w ago`;
+};
+
+const getReminderStatusLabel = (item) => {
+  if (item?.type === 'medication') {
+    const isTaken = item?.status === 'completed' || item?.sourceEntry?.isTaken === true;
+    return isTaken ? 'Taken' : 'Not taken';
+  }
+
+  if (item?.type === 'appointment') {
+    const isCompleted = item?.status === 'completed' || item?.sourceEntry?.isCompleted === true;
+    return isCompleted ? 'Completed' : 'Not completed';
+  }
+
+  return 'Pending';
+};
 
 export default function NotificationScreen({ navigation }) {
   const canGoBack =
@@ -104,6 +82,28 @@ export default function NotificationScreen({ navigation }) {
     }
   };
 
+  const notifications = useMemo(() => {
+    return reminderService
+      .getNotificationFeed(CURRENT_USER_ID)
+      .filter((item) => item.type === 'medication' || item.type === 'appointment')
+      .sort((left, right) => {
+        const leftTime = getReminderDate(left)?.getTime?.() ?? 0;
+        const rightTime = getReminderDate(right)?.getTime?.() ?? 0;
+        return rightTime - leftTime;
+      });
+  }, []);
+
+  const handleNotificationPress = (type) => {
+    if (type === 'medication') {
+      navigation?.navigate?.(ROUTES.MED_TRACKER);
+      return;
+    }
+
+    if (type === 'appointment') {
+      navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
@@ -112,32 +112,46 @@ export default function NotificationScreen({ navigation }) {
         </View>
         <View style={styles.headerCenter}>
           <Text style={styles.title}>Notifications</Text>
-          <Text style={styles.subtitle}>All notification updates appear here.</Text>
+          <Text style={styles.subtitle}>Scheduled medication and appointment reminders.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.list}>
-          {PLACEHOLDER_NOTIFICATIONS.map((item) => (
-            <ClickableCard
-              key={item.id}
-              title={item.title}
-              subtitle={item.body}
-              details={item.footer}
-              size="landscape"
-              variant="solid"
-              onPress={() => {}}
-            />
-          ))}
+          {notifications.length ? (
+            notifications.map((item) => (
+              <Pressable
+                key={item.reminderId}
+                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+                onPress={() => handleNotificationPress(item.type)}
+                accessibilityRole="button"
+                accessibilityLabel={item.title}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardType}>{item.type}</Text>
+                </View>
+                <Text style={styles.cardBody}>{item.message}</Text>
+                <View style={styles.cardMetaRow}>
+                  <Text style={styles.cardFooter}>{formatDateTime(getReminderDate(item))}</Text>
+                  <Text style={styles.cardTimeAgo}>{formatTimeAgo(getReminderDate(item))}</Text>
+                </View>
+                <Text style={styles.cardStatus}>{getReminderStatusLabel(item)}</Text>
+              </Pressable>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No notifications yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Scheduled medication and appointment reminders will appear here.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
       <View style={styles.footerNav}>
-        <NavigationBar
-          selectedTab="notification"
-          showPressAlert={false}
-          onNavigate={onTabNavigate}
-        />
+        <NavigationBar selectedTab="notification" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
   );
@@ -150,7 +164,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: TOP_OVERLAY_HEIGHT,
+    paddingTop: 100,
     paddingBottom: 150,
   },
   title: {
@@ -166,6 +180,76 @@ const styles = StyleSheet.create({
   list: {
     marginTop: spacing.xs,
     gap: spacing.sm,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cardTitle: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+    flex: 1,
+  },
+  cardType: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  cardBody: {
+    ...typography.body,
+    color: colors.body,
+  },
+  cardFooter: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  cardTimeAgo: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    fontWeight: '700',
+  },
+  cardStatus: {
+    ...typography.bodySmall,
+    color: colors.title,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  cardPressed: {
+    opacity: 0.85,
+  },
+  emptyState: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.subtitle,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    ...typography.body,
+    color: colors.bodyMuted,
   },
   footerNav: {
     position: 'absolute',
@@ -184,7 +268,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md + spacing.sm,
     paddingBottom: spacing.sm,
-    minHeight: TOP_OVERLAY_HEIGHT,
+    minHeight: 100,
   },
   backButtonWrap: {
     alignSelf: 'flex-start',

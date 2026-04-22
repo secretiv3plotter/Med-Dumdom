@@ -6,7 +6,8 @@
 // medReminderTime
 // apptReminderTime
 // vibrationEnabled
-// snoozeDuration
+// medSnoozeDuration
+// apptSnoozeDuration
 // a constructor that assigns them
 
 // simple methods like:
@@ -15,7 +16,8 @@
 // updateMedReminderTime(newTime)
 // updateApptReminderTime(newTime)
 // toggleVibration()
-// updateSnoozeDuration(newDuration)
+// updateMedSnoozeDuration(newDuration)
+// updateApptSnoozeDuration(newDuration)
 
 const normalizeBoolean = (value, fieldName) => {
   if (typeof value !== 'boolean') {
@@ -25,38 +27,33 @@ const normalizeBoolean = (value, fieldName) => {
   return value;
 };
 
-const normalizeTimeValue = (value, fieldName) => {
+const normalizeLeadMinutes = (value, fieldName) => {
   if (value === null || value === undefined || value === '') {
     return null;
   }
 
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    const hours = String(value.getHours()).padStart(2, '0');
-    const minutes = String(value.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.trim())
+        : Number.NaN;
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    throw new RangeError(`${fieldName} must be a non-negative number of minutes or null.`);
   }
 
-  if (typeof value !== 'string') {
-    throw new TypeError(`${fieldName} must be a string, Date, or null.`);
-  }
-
-  const trimmedValue = value.trim();
-  const match = trimmedValue.match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
-  if (!match) {
-    throw new RangeError(`${fieldName} must be a valid time string.`);
-  }
-
-  return trimmedValue;
+  return numericValue;
 };
 
-const normalizeSnoozeDuration = (value) => {
+const normalizeSnoozeDuration = (value, fieldName) => {
   if (value === null || value === undefined || value === '') {
     return null;
   }
 
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue) || numericValue < 0) {
-    throw new RangeError('snoozeDuration must be a non-negative number or null.');
+    throw new RangeError(`${fieldName} must be a non-negative number of minutes or null.`);
   }
 
   return numericValue;
@@ -69,14 +66,24 @@ export default class NotifSetting {
     medReminderTime = null,
     apptReminderTime = null,
     vibrationEnabled = true,
+    medSnoozeDuration = null,
+    apptSnoozeDuration = null,
     snoozeDuration = null,
   } = {}) {
     this.medRemindersEnabled = normalizeBoolean(medRemindersEnabled, 'medRemindersEnabled');
     this.apptRemindersEnabled = normalizeBoolean(apptRemindersEnabled, 'apptRemindersEnabled');
-    this.medReminderTime = normalizeTimeValue(medReminderTime, 'medReminderTime');
-    this.apptReminderTime = normalizeTimeValue(apptReminderTime, 'apptReminderTime');
+    this.medReminderTime = normalizeLeadMinutes(medReminderTime, 'medReminderTime');
+    this.apptReminderTime = normalizeLeadMinutes(apptReminderTime, 'apptReminderTime');
     this.vibrationEnabled = normalizeBoolean(vibrationEnabled, 'vibrationEnabled');
-    this.snoozeDuration = normalizeSnoozeDuration(snoozeDuration);
+    this.medSnoozeDuration = normalizeSnoozeDuration(
+      medSnoozeDuration ?? snoozeDuration,
+      'medSnoozeDuration'
+    );
+    this.apptSnoozeDuration = normalizeSnoozeDuration(
+      apptSnoozeDuration ?? snoozeDuration,
+      'apptSnoozeDuration'
+    );
+    this.snoozeDuration = this.medSnoozeDuration;
   }
 
   toggleMedReminders() {
@@ -98,12 +105,12 @@ export default class NotifSetting {
   }
 
   updateMedReminderTime(newTime) {
-    this.medReminderTime = normalizeTimeValue(newTime, 'medReminderTime');
+    this.medReminderTime = normalizeLeadMinutes(newTime, 'medReminderTime');
     return this;
   }
 
   updateApptReminderTime(newTime) {
-    this.apptReminderTime = normalizeTimeValue(newTime, 'apptReminderTime');
+    this.apptReminderTime = normalizeLeadMinutes(newTime, 'apptReminderTime');
     return this;
   }
 
@@ -116,8 +123,18 @@ export default class NotifSetting {
     return this;
   }
 
-  updateSnoozeDuration(newDuration) {
-    this.snoozeDuration = normalizeSnoozeDuration(newDuration);
+  updateMedSnoozeDuration(newDuration) {
+    this.medSnoozeDuration = normalizeSnoozeDuration(newDuration, 'medSnoozeDuration');
+    this.snoozeDuration = this.medSnoozeDuration;
     return this;
+  }
+
+  updateApptSnoozeDuration(newDuration) {
+    this.apptSnoozeDuration = normalizeSnoozeDuration(newDuration, 'apptSnoozeDuration');
+    return this;
+  }
+
+  updateSnoozeDuration(newDuration) {
+    return this.updateMedSnoozeDuration(newDuration);
   }
 }

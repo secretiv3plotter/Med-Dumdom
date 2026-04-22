@@ -1,20 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import patientCaregiverLinkService from '../../../domain/services/PatientCaregiverLinkService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
+
+const CURRENT_PATIENT_ID = 'current-patient';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -24,46 +19,64 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-const caregivers = [
-  { id: 'jane-doe', name: 'Jane Doe', email: 'janedoe@gmail.com' },
-  { id: 'john-doe', name: 'John Doe', email: 'johndoe@gmail.com' },
-  { id: 'andrea-santos', name: 'Andrea Santos', email: 'andrea.santos@gmail.com' },
-  { id: 'miguel-santos', name: 'Miguel Santos', email: 'miguel.santos@gmail.com' },
-  { id: 'alyssa-rivera', name: 'Alyssa Mae Rivera', email: 'alyssa.rivera@gmail.com' },
+const CAREGIVER_DIRECTORY = [
+  { id: 'caregiver-1', name: 'Jane Doe', email: 'janedoe@gmail.com' },
+  { id: 'caregiver-2', name: 'John Doe', email: 'johndoe@gmail.com' },
+  { id: 'caregiver-3', name: 'Andrea Santos', email: 'andrea.santos@gmail.com' },
+  { id: 'caregiver-4', name: 'Miguel Santos', email: 'miguel.santos@gmail.com' },
+  { id: 'caregiver-5', name: 'Alyssa Mae Rivera', email: 'alyssa.rivera@gmail.com' },
 ];
 
 export default function LinkToCaregiverScreen({ navigation }) {
   const [query, setQuery] = useState('');
-  const [selectedCaregiver, setSelectedCaregiver] = useState(null);
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [requestedIds, setRequestedIds] = useState([]);
-  const [confirmationMessage, setConfirmationMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
-    if (!confirmationMessage) {
-      return undefined;
-    }
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
-    const timer = setTimeout(() => {
-      setConfirmationMessage('');
-    }, 1600);
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
 
-    return () => clearTimeout(timer);
-  }, [confirmationMessage]);
+  const outgoingRequests = useMemo(
+    () => patientCaregiverLinkService.getOutgoingRequestsForPatient(CURRENT_PATIENT_ID),
+    [statusMessage]
+  );
+
+  const pendingCaregiverIds = useMemo(
+    () => new Set(outgoingRequests.map((request) => request.caregiverId)),
+    [outgoingRequests]
+  );
+
+  const linkedCaregiverId = useMemo(
+    () => patientCaregiverLinkService.getLinkedCaregiver(CURRENT_PATIENT_ID),
+    [statusMessage]
+  );
 
   const filteredCaregivers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const source = CAREGIVER_DIRECTORY.filter(
+      (caregiver) => caregiver.id !== linkedCaregiverId
+    );
+
     if (!normalizedQuery) {
-      return caregivers;
+      return source;
     }
 
-    return caregivers.filter(({ name, email }) => {
+    return source.filter((caregiver) => {
       return (
-        name.toLowerCase().includes(normalizedQuery) ||
-        email.toLowerCase().includes(normalizedQuery)
+        caregiver.name.toLowerCase().includes(normalizedQuery) ||
+        caregiver.email.toLowerCase().includes(normalizedQuery)
       );
     });
-  }, [query]);
+  }, [linkedCaregiverId, query]);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -72,54 +85,34 @@ export default function LinkToCaregiverScreen({ navigation }) {
     }
   };
 
-  const openRequestDialog = (caregiver) => {
-    if (requestedIds.includes(caregiver.id)) {
-      setCancelTarget(caregiver);
-      return;
+  const flashStatus = (message) => {
+    setStatusMessage(message);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
-
-    setSelectedCaregiver(caregiver);
+    timeoutRef.current = setTimeout(() => setStatusMessage(''), 2500);
   };
 
-  const sendRequest = () => {
-    if (!selectedCaregiver) {
-      return;
-    }
-
-    setRequestedIds((currentIds) =>
-      currentIds.includes(selectedCaregiver.id) ? currentIds : [...currentIds, selectedCaregiver.id]
-    );
-    setSelectedCaregiver(null);
-    setConfirmationMessage('Request sent');
-  };
-
-  const confirmCancellation = () => {
-    if (!cancelTarget) {
-      return;
-    }
-
-    setRequestedIds((currentIds) => currentIds.filter((id) => id !== cancelTarget.id));
-    setCancelTarget(null);
-    setConfirmationMessage('Request cancelled');
+  const sendRequest = (caregiverId) => {
+    patientCaregiverLinkService.requestPatientLink(CURRENT_PATIENT_ID, caregiverId);
+    flashStatus('Request sent');
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyTop}>
+      <View style={styles.page}>
         <BackButton
           onPress={() => navigation?.goBack?.()}
-          disabled={!navigation?.canGoBack}
-          showLabel={false}
+          disabled={!canGoBack}
+          style={styles.backButton}
         />
-      </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <View style={styles.headerTitleRow}>
-            <Ionicons name="people-outline" size={28} color={colors.brandText} />
+        <View style={styles.headerWrap}>
+          <View style={styles.titleRow}>
+            <Ionicons name="people-outline" size={24} color={colors.brandText} />
             <Text style={styles.title}>Caregivers</Text>
           </View>
-          <Text style={styles.subtitle}>Manage who can access your health information.</Text>
+          <Text style={styles.subtitle}>Send a link request to a caregiver you want to connect with.</Text>
         </View>
 
         <View style={styles.listShell}>
@@ -136,18 +129,15 @@ export default function LinkToCaregiverScreen({ navigation }) {
 
           <View style={styles.list}>
             {filteredCaregivers.map((caregiver) => {
-              const requested = requestedIds.includes(caregiver.id);
+              const isPending = pendingCaregiverIds.has(caregiver.id);
 
               return (
                 <Pressable
                   key={caregiver.id}
-                  style={({ pressed }) => [
-                    styles.caregiverCard,
-                    pressed && styles.cardPressed,
-                  ]}
-                  onPress={() => openRequestDialog(caregiver)}
+                  style={({ pressed }) => [styles.caregiverCard, pressed && styles.cardPressed]}
+                  onPress={() => !isPending && sendRequest(caregiver.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${requested ? 'Cancel request for' : 'Request access from'} ${caregiver.name}`}
+                  accessibilityLabel={`${isPending ? 'Request already sent to' : 'Request access from'} ${caregiver.name}`}
                 >
                   <View style={styles.cardLeft}>
                     <View style={styles.avatar}>
@@ -160,11 +150,11 @@ export default function LinkToCaregiverScreen({ navigation }) {
                     </View>
                   </View>
 
-                  <View style={[styles.actionCircle, requested && styles.actionCircleRequested]}>
+                  <View style={[styles.actionCircle, isPending && styles.actionCircleRequested]}>
                     <Ionicons
-                      name={requested ? 'close' : 'add'}
+                      name={isPending ? 'time-outline' : 'add'}
                       size={24}
-                      color={requested ? colors.bodyMuted : colors.surface}
+                      color={isPending ? colors.bodyMuted : colors.surface}
                     />
                   </View>
                 </Pressable>
@@ -179,97 +169,15 @@ export default function LinkToCaregiverScreen({ navigation }) {
             ) : null}
           </View>
         </View>
-      </ScrollView>
+      </View>
 
-      <Modal
-        visible={Boolean(selectedCaregiver)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedCaregiver(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={[styles.localDialogCard, styles.dialogSurface]}>
-              <Text style={styles.dialogTitle}>Send Access Request</Text>
-              {selectedCaregiver ? (
-                <View style={styles.modalProfile}>
-                  <Ionicons name="person-circle-outline" size={92} color={colors.title} />
-                  <Text style={styles.modalName}>{selectedCaregiver.name}</Text>
-                  <Text style={styles.modalEmail}>{selectedCaregiver.email}</Text>
-                </View>
-              ) : null}
-              <View style={styles.localDialogActions}>
-                <ActionButton
-                  label="Cancel"
-                  onPress={() => setSelectedCaregiver(null)}
-                  variant="outline"
-                  style={styles.localDialogAction}
-                  textStyle={styles.dialogOutlineButtonText}
-                />
-                <ActionButton
-                  label="Send Request"
-                  onPress={sendRequest}
-                  variant="solid"
-                  style={styles.localDialogAction}
-                  textStyle={styles.dialogSolidButtonText}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={Boolean(cancelTarget)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCancelTarget(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={[styles.localDialogCard, styles.dialogSurface]}>
-              <Text style={styles.dialogTitle}>Cancel Access Request</Text>
-              <Text style={styles.cancelDialogMessage}>Are you sure you want to cancel this request?</Text>
-              {cancelTarget ? (
-                <View style={styles.modalProfile}>
-                  <Ionicons name="person-circle-outline" size={92} color={colors.title} />
-                  <Text style={styles.modalName}>{cancelTarget.name}</Text>
-                  <Text style={styles.modalEmail}>{cancelTarget.email}</Text>
-                </View>
-              ) : null}
-              <View style={styles.localDialogActions}>
-                <ActionButton
-                  label="Keep Request"
-                  onPress={() => setCancelTarget(null)}
-                  variant="outline"
-                  style={styles.localDialogAction}
-                  textStyle={styles.dialogOutlineButtonText}
-                />
-                <ActionButton
-                  label="Cancel Request"
-                  onPress={confirmCancellation}
-                  variant="solid"
-                  style={styles.localDialogAction}
-                  textStyle={styles.dialogSolidButtonText}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={Boolean(confirmationMessage)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmationMessage('')}
-      >
+      {statusMessage ? (
         <View style={styles.toastOverlay} pointerEvents="none">
           <View style={styles.toastCard}>
-            <Text style={styles.toastText}>{confirmationMessage}</Text>
+            <Text style={styles.toastText}>{statusMessage}</Text>
           </View>
         </View>
-      </Modal>
+      ) : null}
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
@@ -283,25 +191,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.pageBg,
   },
-  stickyTop: {
-    position: 'absolute',
-    top: spacing.md + spacing.sm,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    paddingHorizontal: spacing.lg,
+  page: {
+    flex: 1,
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 56,
-    paddingBottom: 150,
-    gap: spacing.lg,
+  backButton: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
-  header: {
+  headerWrap: {
     alignItems: 'center',
-    gap: spacing.xxs,
+    marginBottom: spacing.sm,
   },
-  headerTitleRow: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -309,10 +213,11 @@ const styles = StyleSheet.create({
   title: {
     ...typography.title,
     color: colors.brandText,
+    fontWeight: '700',
   },
   subtitle: {
-    ...typography.body,
-    color: colors.brandSubText,
+    ...typography.bodySmall,
+    color: colors.brandText,
     textAlign: 'center',
   },
   listShell: {
@@ -417,15 +322,11 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
     textAlign: 'center',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.34)',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
   toastOverlay: {
-    flex: 1,
-    justifyContent: 'center',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 78,
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
   },
@@ -449,60 +350,6 @@ const styles = StyleSheet.create({
   toastText: {
     ...typography.button,
     color: colors.brandText,
-    textAlign: 'center',
-  },
-  modalCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
-  localDialogCard: {
-    backgroundColor: '#E8EFF1',
-    borderRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  localDialogActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  localDialogAction: {
-    flex: 1,
-  },
-  modalProfile: {
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
-  dialogSurface: {
-    paddingTop: spacing.xl,
-  },
-  dialogTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    color: colors.brand,
-  },
-  dialogOutlineButtonText: {
-    color: colors.brand,
-  },
-  dialogSolidButtonText: {
-    color: colors.surface,
-  },
-  cancelDialogMessage: {
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: spacing.xs,
-  },
-  modalName: {
-    ...typography.subtitle,
-    color: colors.title,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  modalEmail: {
-    ...typography.body,
-    color: colors.body,
     textAlign: 'center',
   },
   footerNav: {

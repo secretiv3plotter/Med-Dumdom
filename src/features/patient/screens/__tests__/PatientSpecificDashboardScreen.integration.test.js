@@ -4,11 +4,20 @@ import { fireEvent, render } from '@testing-library/react-native';
 import PatientSpecificDashboard from '../PatientSpecificDashboardScreen';
 import { ROUTES } from '../../../../app/navigation/routes';
 import { createNavigation } from '../../../../shared/test-utils/integrationTestUtils';
+import patientCaregiverLinkService from '../../../../domain/services/PatientCaregiverLinkService';
+import privacySettingsService from '../../../../domain/services/PrivacySettingsService';
 
 describe('PatientSpecificDashboard screen integration', () => {
   it('renders the selected patient information and wires header actions', () => {
+    patientCaregiverLinkService.approvePatientLink('patient-1', 'current-caregiver');
+    privacySettingsService.updatePrivacySettings('patient-1', {
+      medTrackerPermit: true,
+      consultTrackerPermit: true,
+      viewReportPermit: true,
+      manualCaregiverReminderPermit: true,
+    });
     const navigation = createNavigation({
-      currentParams: { patientName: 'James Santos' },
+      currentParams: { patientId: 'patient-1', patientName: 'James Santos' },
     });
     const { getByText, getByLabelText } = render(
       <PatientSpecificDashboard navigation={navigation} />
@@ -25,8 +34,15 @@ describe('PatientSpecificDashboard screen integration', () => {
   });
 
   it('navigates from feature cards and the navigation bar with patient params', () => {
+    patientCaregiverLinkService.approvePatientLink('patient-2', 'current-caregiver');
+    privacySettingsService.updatePrivacySettings('patient-2', {
+      medTrackerPermit: true,
+      consultTrackerPermit: true,
+      viewReportPermit: true,
+      manualCaregiverReminderPermit: true,
+    });
     const navigation = createNavigation({
-      currentParams: { patientName: 'Andrea Santos' },
+      currentParams: { patientId: 'patient-2', patientName: 'Andrea Santos' },
     });
     const { getByText, getByLabelText } = render(
       <PatientSpecificDashboard navigation={navigation} />

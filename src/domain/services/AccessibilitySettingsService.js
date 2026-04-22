@@ -48,131 +48,182 @@
 // - direct dependencies: none
 // - commonly used by: patient settings UI only
 
-class AccessibilitySettingsService {
-  constructor(accessibilitySettingModel) {
-    this.accessibilitySettingModel = accessibilitySettingModel;
+import AccessibilitySetting from '../models/AccessibilitySettingModel';
+
+const TEXT_SIZE_LEVELS = new Set(['small', 'medium', 'large']);
+
+const normalizeUserId = (userId) => {
+  if (typeof userId === 'string') {
+    const trimmedUserId = userId.trim();
+    if (!trimmedUserId) {
+      throw new RangeError('userId cannot be empty.');
+    }
+
+    return trimmedUserId;
+  }
+
+  if (typeof userId === 'number' && Number.isFinite(userId)) {
+    return String(userId);
+  }
+
+  throw new TypeError('userId must be a non-empty string or a finite number.');
+};
+
+const normalizeTextSizeLevel = (value) => {
+  if (typeof value !== 'string') {
+    throw new TypeError('textSizeLevel must be a string.');
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  if (!TEXT_SIZE_LEVELS.has(normalizedValue)) {
+    throw new RangeError(`textSizeLevel must be one of: ${Array.from(TEXT_SIZE_LEVELS).join(', ')}.`);
+  }
+
+  return normalizedValue;
+};
+
+const cloneSettings = (settings) =>
+  new AccessibilitySetting(
+    settings.textSizeLevel,
+    settings.highContrastEnabled,
+    settings.reducedMotionEnabled,
+    settings.screenReaderSupportEnabled,
+    settings.hapticEnabled,
+    settings.speechToTextEnabled,
+    settings.assistiveDeviceEnabled,
+    settings.voiceTypingEnabled,
+    settings.colorBlindModeEnabled,
+    settings.easyModeEnabled,
+    settings.darkModeEnabled
+  );
+
+const toSettingsModel = (settings) => {
+  if (settings instanceof AccessibilitySetting) {
+    return cloneSettings(settings);
+  }
+
+  if (settings && typeof settings === 'object') {
+    return new AccessibilitySetting(
+      settings.textSizeLevel,
+      settings.highContrastEnabled,
+      settings.reducedMotionEnabled,
+      settings.screenReaderSupportEnabled,
+      settings.hapticEnabled,
+      settings.speechToTextEnabled,
+      settings.assistiveDeviceEnabled,
+      settings.voiceTypingEnabled,
+      settings.colorBlindModeEnabled,
+      settings.easyModeEnabled,
+      settings.darkModeEnabled
+    );
+  }
+
+  return new AccessibilitySetting();
+};
+
+export class AccessibilitySettingsService {
+  constructor(initialSettingsByUserId = null) {
+    this.settingsByUserId = new Map();
+
+    if (initialSettingsByUserId instanceof Map) {
+      initialSettingsByUserId.forEach((settings, userId) => {
+        this.settingsByUserId.set(normalizeUserId(userId), toSettingsModel(settings));
+      });
+      return;
+    }
+
+    if (initialSettingsByUserId && typeof initialSettingsByUserId === 'object') {
+      Object.entries(initialSettingsByUserId).forEach(([userId, settings]) => {
+        this.settingsByUserId.set(normalizeUserId(userId), toSettingsModel(settings));
+      });
+    }
   }
 
   getAccessibilitySettings(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-    return this.accessibilitySettingModel.getSettingsByUserId(userId);
+    return cloneSettings(this._getStoredSettings(userId));
   }
 
   updateTextSizeLevel(userId, level) {
-    if (!userId || level === undefined) {
-      throw new Error('userId and level are required');
-    }
-
-    const validLevels = [1, 2, 3, 4, 5];
-    if (!validLevels.includes(level)) {
-      throw new Error('Text size level must be between 1 and 5');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    return settings.updateTextSizeLevel(level);
+    const settings = this._getStoredSettings(userId);
+    const normalizedLevel = normalizeTextSizeLevel(level);
+    settings.updateTextSizeLevel(normalizedLevel);
+    return cloneSettings(settings);
   }
 
   toggleHighContrast(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.highContrastEnabled;
-    return settings.updateHighContrast(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleHighContrast();
+    return cloneSettings(settings);
   }
 
   toggleReducedMotion(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.reducedMotionEnabled;
-    return settings.updateReducedMotion(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleReducedMotion();
+    return cloneSettings(settings);
   }
 
   toggleScreenReaderSupport(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.screenReaderEnabled;
-    return settings.updateScreenReaderSupport(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleScreenReaderSupport();
+    return cloneSettings(settings);
   }
 
   toggleHaptic(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.hapticEnabled;
-    return settings.updateHaptic(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleHaptic();
+    return cloneSettings(settings);
   }
 
   toggleSpeechToText(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.speechToTextEnabled;
-    return settings.updateSpeechToText(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleSpeechToText();
+    return cloneSettings(settings);
   }
 
   toggleAssistiveDevice(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.assistiveDeviceEnabled;
-    return settings.updateAssistiveDevice(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleAssistiveDevice();
+    return cloneSettings(settings);
   }
 
   toggleVoiceTyping(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.voiceTypingEnabled;
-    return settings.updateVoiceTyping(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleVoiceTyping();
+    return cloneSettings(settings);
   }
 
   toggleColorBlindMode(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.colorBlindModeEnabled;
-    return settings.updateColorBlindMode(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleColorBlindMode();
+    return cloneSettings(settings);
   }
 
   toggleEasyMode(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
-    }
-
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.easyModeEnabled;
-    return settings.updateEasyMode(!currentState);
+    const settings = this._getStoredSettings(userId);
+    settings.toggleEasyMode();
+    return cloneSettings(settings);
   }
 
   toggleDarkMode(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
+    const settings = this._getStoredSettings(userId);
+    settings.toggleDarkMode();
+    return cloneSettings(settings);
+  }
+
+  _getStoredSettings(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const storedSettings = this.settingsByUserId.get(normalizedUserId);
+
+    if (storedSettings) {
+      return storedSettings;
     }
 
-    const settings = this.accessibilitySettingModel.getSettingsByUserId(userId);
-    const currentState = settings.darkModeEnabled;
-    return settings.updateDarkMode(!currentState);
+    const defaultSettings = new AccessibilitySetting();
+    this.settingsByUserId.set(normalizedUserId, defaultSettings);
+    return defaultSettings;
   }
 }
 
-module.exports = AccessibilitySettingsService;
+const accessibilitySettingsService = new AccessibilitySettingsService();
+
+export default accessibilitySettingsService;

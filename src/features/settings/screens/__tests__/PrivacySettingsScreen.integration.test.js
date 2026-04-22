@@ -10,10 +10,11 @@ describe('PrivacySettings integration', () => {
     const navigation = createNavigation();
     const screen = render(<PrivacySettings navigation={navigation} />);
 
-    expect(screen.getByText('Viewing Permissions')).toBeTruthy();
-    expect(screen.getByText('Editing Permissions')).toBeTruthy();
-    expect(screen.getByText('View Medication Tracker')).toBeTruthy();
-    expect(screen.getByText('Modify Consultation Tracker')).toBeTruthy();
+    expect(screen.getByText('Tracker access')).toBeTruthy();
+    expect(screen.getByText('Reports and sharing')).toBeTruthy();
+    expect(screen.getByText('Reminder access')).toBeTruthy();
+    expect(screen.getByText('View medication tracker')).toBeTruthy();
+    expect(screen.getByText('Modify appointment tracker')).toBeTruthy();
   });
 
   it('routes through the navigation bar and back button', () => {

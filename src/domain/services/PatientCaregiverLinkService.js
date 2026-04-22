@@ -38,3 +38,153 @@
 // Dependencies:
 // - direct dependencies: PersonalProfileService, PrivacySettingsService
 // - commonly used by: caregiver linking UI, access-control checks, manual reminder flows
+
+const normalizeEntityId = (value, fieldName) => {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      throw new RangeError(`${fieldName} cannot be empty.`);
+    }
+
+    return trimmedValue;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
+};
+
+const buildLinkKey = (patientId, caregiverId) => `${patientId}::${caregiverId}`;
+
+const cloneRequest = (request) => ({ ...request });
+
+export class PatientCaregiverLinkService {
+  constructor(options = {}) {
+    this.personalProfileService = options.personalProfileService ?? null;
+    this.privacySettingsService = options.privacySettingsService ?? null;
+    this.pendingRequests = new Map();
+    this.activePatientToCaregiver = new Map();
+    this.activeCaregiverToPatients = new Map();
+  }
+
+  requestPatientLink(patientId, caregiverId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    const key = buildLinkKey(normalizedPatientId, normalizedCaregiverId);
+    const existing = this.pendingRequests.get(key);
+
+    if (existing && existing.status === 'approved') {
+      return cloneRequest(existing);
+    }
+
+    const request = {
+      patientId: normalizedPatientId,
+      caregiverId: normalizedCaregiverId,
+      status: 'pending',
+      requestedAt: new Date(),
+      resolvedAt: null,
+    };
+
+    this.pendingRequests.set(key, request);
+    return cloneRequest(request);
+  }
+
+  approvePatientLink(patientId, caregiverId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    const key = buildLinkKey(normalizedPatientId, normalizedCaregiverId);
+    const request = this.pendingRequests.get(key) ?? this.requestPatientLink(normalizedPatientId, normalizedCaregiverId);
+
+    request.status = 'approved';
+    request.resolvedAt = new Date();
+    this.pendingRequests.set(key, request);
+
+    const previousCaregiverId = this.activePatientToCaregiver.get(normalizedPatientId);
+    if (previousCaregiverId && previousCaregiverId !== normalizedCaregiverId) {
+      this._unlinkPair(normalizedPatientId, previousCaregiverId);
+    }
+
+    this.activePatientToCaregiver.set(normalizedPatientId, normalizedCaregiverId);
+    let patientSet = this.activeCaregiverToPatients.get(normalizedCaregiverId);
+    if (!patientSet) {
+      patientSet = new Set();
+      this.activeCaregiverToPatients.set(normalizedCaregiverId, patientSet);
+    }
+
+    patientSet.add(normalizedPatientId);
+    return cloneRequest(request);
+  }
+
+  rejectPatientLink(patientId, caregiverId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    const key = buildLinkKey(normalizedPatientId, normalizedCaregiverId);
+    const request = this.pendingRequests.get(key) ?? this.requestPatientLink(normalizedPatientId, normalizedCaregiverId);
+    request.status = 'rejected';
+    request.resolvedAt = new Date();
+    this.pendingRequests.set(key, request);
+    return cloneRequest(request);
+  }
+
+  unlinkPatientCaregiver(patientId, caregiverId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    const unlinked = this._unlinkPair(normalizedPatientId, normalizedCaregiverId);
+    return unlinked;
+  }
+
+  getLinkedCaregiver(patientId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    return this.activePatientToCaregiver.get(normalizedPatientId) ?? null;
+  }
+
+  getLinkedPatients(caregiverId) {
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    const patientSet = this.activeCaregiverToPatients.get(normalizedCaregiverId);
+    return patientSet ? [...patientSet] : [];
+  }
+
+  getPendingRequestsForCaregiver(caregiverId) {
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    return [...this.pendingRequests.values()]
+      .filter((request) => request.caregiverId === normalizedCaregiverId && request.status === 'pending')
+      .map(cloneRequest);
+  }
+
+  getOutgoingRequestsForPatient(patientId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    return [...this.pendingRequests.values()]
+      .filter((request) => request.patientId === normalizedPatientId && request.status === 'pending')
+      .map(cloneRequest);
+  }
+
+  canCaregiverAccessPatient(patientId, caregiverId) {
+    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
+    const normalizedCaregiverId = normalizeEntityId(caregiverId, 'caregiverId');
+    return this.activePatientToCaregiver.get(normalizedPatientId) === normalizedCaregiverId;
+  }
+
+  _unlinkPair(patientId, caregiverId) {
+    const currentCaregiver = this.activePatientToCaregiver.get(patientId);
+    if (currentCaregiver !== caregiverId) {
+      return false;
+    }
+
+    this.activePatientToCaregiver.delete(patientId);
+    const patientSet = this.activeCaregiverToPatients.get(caregiverId);
+    if (patientSet) {
+      patientSet.delete(patientId);
+      if (!patientSet.size) {
+        this.activeCaregiverToPatients.delete(caregiverId);
+      }
+    }
+
+    return true;
+  }
+}
+
+const patientCaregiverLinkService = new PatientCaregiverLinkService();
+
+export default patientCaregiverLinkService;

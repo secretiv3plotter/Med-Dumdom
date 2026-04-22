@@ -1,7 +1,7 @@
 // A reusable input bar component for forms, search fields, and password inputs with show/hide functionality.
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { accessibility, colors, radius, spacing } from '../../theme';
+import { accessibility, colors, radius, spacing, typography, moderateScale } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
 
 const PASSWORD_PAIR_REGISTRY = {
@@ -22,7 +22,7 @@ const DEFAULT_EMAIL_DOMAIN_CORRECTIONS = {
   'gmail.con': 'gmail.com',
 };
 
-const EYE_HIT_SLOP = { top: 14, bottom: 14, left: 14, right: 14 };
+const EYE_HIT_SLOP = { top: spacing.sm, bottom: spacing.sm, left: spacing.sm, right: spacing.sm };
 
 const normalizeDomainValue = (domainValue) => {
   if (!domainValue) {
@@ -210,7 +210,7 @@ export default function InputBar({
         >
           <Ionicons
             name={isPasswordVisible ? 'eye' : 'eye-off'}
-            size={20}
+            size={moderateScale(20)}
             color={colors.bodyMuted}
           />
         </TouchableOpacity>
@@ -287,8 +287,7 @@ export default function InputBar({
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 14,
-    lineHeight: 20,
+    ...typography.bodySmall,
     color: colors.body,
     fontWeight: '600',
     marginBottom: spacing.xs,
@@ -319,8 +318,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    lineHeight: 24,
+    ...typography.body,
     color: colors.title,
     paddingRight: spacing.sm,
   },
@@ -348,8 +346,7 @@ const styles = StyleSheet.create({
   errorText: {
     marginTop: spacing.xs,
     color: colors.error,
-    fontSize: 13,
-    lineHeight: 18,
+    ...typography.bodySmall,
     fontWeight: '600',
   },
 });

@@ -31,32 +31,34 @@ describe('SettingsScreen integration', () => {
     expect(getByLabelText('New password').props.value).toBe('');
   });
 
-  it('opens and confirms the delete-account dialog', () => {
+  it('opens and confirms the soft-delete dialog', () => {
     const navigation = createNavigation();
-    const { getAllByText, getByText } = render(<SettingsScreen navigation={navigation} />);
+    const { getByText } = render(<SettingsScreen navigation={navigation} />);
 
-    fireEvent.press(getAllByText('Delete Account')[1]);
-    expect(getByText('Delete account?')).toBeTruthy();
+    fireEvent.press(getByText('Delete Account'));
+    expect(getByText('Deactivate account?')).toBeTruthy();
 
     fireEvent.press(getByText('Yes'));
 
     expect(getByText('Inactive')).toBeTruthy();
     expect(Alert.alert).toHaveBeenCalledWith(
-      'Account deleted',
+      'Account deactivated',
       'Your account status is now inactive.'
     );
   });
 
-  it('routes to the nested settings screens', () => {
+  it('routes to the nested service-backed screens', () => {
     const navigation = createNavigation();
     const { getByText } = render(<SettingsScreen navigation={navigation} />);
 
     fireEvent.press(getByText('Notifications'));
     fireEvent.press(getByText('Privacy Settings'));
     fireEvent.press(getByText('Accessibility'));
+    fireEvent.press(getByText('Help and Support'));
 
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.NOTIFICATION_SETTINGS);
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.PRIVACY_SETTINGS);
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.ACCESSIBILITY_SETTINGS);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HELP_AND_SUPPORT);
   });
 });

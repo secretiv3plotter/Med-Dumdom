@@ -5,7 +5,7 @@ import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
 export default function AppRoot() {
-  const [history, setHistory] = useState([{ routeName: ROUTES.SIGN_UP, params: {} }]);
+  const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry?.routeName;
   const currentParams = currentEntry?.params ?? {};

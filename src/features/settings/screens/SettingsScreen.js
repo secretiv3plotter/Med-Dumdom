@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -9,14 +9,49 @@ import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 
+const SETTINGS_ITEMS = [
+  {
+    key: 'notifications',
+    title: 'Notifications',
+    subtitle: 'Manage reminders and app alerts.',
+    icon: 'notifications-outline',
+    route: ROUTES.NOTIFICATION_SETTINGS,
+  },
+  {
+    key: 'privacy',
+    title: 'Privacy Settings',
+    subtitle: 'Control data visibility and permissions.',
+    icon: 'shield-checkmark-outline',
+    route: ROUTES.PRIVACY_SETTINGS,
+  },
+  {
+    key: 'accessibility',
+    title: 'Accessibility',
+    subtitle: 'Adjust display and interaction preferences.',
+    icon: 'accessibility-outline',
+    route: ROUTES.ACCESSIBILITY_SETTINGS,
+  },
+  {
+    key: 'support',
+    title: 'Help and Support',
+    subtitle: 'Search FAQs and get help.',
+    icon: 'help-circle-outline',
+    route: ROUTES.HELP_AND_SUPPORT,
+  },
+];
+
 export default function SettingsScreen({ navigation }) {
   const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const canChangePassword =
-    currentPassword.trim().length > 0 && newPassword.trim().length > 0;
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
+
+  const canChangePassword = currentPassword.trim().length > 0 && newPassword.trim().length > 0;
 
   const handlePasswordChange = () => {
     if (!canChangePassword) {
@@ -32,21 +67,35 @@ export default function SettingsScreen({ navigation }) {
   const handleDeleteAccount = () => {
     setShowDeleteDialog(false);
     setIsActive(false);
-    Alert.alert('Account deleted', 'Your account status is now inactive.');
+    Alert.alert('Account deactivated', 'Your account status is now inactive.');
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
+        <BackButton onPress={() => navigation?.goBack?.()} disabled={!canGoBack} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.headerBlock}>
-          <View style={styles.titleRow}>
-            <Text style={styles.title}>Settings</Text>
-          </View>
-          <Text style={styles.subtitle}>Manage your account and preferences.</Text>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Open the settings screens backed by the current services.</Text>
+        </View>
+
+        <View style={styles.sectionCard}>
+          {SETTINGS_ITEMS.map((item, index) => (
+            <Pressable
+              key={item.key}
+              style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed, index < SETTINGS_ITEMS.length - 1 && styles.optionCardDivider]}
+              onPress={() => navigation?.navigate?.(item.route)}
+            >
+              <Ionicons name={item.icon} size={28} color={colors.brandText} />
+              <View style={styles.optionTextBlock}>
+                <Text style={styles.optionTitle}>{item.title}</Text>
+                <Text style={styles.optionSubtitle}>{item.subtitle}</Text>
+              </View>
+            </Pressable>
+          ))}
         </View>
 
         <View style={styles.sectionCard}>
@@ -87,9 +136,9 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Delete Account</Text>
+          <Text style={styles.sectionTitle}>Soft Delete Account</Text>
           <Text style={styles.helperText}>
-            This action cannot be undone.
+            This will deactivate the app account, not permanently erase it.
           </Text>
           <ActionButton
             label="Delete Account"
@@ -99,55 +148,14 @@ export default function SettingsScreen({ navigation }) {
             textStyle={styles.deleteText}
           />
         </View>
-
-        <View style={styles.sectionCard}>
-          <View style={styles.stackedTabBars}>
-            <View style={styles.optionItem}>
-              <Pressable
-                style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.NOTIFICATION_SETTINGS)}
-              >
-                <Ionicons name="notifications-outline" size={28} color={colors.brandText} />
-                <View style={styles.optionTextBlock}>
-                  <Text style={styles.optionTitle}>Notifications</Text>
-                  <Text style={styles.optionSubtitle}>Manage reminders and app alerts.</Text>
-                </View>
-              </Pressable>
-            </View>
-            <View style={styles.optionItem}>
-              <Pressable
-                style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.PRIVACY_SETTINGS)}
-              >
-                <Ionicons name="shield-checkmark-outline" size={28} color={colors.brandText} />
-                <View style={styles.optionTextBlock}>
-                  <Text style={styles.optionTitle}>Privacy Settings</Text>
-                  <Text style={styles.optionSubtitle}>Control data visibility and permissions.</Text>
-                </View>
-              </Pressable>
-            </View>
-            <View style={styles.optionItem}>
-              <Pressable
-                style={styles.optionCard}
-                onPress={() => navigation?.navigate?.(ROUTES.ACCESSIBILITY_SETTINGS)}
-              >
-                <Ionicons name="accessibility-outline" size={28} color={colors.brandText} />
-                <View style={styles.optionTextBlock}>
-                  <Text style={styles.optionTitle}>Accessibility</Text>
-                  <Text style={styles.optionSubtitle}>Adjust display and interaction preferences.</Text>
-                </View>
-              </Pressable>
-            </View>
-          </View>
-        </View>
       </ScrollView>
 
       {showDeleteDialog ? (
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogContainer}>
             <DialogBox
-              title="Delete account?"
-              message="Are you sure you want to delete your account?"
+              title="Deactivate account?"
+              message="Are you sure you want to deactivate your account? This is a soft delete."
               actions={[
                 {
                   label: 'Cancel',
@@ -187,6 +195,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: spacing.md,
   },
+  headerBlock: {
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
   title: {
     ...typography.title,
     color: colors.title,
@@ -197,22 +209,12 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
     textAlign: 'left',
   },
-  headerBlock: {
-    alignItems: 'flex-start',
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
   sectionCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -245,22 +247,19 @@ const styles = StyleSheet.create({
   deleteText: {
     color: colors.error,
   },
-  stackedTabBars: {
-    gap: spacing.sm,
-  },
-  optionItem: {
-    gap: spacing.xs,
-  },
   optionCard: {
-    borderWidth: 1,
-    borderColor: colors.brand,
-    borderRadius: radius.lg,
-    backgroundColor: '#ECF3F6',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  optionCardDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  optionCardPressed: {
+    backgroundColor: '#ECF3F6',
   },
   optionTextBlock: {
     flex: 1,

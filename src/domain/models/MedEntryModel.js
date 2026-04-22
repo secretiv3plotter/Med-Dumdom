@@ -12,7 +12,7 @@ const normalizeRequiredString = (value, fieldName) => {
 };
 
 const normalizeOptionalString = (value, fieldName) => {
-  if (value === undefined || value === null) {
+  if (value === undefined || value === null || value === '') {
     return '';
   }
 
@@ -36,59 +36,60 @@ const normalizeDate = (value, fieldName) => {
   return parsedDate;
 };
 
-const startOfDay = (value) => {
-  const parsedDate = normalizeDate(value, 'date');
-
-  if (!parsedDate) {
+const normalizeOptionalDate = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
     return null;
   }
 
-  parsedDate.setHours(0, 0, 0, 0);
-  return parsedDate;
+  return normalizeDate(value, fieldName);
 };
 
-const isSameDay = (firstDate, secondDate) => {
-  const first = startOfDay(firstDate);
-  const second = startOfDay(secondDate);
+const normalizeInteger = (value, fieldName, { allowZero = true, optional = false } = {}) => {
+  if (value === undefined || value === null || value === '') {
+    if (optional) {
+      return null;
+    }
 
-  if (!first || !second) {
-    return false;
+    throw new RangeError(`${fieldName} is required.`);
   }
 
-  return first.getTime() === second.getTime();
+  const rawValue = typeof value === 'number' ? value : Number(String(value).trim());
+  const numericValue = Number.isInteger(rawValue)
+    ? rawValue
+    : (() => {
+        const matchedNumber = String(value).match(/-?\d+/);
+        return matchedNumber ? Number(matchedNumber[0]) : Number.NaN;
+      })();
+  if (!Number.isInteger(numericValue)) {
+    throw new RangeError(`${fieldName} must be an integer.`);
+  }
+
+  if (numericValue < 0 || (!allowZero && numericValue === 0)) {
+    throw new RangeError(`${fieldName} must be ${allowZero ? 'a non-negative integer' : 'a positive integer'}.`);
+  }
+
+  return numericValue;
 };
 
-const formatTime = (value) => {
+const normalizeTime = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
   if (value instanceof Date) {
     const hours = String(value.getHours()).padStart(2, '0');
     const minutes = String(value.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   }
 
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  return '';
-};
-
-const parseTimeToMinutes = (value) => {
-  if (value instanceof Date) {
-    return value.getHours() * 60 + value.getMinutes();
-  }
-
   if (typeof value !== 'string') {
-    return null;
+    throw new TypeError(`${fieldName} must be a string or Date.`);
   }
 
   const trimmedValue = value.trim();
-  if (!trimmedValue) {
-    return null;
-  }
-
   const match = trimmedValue.match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
   if (!match) {
-    return null;
+    throw new RangeError(`${fieldName} must be a valid time.`);
   }
 
   let hours = Number(match[1]);
@@ -96,12 +97,12 @@ const parseTimeToMinutes = (value) => {
   const meridiem = match[3]?.toUpperCase() ?? null;
 
   if (minutes < 0 || minutes > 59) {
-    return null;
+    throw new RangeError(`${fieldName} must be a valid time.`);
   }
 
   if (meridiem) {
     if (hours < 1 || hours > 12) {
-      return null;
+      throw new RangeError(`${fieldName} must be a valid time.`);
     }
 
     if (meridiem === 'AM') {
@@ -110,42 +111,106 @@ const parseTimeToMinutes = (value) => {
       hours = hours === 12 ? 12 : hours + 12;
     }
   } else if (hours < 0 || hours > 23) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
-};
-
-const normalizeTimeValue = (value, fieldName) => {
-  if (value === undefined || value === null || value === '') {
-    return null;
-  }
-
-  const formattedTime = formatTime(value);
-  if (parseTimeToMinutes(formattedTime) === null) {
     throw new RangeError(`${fieldName} must be a valid time.`);
   }
 
-  return formattedTime;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const normalizeRequiredTime = (value, fieldName) => {
+  const normalizedTime = normalizeTime(value, fieldName);
+  if (!normalizedTime) {
+    throw new RangeError(`${fieldName} is required.`);
+  }
+
+  return normalizedTime;
+};
+
+const normalizeMealContext = (value) => {
+  const normalized = normalizeRequiredString(value, 'mealContext').toLowerCase();
+  if (!['before', 'during', 'after'].includes(normalized)) {
+    throw new RangeError('mealContext must be before, during, or after.');
+  }
+
+  return normalized;
+};
+
+const normalizeAssociatedMeal = (value) => {
+  const normalized = normalizeRequiredString(value, 'associatedMeal').toLowerCase();
+  if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(normalized)) {
+    throw new RangeError('associatedMeal must be breakfast, lunch, dinner, or snack.');
+  }
+
+  return normalized;
+};
+
+const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
+
+const normalizeScheduleEntry = (entry, index) => {
+  if (typeof entry === 'string' || entry instanceof Date) {
+    return {
+      scheduleType: 'time',
+      doseSize: 1,
+      scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
+      instructions: '',
+    };
+  }
+
+  if (!entry || typeof entry !== 'object') {
+    throw new TypeError(`dailySched[${index}] must be an object, string, or Date.`);
+  }
+
+  const normalizedType = normalizeOptionalString(entry.scheduleType ?? entry.type ?? entry.mode, `dailySched[${index}].scheduleType`).toLowerCase();
+  const isMealBased =
+    normalizedType === 'meal' ||
+    normalizedType === 'meal-based' ||
+    entry.mealContext !== undefined ||
+    entry.associatedMeal !== undefined ||
+    entry.mealTime !== undefined;
+
+  const doseSize = normalizeInteger(entry.doseSize ?? entry.amount ?? 1, `dailySched[${index}].doseSize`, {
+    allowZero: false,
+  });
+  const instructions = normalizeOptionalString(entry.instructions, `dailySched[${index}].instructions`);
+
+  if (isMealBased) {
+    return {
+      scheduleType: 'meal',
+      doseSize,
+      mealContext: normalizeMealContext(entry.mealContext),
+      associatedMeal: normalizeAssociatedMeal(entry.associatedMeal),
+      mealTime: normalizeRequiredTime(entry.mealTime ?? entry.scheduledTime, `dailySched[${index}].mealTime`),
+      instructions,
+    };
+  }
+
+  return {
+    scheduleType: 'time',
+    doseSize,
+    scheduledTime: normalizeRequiredTime(
+      entry.scheduledTime ?? entry.time ?? entry.mealTime,
+      `dailySched[${index}].scheduledTime`
+    ),
+    instructions,
+  };
 };
 
 const normalizeSchedule = (dailySched) => {
-  let scheduleItems = [];
-
-  if (Array.isArray(dailySched)) {
-    scheduleItems = dailySched;
-  } else if (typeof dailySched === 'string') {
-    scheduleItems = dailySched.split(',');
-  } else if (dailySched instanceof Date) {
-    scheduleItems = [dailySched];
-  } else {
-    throw new TypeError('dailySched must be a string, Date, or array of times.');
+  if (dailySched === undefined || dailySched === null || dailySched === '') {
+    throw new RangeError('dailySched cannot be empty.');
   }
 
-  const normalizedSchedule = scheduleItems
-    .map((time) => normalizeTimeValue(time, 'dailySched'))
-    .filter(Boolean);
+  const scheduleItems = Array.isArray(dailySched)
+    ? dailySched
+    : typeof dailySched === 'string'
+      ? dailySched.split(',').map((item) => item.trim()).filter(Boolean)
+      : dailySched instanceof Date
+        ? [dailySched]
+        : (() => {
+            throw new TypeError('dailySched must be a string, Date, or array.');
+          })();
 
+  const normalizedSchedule = scheduleItems.map((item, index) => normalizeScheduleEntry(item, index));
   if (!normalizedSchedule.length) {
     throw new RangeError('dailySched cannot be empty.');
   }
@@ -153,14 +218,8 @@ const normalizeSchedule = (dailySched) => {
   return normalizedSchedule;
 };
 
-const normalizeAmount = (value) => {
-  const numericAmount = Number(value);
-  if (!Number.isInteger(numericAmount) || numericAmount < 0) {
-    throw new RangeError('amount must be a non-negative integer.');
-  }
-
-  return numericAmount;
-};
+const sumDoseSizes = (dailySched) =>
+  dailySched.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
 
 const ensureDateRange = (startDate, endDate) => {
   if (startDate && endDate && startDate.getTime() > endDate.getTime()) {
@@ -173,19 +232,27 @@ const normalizeTimesTaken = (timesTaken) => {
     throw new TypeError('timesTaken must be an array.');
   }
 
-  return timesTaken.map((time) => normalizeTimeValue(time, 'timesTaken'));
+  return timesTaken.map((time, index) => normalizeTime(time, `timesTaken[${index}]`));
 };
 
 export default class MedEntry {
   constructor({
     medEntryId = '',
     medName,
+    unitStrength,
     dosage,
+    unit,
+    quantityUnit,
+    totalDailyAmount,
     amount,
-    quantityUnit = '',
     dailySched,
     startDate,
-    endDate,
+    endDate = null,
+    instructions = '',
+    inventoryCount = null,
+    inventory_count = null,
+    prescriberContact = '',
+    prescriber_contact = '',
     isTaken = false,
     timeTaken = null,
     dateTaken = null,
@@ -193,21 +260,34 @@ export default class MedEntry {
   } = {}) {
     this.medEntryId = medEntryId === undefined || medEntryId === null ? '' : String(medEntryId).trim();
     this.medName = normalizeRequiredString(medName, 'medName');
-    this.dosage = normalizeRequiredString(dosage, 'dosage');
-    this.amount = normalizeAmount(amount);
-    this.quantityUnit = normalizeOptionalString(quantityUnit, 'quantityUnit');
+    this.unitStrength = normalizeRequiredString(unitStrength ?? dosage, 'unitStrength');
+    this.dosage = this.unitStrength;
+    this.unit = normalizeRequiredString(unit ?? quantityUnit, 'unit');
+    this.quantityUnit = this.unit;
+    this.totalDailyAmount = normalizeInteger(totalDailyAmount ?? amount, 'totalDailyAmount', {
+      allowZero: false,
+    });
+    this.amount = this.totalDailyAmount;
     this.dailySched = normalizeSchedule(dailySched);
+    if (sumDoseSizes(this.dailySched) !== this.totalDailyAmount) {
+      throw new RangeError('totalDailyAmount must match the sum of dailySched doseSize values.');
+    }
     this.startDate = normalizeDate(startDate, 'startDate');
-    this.endDate = normalizeDate(endDate, 'endDate');
-    if (!this.startDate || !this.endDate) {
-      throw new RangeError('startDate and endDate are required.');
+    this.endDate = normalizeOptionalDate(endDate, 'endDate');
+    if (!this.startDate) {
+      throw new RangeError('startDate is required.');
     }
     ensureDateRange(this.startDate, this.endDate);
+    this.instructions = normalizeOptionalString(instructions, 'instructions');
+    this.inventoryCount = normalizeInteger(inventoryCount ?? inventory_count, 'inventoryCount', {
+      optional: true,
+    });
+    this.prescriberContact = normalizeOptionalString(prescriberContact || prescriber_contact, 'prescriberContact');
     this.isTaken = typeof isTaken === 'boolean' ? isTaken : (() => {
       throw new TypeError('isTaken must be a boolean.');
     })();
-    this.timeTaken = normalizeTimeValue(timeTaken, 'timeTaken');
-    this.dateTaken = normalizeDate(dateTaken, 'dateTaken');
+    this.timeTaken = normalizeTime(timeTaken, 'timeTaken') || null;
+    this.dateTaken = normalizeOptionalDate(dateTaken, 'dateTaken');
     this.timesTaken = normalizeTimesTaken(timesTaken);
 
     if (this.isTaken) {
@@ -224,23 +304,48 @@ export default class MedEntry {
     return this.medName;
   }
 
+  updateUnitStrength(newUnitStrength) {
+    this.unitStrength = normalizeRequiredString(newUnitStrength, 'unitStrength');
+    this.dosage = this.unitStrength;
+    return this.unitStrength;
+  }
+
   updateDosage(newDosage) {
-    this.dosage = normalizeRequiredString(newDosage, 'dosage');
-    return this.dosage;
+    return this.updateUnitStrength(newDosage);
+  }
+
+  updateUnit(newUnit) {
+    this.unit = normalizeRequiredString(newUnit, 'unit');
+    this.quantityUnit = this.unit;
+    return this.unit;
+  }
+
+  updateTotalDailyAmount(newTotalDailyAmount) {
+    const nextAmount = normalizeInteger(newTotalDailyAmount, 'totalDailyAmount', {
+      allowZero: false,
+    });
+
+    const currentScheduleTotal = sumDoseSizes(this.dailySched);
+    if (currentScheduleTotal !== nextAmount) {
+      throw new RangeError('totalDailyAmount must match the sum of dailySched doseSize values.');
+    }
+
+    this.totalDailyAmount = nextAmount;
+    this.amount = this.totalDailyAmount;
+    return this.totalDailyAmount;
   }
 
   updateAmount(newAmount) {
-    this.amount = normalizeAmount(newAmount);
-    return this.amount;
-  }
-
-  updateQuantityUnit(newUnit) {
-    this.quantityUnit = normalizeOptionalString(newUnit, 'quantityUnit');
-    return this.quantityUnit;
+    return this.updateTotalDailyAmount(newAmount);
   }
 
   updateDailySched(newDailySched) {
-    this.dailySched = normalizeSchedule(newDailySched);
+    const nextSchedule = normalizeSchedule(newDailySched);
+    if (sumDoseSizes(nextSchedule) !== this.totalDailyAmount) {
+      throw new RangeError('totalDailyAmount must match the sum of dailySched doseSize values.');
+    }
+
+    this.dailySched = nextSchedule;
     return [...this.dailySched];
   }
 
@@ -256,23 +361,30 @@ export default class MedEntry {
   }
 
   updateEndDate(newEndDate) {
-    const nextEndDate = normalizeDate(newEndDate, 'endDate');
-    if (!nextEndDate) {
-      throw new RangeError('endDate is required.');
-    }
-
+    const nextEndDate = normalizeOptionalDate(newEndDate, 'endDate');
     ensureDateRange(this.startDate, nextEndDate);
     this.endDate = nextEndDate;
     return this.endDate;
   }
 
+  updateInstructions(newInstructions) {
+    this.instructions = normalizeOptionalString(newInstructions, 'instructions');
+    return this.instructions;
+  }
+
+  updateInventoryCount(newInventoryCount) {
+    this.inventoryCount = normalizeInteger(newInventoryCount, 'inventoryCount', { optional: true });
+    return this.inventoryCount;
+  }
+
+  updatePrescriberContact(newPrescriberContact) {
+    this.prescriberContact = normalizeOptionalString(newPrescriberContact, 'prescriberContact');
+    return this.prescriberContact;
+  }
+
   markTaken(takenAt = new Date()) {
     const takenDateTime = normalizeDate(takenAt, 'takenAt') ?? new Date();
-    const takenTime = normalizeTimeValue(takenDateTime, 'takenAt');
-
-    if (!isSameDay(this.dateTaken, takenDateTime)) {
-      this.timesTaken = [];
-    }
+    const takenTime = normalizeTime(takenDateTime, 'takenAt');
 
     if (!this.timesTaken.includes(takenTime)) {
       this.timesTaken.push(takenTime);
@@ -294,46 +406,72 @@ export default class MedEntry {
   }
 
   isActiveOnDate(currDate = new Date()) {
-    const currentDay = startOfDay(currDate);
+    const currentDay = normalizeOptionalDate(currDate, 'currDate');
 
     if (!currentDay) {
       return false;
     }
 
-    const startDay = startOfDay(this.startDate);
-    const endDay = startOfDay(this.endDate);
+    const startDay = normalizeOptionalDate(this.startDate, 'startDate');
+    const endDay = normalizeOptionalDate(this.endDate, 'endDate');
+
+    if (startDay) {
+      startDay.setHours(0, 0, 0, 0);
+    }
+    currentDay.setHours(0, 0, 0, 0);
 
     if (startDay && currentDay < startDay) {
       return false;
     }
 
-    if (endDay && currentDay > endDay) {
-      return false;
+    if (endDay) {
+      endDay.setHours(0, 0, 0, 0);
+      if (currentDay > endDay) {
+        return false;
+      }
     }
 
     return true;
   }
 
   isDue(currTime, currDate = new Date()) {
-    if (!this.isActiveOnDate(currDate) || !this.dailySched.length) {
+    if (this.isTaken || !this.isActiveOnDate(currDate) || !this.dailySched.length) {
       return false;
     }
 
-    const currentMinutes = parseTimeToMinutes(currTime instanceof Date ? currTime : currTime || currDate);
-    if (currentMinutes === null) {
+    const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
+    const currentMinutes = normalizeTime(currentTime, 'currTime');
+    if (!currentMinutes) {
       return false;
     }
 
-    const dueScheduleCount = this.dailySched.reduce((count, scheduleTime) => {
-      const scheduleMinutes = parseTimeToMinutes(scheduleTime);
-      return scheduleMinutes !== null && scheduleMinutes <= currentMinutes ? count + 1 : count;
+    const nowMinutes = (() => {
+      const match = currentMinutes.match(/^(\d{2}):(\d{2})$/);
+      if (!match) {
+        return null;
+      }
+
+      return Number(match[1]) * 60 + Number(match[2]);
+    })();
+
+    if (nowMinutes === null) {
+      return false;
+    }
+
+    const dueDoseCount = this.dailySched.reduce((count, entry) => {
+      const scheduleMinutes = (() => {
+        const effectiveTime = scheduleEffectiveTime(entry);
+        const match = effectiveTime.match(/^(\d{2}):(\d{2})$/);
+        if (!match) {
+          return null;
+        }
+
+        return Number(match[1]) * 60 + Number(match[2]);
+      })();
+
+      return scheduleMinutes !== null && scheduleMinutes <= nowMinutes ? count + Number(entry.doseSize || 0) : count;
     }, 0);
 
-    if (dueScheduleCount === 0) {
-      return false;
-    }
-
-    const takenCountForDate = isSameDay(this.dateTaken, currDate) ? this.timesTaken.length : 0;
-    return takenCountForDate < dueScheduleCount;
+    return dueDoseCount > 0;
   }
 }

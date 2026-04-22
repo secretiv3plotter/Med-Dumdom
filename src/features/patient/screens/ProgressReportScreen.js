@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import ActionButton from '../../../shared/components/common/ActionButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import ClickableCard from '../../../shared/components/common/ClickableCard';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import progressReportService from '../../../domain/services/ProgressReportService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
 
 const TOP_OVERLAY_HEIGHT = 100;
+const CURRENT_USER_ID = 'current-user';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -19,43 +21,12 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-const REPORT_PLACEHOLDERS = [
-  {
-    id: 'report-1',
-    title: 'Weekly Medication Adherence',
-    subtitle: 'Week of Mar 10 - Mar 16, 2026',
-    details: 'Placeholder report details',
-    summary:
-      'This placeholder report will show medication adherence trends and completion percentages for the selected week.',
-  },
-  {
-    id: 'report-2',
-    title: 'Monthly Health Overview',
-    subtitle: 'March 2026',
-    details: 'Placeholder report details',
-    summary:
-      'This placeholder report will summarize symptom logs, medication activity, and notable month-over-month changes.',
-  },
-  {
-    id: 'report-3',
-    title: 'Appointment Follow-up Report',
-    subtitle: 'Last 30 days',
-    details: 'Placeholder report details',
-    summary:
-      'This placeholder report will present completed appointments, missed sessions, and upcoming follow-up recommendations.',
-  },
-  {
-    id: 'report-4',
-    title: 'Caregiver Activity Summary',
-    subtitle: 'Current cycle',
-    details: 'Placeholder report details',
-    summary:
-      'This placeholder report will include caregiver check-ins, assistance logs, and response timelines.',
-  },
-];
+const FORMAT_OPTIONS = ['json', 'csv', 'text'];
 
 export default function ProgressReportScreen({ navigation }) {
-  const [selectedReportId, setSelectedReportId] = useState(null);
+  const [selectedRange, setSelectedRange] = useState('monthly');
+  const [selectedSection, setSelectedSection] = useState('summary');
+  const [exportFormat, setExportFormat] = useState('json');
   const [isPopupVisible, setIsPopupVisible] = useState(false);
 
   const canGoBack =
@@ -63,17 +34,41 @@ export default function ProgressReportScreen({ navigation }) {
       ? navigation.canGoBack()
       : Boolean(navigation?.canGoBack);
 
-  const selectedReport = useMemo(
-    () => REPORT_PLACEHOLDERS.find((report) => report.id === selectedReportId) || null,
-    [selectedReportId]
-  );
-
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
       navigation?.navigate?.(targetRoute);
     }
   };
+
+  const reportSummary = useMemo(
+    () => progressReportService.getReportSummary(CURRENT_USER_ID, selectedRange),
+    [selectedRange]
+  );
+
+  const rangeOptions = useMemo(() => progressReportService.getAvailableReportRanges(), []);
+
+  const exportPreview = useMemo(
+    () => progressReportService.exportReport(CURRENT_USER_ID, selectedRange, exportFormat),
+    [selectedRange, exportFormat]
+  );
+
+  const openSection = (sectionKey) => {
+    setSelectedSection(sectionKey);
+    setIsPopupVisible(true);
+  };
+
+  const popupContent = useMemo(() => {
+    if (selectedSection === 'medication') {
+      return progressReportService.getMedicationReportSection(CURRENT_USER_ID, selectedRange);
+    }
+
+    if (selectedSection === 'appointment') {
+      return progressReportService.getAppointmentReportSection(CURRENT_USER_ID, selectedRange);
+    }
+
+    return reportSummary;
+  }, [reportSummary, selectedRange, selectedSection]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -83,59 +78,131 @@ export default function ProgressReportScreen({ navigation }) {
         </View>
         <View style={styles.headerMiddleLeft}>
           <Text style={styles.title}>Progress Reports</Text>
-          <Text style={styles.subtitle}>Tap a report placeholder to preview details.</Text>
+          <Text style={styles.subtitle}>Switch report ranges and preview tracker summaries.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.reportList}>
-          {REPORT_PLACEHOLDERS.map((report) => (
-            <ClickableCard
-              key={report.id}
-              size="portrait"
-              variant="solid"
-              onPress={() => {
-                setSelectedReportId(report.id);
-                setIsPopupVisible(true);
-              }}
-              cardStyle={styles.reportCard}
-              contentStyle={styles.reportCardContent}
-              leftSlot={
-                <View style={styles.reportHeaderBlock}>
-                  <Text style={styles.reportHeaderTitle}>{report.title}</Text>
-                  <Text style={styles.reportHeaderSubtitle}>{report.subtitle}</Text>
-                  <Text style={styles.reportHeaderDetails}>{report.summary}</Text>
-                </View>
-              }
-            />
-          ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Range</Text>
+          <View style={styles.optionRow}>
+            {rangeOptions.map((option) => (
+              <ActionButton
+                key={option.key}
+                label={option.label}
+                variant={selectedRange === option.key ? 'solid' : 'outline'}
+                onPress={() => setSelectedRange(option.key)}
+                style={styles.optionButton}
+              />
+            ))}
+          </View>
+        </View>
+
+        <ClickableCard
+          size="portrait"
+          variant="solid"
+          onPress={() => openSection('summary')}
+          cardStyle={styles.reportCard}
+          contentStyle={styles.reportCardContent}
+          leftSlot={
+            <View style={styles.reportHeaderBlock}>
+              <Text style={styles.reportHeaderTitle}>{reportSummary.title}</Text>
+              <Text style={styles.reportHeaderSubtitle}>{reportSummary.subtitle}</Text>
+              <Text style={styles.reportHeaderDetails}>{reportSummary.summary}</Text>
+            </View>
+          }
+        />
+
+        <View style={styles.metricsGrid}>
+          <MetricCard label="Medication adherence" value={`${reportSummary.medicationStats.adherenceRate}%`} />
+          <MetricCard
+            label="Completed appointments"
+            value={`${reportSummary.appointmentStats.completedAppointments}/${reportSummary.appointmentStats.totalAppointments}`}
+          />
+          <MetricCard label="Taken doses" value={String(reportSummary.medicationStats.totalTakenDoses)} />
+          <MetricCard label="Upcoming appointments" value={String(reportSummary.appointmentStats.upcomingAppointments)} />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Report sections</Text>
+          <View style={styles.optionRow}>
+            <ActionButton label="Medication" variant="outline" onPress={() => openSection('medication')} />
+            <ActionButton label="Appointment" variant="outline" onPress={() => openSection('appointment')} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Export format</Text>
+          <View style={styles.optionRow}>
+            {FORMAT_OPTIONS.map((option) => (
+              <ActionButton
+                key={option}
+                label={option.toUpperCase()}
+                variant={exportFormat === option ? 'solid' : 'outline'}
+                onPress={() => setExportFormat(option)}
+                style={styles.optionButton}
+              />
+            ))}
+          </View>
+          <ActionButton
+            label="Generate Export Preview"
+            variant="solid"
+            onPress={() => {
+              setSelectedSection('summary');
+              setIsPopupVisible(true);
+            }}
+          />
         </View>
       </ScrollView>
 
       <LargePopup
-        visible={isPopupVisible && Boolean(selectedReport)}
+        visible={isPopupVisible}
         onClose={() => setIsPopupVisible(false)}
         header={
-          selectedReport ? (
-            <View style={styles.popupHeader}>
-              <Text style={styles.popupTitle}>{selectedReport.title}</Text>
-              <Text style={styles.popupSubtitle}>{selectedReport.subtitle}</Text>
-            </View>
-          ) : null
+          <View style={styles.popupHeader}>
+            <Text style={styles.popupTitle}>
+              {selectedSection === 'medication'
+                ? 'Medication Section'
+                : selectedSection === 'appointment'
+                  ? 'Appointment Section'
+                  : 'Progress Summary'}
+            </Text>
+            <Text style={styles.popupSubtitle}>{reportSummary.subtitle}</Text>
+          </View>
         }
       >
-        {selectedReport ? (
+        {selectedSection === 'medication' ? (
           <>
-            <Text style={styles.popupBody}>{selectedReport.summary}</Text>
-            <ActionButton label="Close" variant="outline" onPress={() => setIsPopupVisible(false)} />
+            <Text style={styles.popupBody}>{JSON.stringify(popupContent.stats, null, 2)}</Text>
+            <Text style={styles.popupBody}>{JSON.stringify(popupContent.entries, null, 2)}</Text>
           </>
-        ) : null}
+        ) : selectedSection === 'appointment' ? (
+          <>
+            <Text style={styles.popupBody}>{JSON.stringify(popupContent.stats, null, 2)}</Text>
+            <Text style={styles.popupBody}>{JSON.stringify(popupContent.entries, null, 2)}</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.popupBody}>{reportSummary.details}</Text>
+            <Text style={styles.popupBody}>{JSON.stringify(exportPreview, null, 2)}</Text>
+          </>
+        )}
+        <ActionButton label="Close" variant="outline" onPress={() => setIsPopupVisible(false)} />
       </LargePopup>
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="progress" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
+  );
+}
+
+function MetricCard({ label, value }) {
+  return (
+    <View style={styles.metricCard}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -148,6 +215,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: TOP_OVERLAY_HEIGHT,
     paddingBottom: 150,
+    gap: spacing.lg,
   },
   title: {
     ...typography.title,
@@ -157,9 +225,21 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.bodyMuted,
   },
-  reportList: {
-    marginTop: spacing.sm,
-    gap: spacing.sm,
+  section: {
+    gap: spacing.xs,
+  },
+  sectionTitle: {
+    ...typography.subtitle,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  optionButton: {
+    minWidth: 88,
   },
   reportCard: {
     minHeight: 150,
@@ -185,6 +265,30 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.body,
   },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  metricCard: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: spacing.md,
+    gap: spacing.xxs,
+  },
+  metricLabel: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  metricValue: {
+    ...typography.subtitle,
+    color: colors.title,
+    fontWeight: '700',
+  },
   popupHeader: {
     gap: spacing.xxs,
   },
@@ -198,8 +302,9 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   popupBody: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.body,
+    marginBottom: spacing.xs,
   },
   footerNav: {
     position: 'absolute',

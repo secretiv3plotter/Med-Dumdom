@@ -1,6 +1,6 @@
 // A reusable user card component for displaying user information with primary and secondary actions.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, radius, spacing } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing } from '../../theme';
 
 function getInitials(name = '') {
   return name
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
     backgroundColor: colors.brandSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.brandText,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: moderateScale(16),
   },
   textBlock: {
     flex: 1,
@@ -91,16 +91,16 @@ const styles = StyleSheet.create({
   name: {
     color: colors.title,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: moderateScale(16),
   },
   subtitle: {
     color: colors.body,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     marginTop: 2,
   },
   details: {
     color: colors.bodyMuted,
-    fontSize: 13,
+    fontSize: moderateScale(13),
     marginTop: 2,
   },
   actionsRow: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
   },
   primaryButtonText: {

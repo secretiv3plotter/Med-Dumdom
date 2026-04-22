@@ -1,7 +1,7 @@
 // A reusable dialog box component for confirmation prompts, form inputs, and error messages.
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import ActionButton from './ActionButton';
-import { colors, radius, spacing } from '../../theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 export default function DialogBox({
   title = 'Are you Sure?',
@@ -69,19 +69,19 @@ export default function DialogBox({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#E8EFF1',
-    borderRadius: 22,
+    borderRadius: moderateScale(22),
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     gap: spacing.sm,
   },
   title: {
-    fontSize: 40,
-    fontWeight: '700',
+    ...typography.title,
     color: colors.title,
     textAlign: 'center',
   },
   message: {
-    fontSize: 27,
+    ...typography.titleSmall,
+    fontWeight: '400',
     color: colors.body,
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.error,
-    fontSize: 13,
+    ...typography.bodySmall,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 0,
-    borderRadius: 26,
+    borderRadius: moderateScale(26),
     paddingVertical: spacing.sm,
     shadowColor: '#000',
     shadowOpacity: 0.2,
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   actionButtonText: {
-    fontSize: 17,
+    ...typography.button,
     fontWeight: '600',
   },
   outlineActionButtonText: {

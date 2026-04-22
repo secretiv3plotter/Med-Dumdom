@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 export default function NotificationButton({ onPress, variant = 'outline', showDot = true }) {
   const isSolid = variant === 'solid';
@@ -18,7 +18,7 @@ export default function NotificationButton({ onPress, variant = 'outline', showD
     >
       <Ionicons
         name={isSolid ? 'notifications' : 'notifications-outline'}
-        size={30}
+        size={moderateScale(30)}
         color={iconAndTextColor}
       />
       <Text style={[styles.text, { color: iconAndTextColor }]}>Alerts</Text>
@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   button: {
     minHeight: accessibility.minTouchTarget,
     flex: 1,
-    minWidth: 62,
+    minWidth: moderateScale(62),
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -50,9 +50,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dot: {
-    width: spacing.xs,
-    height: spacing.xs,
-    borderRadius: spacing.xs,
+    width: moderateScale(8),
+    height: moderateScale(8),
+    borderRadius: moderateScale(8),
     backgroundColor: colors.error,
     position: 'absolute',
     top: spacing.xs,

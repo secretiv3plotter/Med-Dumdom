@@ -1,12 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../../../shared/components/common/BackButton';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
+import privacySettingsService from '../../../domain/services/PrivacySettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
+
+const CURRENT_PATIENT_ID = 'current-patient';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -16,59 +19,50 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-const permissionGroups = [
+const PERMISSION_GROUPS = [
   {
-    id: 'viewing',
-    title: 'Viewing Permissions',
+    id: 'tracker_access',
+    title: 'Tracker access',
     icon: 'stats-chart-outline',
     items: [
-      { id: 'viewMedication', label: 'View Medication Tracker', defaultValue: false },
-      { id: 'viewConsultation', label: 'View Consultation Tracker', defaultValue: true },
+      { key: 'medTrackerPermit', label: 'View medication tracker' },
+      { key: 'consultTrackerPermit', label: 'View appointment tracker' },
+      { key: 'modifyMedTracker', label: 'Modify medication tracker' },
+      { key: 'modifyApptTracker', label: 'Modify appointment tracker' },
     ],
   },
   {
-    id: 'editing',
-    title: 'Editing Permissions',
-    icon: 'create-outline',
+    id: 'reports',
+    title: 'Reports and sharing',
+    icon: 'document-text-outline',
     items: [
-      { id: 'editMedication', label: 'Modify Medication Tracker', defaultValue: false },
-      { id: 'editConsultation', label: 'Modify Consultation Tracker', defaultValue: true },
+      { key: 'viewReportPermit', label: 'View progress report' },
+      { key: 'exportMedReportPermit', label: 'Export medication report' },
+      { key: 'exportApptReportPermit', label: 'Export appointment report' },
     ],
   },
   {
-    id: 'notifications',
-    title: 'Notification Permissions',
+    id: 'reminders',
+    title: 'Reminder access',
     icon: 'notifications-outline',
     items: [
-      { id: 'manualReminders', label: 'Send Manual Reminders', defaultValue: false },
-      { id: 'manageMedReminders', label: 'Manage Medication Reminders', defaultValue: true },
-      { id: 'manageConsultReminders', label: 'Manage Consultation Reminders', defaultValue: true },
-    ],
-  },
-  {
-    id: 'reportSharing',
-    title: 'Progress Report Sharing',
-    icon: 'open-outline',
-    items: [
-      { id: 'viewReport', label: 'View Progress Report', defaultValue: false },
-      { id: 'exportMedicalData', label: 'Export Medical Data', defaultValue: true },
-      { id: 'exportConsultData', label: 'Export Consultation Data', defaultValue: false },
+      { key: 'manualCaregiverReminderPermit', label: 'Send manual caregiver reminders' },
     ],
   },
 ];
 
-const defaultPermissions = permissionGroups.reduce((accumulator, group) => {
-  group.items.forEach((item) => {
-    accumulator[item.id] = item.defaultValue;
-  });
-  return accumulator;
-}, {});
-
 export default function PrivacySettingsScreen({ navigation }) {
-  const [permissions, setPermissions] = useState(defaultPermissions);
+  const [permissions, setPermissions] = useState(() =>
+    privacySettingsService.getPrivacySettings(CURRENT_PATIENT_ID)
+  );
   const { height } = useWindowDimensions();
   const contentTopPadding = Math.max(spacing.lg, Math.min(56, Math.round(height * 0.055)));
   const contentBottomPadding = Math.max(136, Math.round(height * 0.19));
+
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -77,17 +71,18 @@ export default function PrivacySettingsScreen({ navigation }) {
     }
   };
 
-  const updatePermission = (permissionId, value) => {
-    setPermissions((previousState) => ({
-      ...previousState,
-      [permissionId]: value,
-    }));
+  const updatePermission = (permissionKey, value) => {
+    setPermissions(
+      privacySettingsService.updatePrivacySettings(CURRENT_PATIENT_ID, {
+        [permissionKey]: value,
+      })
+    );
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} showLabel={false} />
+        <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} showLabel={false} />
       </View>
 
       <ScrollView
@@ -104,10 +99,10 @@ export default function PrivacySettingsScreen({ navigation }) {
             <Ionicons name="lock-closed-outline" size={28} color={colors.title} />
             <Text style={styles.title}>Privacy Settings</Text>
           </View>
-          <Text style={styles.subtitle}>Manage caregiver access</Text>
+          <Text style={styles.subtitle}>Manage caregiver access using the permissions defined in the privacy model.</Text>
         </View>
 
-        {permissionGroups.map((group) => (
+        {PERMISSION_GROUPS.map((group) => (
           <View key={group.id} style={styles.group}>
             <View style={styles.groupTitleRow}>
               <Ionicons name={group.icon} size={24} color={colors.title} />
@@ -116,14 +111,14 @@ export default function PrivacySettingsScreen({ navigation }) {
 
             <View style={styles.groupItems}>
               {group.items.map((item, index) => {
-                const value = permissions[item.id];
+                const value = Boolean(permissions[item.key]);
                 return (
-                  <View key={item.id}>
+                  <View key={item.key}>
                     <View style={styles.permissionRow}>
                       <Text style={styles.permissionLabel}>{item.label}</Text>
                       <View style={styles.permissionToggleWrap}>
                         <Text style={styles.permissionValue}>{value ? 'Yes' : 'No'}</Text>
-                        <ToggleButton value={value} onChange={(nextValue) => updatePermission(item.id, nextValue)} size={20} />
+                        <ToggleButton value={value} onChange={(nextValue) => updatePermission(item.key, nextValue)} size={20} />
                       </View>
                     </View>
                     {index < group.items.length - 1 ? <View style={styles.permissionDivider} /> : null}

@@ -6,9 +6,11 @@ import {
   createNavigation,
   getLastByPlaceholderText,
 } from '../../../../shared/test-utils/integrationTestUtils';
+import patientCaregiverLinkService from '../../../../domain/services/PatientCaregiverLinkService';
 
 describe('LinkRequestsPage integration', () => {
-  it('filters requests and accepts a selected request', () => {
+  it('filters requests and approves a pending request', () => {
+    patientCaregiverLinkService.requestPatientLink('patient-1', 'current-caregiver');
     const navigation = createNavigation();
     const screen = render(<LinkRequestsPage navigation={navigation} />);
 
@@ -16,11 +18,8 @@ describe('LinkRequestsPage integration', () => {
     expect(screen.getByText('Jane Doe')).toBeTruthy();
     expect(screen.queryByText('John Doe')).toBeNull();
 
-    fireEvent.press(screen.getAllByRole('button')[1]);
-    expect(screen.getByText('Review Link Request')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('Accept'));
-    expect(screen.getByText('Request accepted')).toBeTruthy();
+    fireEvent.press(screen.getByText('Approve'));
+    expect(screen.getByText('Link approved')).toBeTruthy();
   });
 
   it('uses the back button handler', () => {

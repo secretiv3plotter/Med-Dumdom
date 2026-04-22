@@ -1,25 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
-import CrudButton from '../../../shared/components/common/CrudButton';
+import NavigationBar from '../../../shared/components/common/NavigationBar';
 import SearchBar from '../../../shared/components/common/SearchBar';
-import TextCard from '../../../shared/components/common/TextCard';
+import patientCaregiverLinkService from '../../../domain/services/PatientCaregiverLinkService';
+import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 
-const incomingRequests = [
-  { id: '1', name: 'Jane Doe', email: 'janedoe@gmail.com' },
-  { id: '2', name: 'John Doe', email: 'johndoe@gmail.com' },
-  { id: '3', name: 'Andrea Santos', email: 'andrea.santos@gmail.com' },
-  { id: '4', name: 'Miguel Santos', email: 'miguel.santos@gmail.com' },
-  { id: '5', name: 'Alyssa Mae Rivera', email: 'alyssa.rivera@gmail.com' },
+const CURRENT_CAREGIVER_ID = 'current-caregiver';
+
+const TAB_KEY_TO_ROUTE = {
+  home: ROUTES.HOME,
+  appointment: ROUTES.APPOINTMENT_TRACKER,
+  med: ROUTES.MED_TRACKER,
+  progress: ROUTES.PROGRESS_REPORT,
+  notification: ROUTES.NOTIFICATION,
+};
+
+const PATIENT_DIRECTORY = [
+  { id: 'patient-1', name: 'Jane Doe', email: 'janedoe@gmail.com' },
+  { id: 'patient-2', name: 'John Doe', email: 'johndoe@gmail.com' },
+  { id: 'patient-3', name: 'Andrea Santos', email: 'andrea.santos@gmail.com' },
+  { id: 'patient-4', name: 'Miguel Santos', email: 'miguel.santos@gmail.com' },
+  { id: 'patient-5', name: 'Alyssa Mae Rivera', email: 'alyssa.rivera@gmail.com' },
 ];
 
 export default function LinkRequestsScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
   const timeoutRef = useRef(null);
 
@@ -31,42 +41,67 @@ export default function LinkRequestsScreen({ navigation }) {
     };
   }, []);
 
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
+
+  const pendingRequests = useMemo(
+    () => patientCaregiverLinkService.getPendingRequestsForCaregiver(CURRENT_CAREGIVER_ID),
+    [statusMessage]
+  );
+
+  const pendingByPatientId = useMemo(
+    () => new Map(pendingRequests.map((request) => [request.patientId, request])),
+    [pendingRequests]
+  );
+
+  const filteredPatients = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return PATIENT_DIRECTORY.filter((patient) => pendingByPatientId.has(patient.id));
+    }
+
+    return PATIENT_DIRECTORY.filter((patient) => {
+      if (!pendingByPatientId.has(patient.id)) {
+        return false;
+      }
+
+      return patient.name.toLowerCase().includes(query) || patient.email.toLowerCase().includes(query);
+    });
+  }, [pendingByPatientId, searchQuery]);
+
+  const onTabNavigate = (tabKey) => {
+    const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+    if (targetRoute) {
+      navigation?.navigate?.(targetRoute);
+    }
+  };
+
   const showStatus = (message) => {
     setStatusMessage(message);
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    timeoutRef.current = setTimeout(() => setStatusMessage(''), 3000);
+    timeoutRef.current = setTimeout(() => setStatusMessage(''), 2500);
   };
 
-  const handleDecline = () => {
-    setSelectedRequest(null);
-    showStatus('Request declined');
+  const handleApprove = (patientId) => {
+    patientCaregiverLinkService.approvePatientLink(patientId, CURRENT_CAREGIVER_ID);
+    showStatus('Link approved');
   };
 
-  const handleAccept = () => {
-    setSelectedRequest(null);
-    showStatus('Request accepted');
+  const handleReject = (patientId) => {
+    patientCaregiverLinkService.rejectPatientLink(patientId, CURRENT_CAREGIVER_ID);
+    showStatus('Link rejected');
   };
-
-  const filteredRequests = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return incomingRequests;
-    }
-    return incomingRequests.filter((request) => {
-      const patientName = request.name.toLowerCase();
-      const patientEmail = request.email.toLowerCase();
-      return patientName.startsWith(query) || patientEmail.startsWith(query);
-    });
-  }, [searchQuery]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.page}>
         <BackButton
           onPress={() => navigation?.goBack?.()}
-          disabled={!navigation?.canGoBack}
+          disabled={!canGoBack}
           style={styles.backButton}
         />
 
@@ -75,93 +110,57 @@ export default function LinkRequestsScreen({ navigation }) {
             <Ionicons name="git-pull-request-outline" size={24} color={colors.brandText} />
             <Text style={styles.title}>Link Requests</Text>
           </View>
-          <Text style={styles.subtitle}>Review patient link requests.</Text>
+          <Text style={styles.subtitle}>Review patient link requests waiting for approval.</Text>
         </View>
 
         <TextCard cardStyle={styles.listCard}>
-          <View style={styles.searchContainer}>
-            <View pointerEvents="none">
-              <SearchBar placeholder="Find a patient" />
-            </View>
-            <TextInput
-              placeholder={searchQuery ? '' : 'Find a patient'}
-              placeholderTextColor={colors.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.searchOverlayInput}
-              returnKeyType="search"
-            />
-          </View>
+          <SearchBar placeholder="Find a patient" value={searchQuery} onChangeText={setSearchQuery} />
 
           <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-            {filteredRequests.map((request) => (
-              <View key={request.id} style={styles.requestRow}>
+            {filteredPatients.map((patient) => (
+              <View key={patient.id} style={styles.requestRow}>
                 <View style={styles.rowLeft}>
                   <Ionicons name="person-circle-outline" size={34} color={colors.brandText} />
                   <View>
-                    <Text style={styles.requestName}>{request.name}</Text>
-                    <Text style={styles.requestEmail}>{request.email}</Text>
+                    <Text style={styles.requestName}>{patient.name}</Text>
+                    <Text style={styles.requestEmail}>{patient.email}</Text>
                   </View>
                 </View>
 
-                <CrudButton
-                  label=""
-                  icon="checkmark"
-                  onPress={() => setSelectedRequest(request)}
-                  style={styles.checkButton}
-                  textStyle={styles.hiddenLabel}
-                />
+                <View style={styles.rowActions}>
+                  <ActionButton label="Reject" variant="outline" onPress={() => handleReject(patient.id)} />
+                  <ActionButton label="Approve" variant="solid" onPress={() => handleApprove(patient.id)} />
+                </View>
               </View>
             ))}
+
+            {!filteredPatients.length ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No pending requests</Text>
+                <Text style={styles.emptySubtitle}>Any caregiver requests sent to you will show up here.</Text>
+              </View>
+            ) : null}
           </ScrollView>
         </TextCard>
       </View>
 
-      <Modal
-        transparent
-        visible={Boolean(selectedRequest)}
-        animationType="fade"
-        onRequestClose={() => setSelectedRequest(null)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setSelectedRequest(null)}>
-          <Pressable style={styles.dialogWrap} onPress={() => {}}>
-            <View style={styles.dialogCard}>
-              <Text style={styles.requestDialogTitle}>Review Link Request</Text>
-              <View style={styles.dialogContent}>
-                <Ionicons name="person-circle-outline" size={88} color={colors.body} />
-                <Text style={styles.dialogName}>{selectedRequest?.name || ''}</Text>
-                <Text style={styles.dialogEmail}>{selectedRequest?.email || ''}</Text>
-              </View>
-              <View style={styles.dialogActionsRow}>
-                <ActionButton
-                  label="Decline"
-                  variant="outline"
-                  onPress={handleDecline}
-                  textStyle={styles.declineButtonText}
-                />
-                <ActionButton
-                  label="Accept"
-                  variant="solid"
-                  onPress={handleAccept}
-                  textStyle={styles.acceptButtonText}
-                />
-              </View>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal transparent visible={Boolean(statusMessage)} animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.dialogWrap}>
-            <View style={styles.statusDialogCard}>
-              <Text style={styles.statusDialogTitle}>{statusMessage}</Text>
-            </View>
+      <View style={styles.statusWrap} pointerEvents="none">
+        {statusMessage ? (
+          <View style={styles.statusCard}>
+            <Text style={styles.statusText}>{statusMessage}</Text>
           </View>
-        </View>
-      </Modal>
+        ) : null}
+      </View>
+
+      <View style={styles.footerNav}>
+        <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
+      </View>
     </SafeAreaView>
   );
+}
+
+function TextCard({ cardStyle, children }) {
+  return <View style={[styles.textCardBase, cardStyle]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -204,27 +203,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.xl,
     gap: spacing.sm,
+    padding: spacing.md,
   },
-  searchContainer: {
-    position: 'relative',
-    zIndex: 2,
-    elevation: 2,
+  textCardBase: {
+    flex: 1,
   },
   list: {
     gap: spacing.sm,
     paddingBottom: spacing.sm,
-  },
-  searchOverlayInput: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.brandText,
-    zIndex: 2,
-    elevation: 3,
   },
   requestRow: {
     flexDirection: 'row',
@@ -236,6 +222,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
+    gap: spacing.sm,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -253,73 +240,60 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.bodyMuted,
   },
-  checkButton: {
-    minWidth: 0,
-    marginTop: 2,
+  rowActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
-  hiddenLabel: {
-    fontSize: 0,
-    lineHeight: 0,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.28)',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  dialogWrap: {
+  emptyState: {
     borderRadius: radius.lg,
-    overflow: 'hidden',
-  },
-  dialogCard: {
-    backgroundColor: '#E8EFF1',
-    borderRadius: 22,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-  },
-  requestDialogTitle: {
-    color: colors.brand,
-    fontSize: 34,
-    lineHeight: 38,
-    textAlign: 'center',
-  },
-  dialogContent: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
   },
-  dialogName: {
+  emptyTitle: {
     ...typography.subtitle,
     color: colors.title,
     fontWeight: '700',
   },
-  dialogEmail: {
+  emptySubtitle: {
     ...typography.body,
-    color: colors.body,
-    marginBottom: spacing.xs,
+    color: colors.bodyMuted,
+    textAlign: 'center',
   },
-  dialogActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+  statusWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 78,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
   },
-  declineButtonText: {
-    color: colors.brand,
-  },
-  acceptButtonText: {
-    color: colors.surface,
-  },
-  statusDialogCard: {
-    backgroundColor: '#E8EFF1',
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  statusDialogTitle: {
-    fontSize: 22,
-    lineHeight: 28,
+  statusText: {
+    ...typography.button,
     color: colors.brandText,
     textAlign: 'center',
+  },
+  footerNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
   },
 });

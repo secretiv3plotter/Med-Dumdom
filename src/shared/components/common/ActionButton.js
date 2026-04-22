@@ -1,6 +1,6 @@
 //text based button (currently only solid and outline variants)
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing } from '../../theme';
+import { colors, radius, spacing, typography } from '../../theme';
 
 export default function ActionButton({
   label,
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
     borderColor: colors.brand,
   },
   text: {
+    ...typography.button,
     fontWeight: '600',
   },
   solidText: {

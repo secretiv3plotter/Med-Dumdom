@@ -42,157 +42,277 @@
 // - direct dependencies: none
 // - commonly used by: PrivacySettingsService, PatientCaregiverLinkService
 
+import PersonalProfile from '../models/PersonalProfileModel';
+import PatientProfile from '../models/PatientProfileModel';
+
+const normalizeEntityId = (value, fieldName) => {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      throw new RangeError(`${fieldName} cannot be empty.`);
+    }
+
+    return trimmedValue;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
+};
+
+const normalizeRole = (value) => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim().toLowerCase();
+};
+
+const normalizeOptionalString = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value.trim();
+};
+
+const normalizeBirthDate = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsedDate = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new RangeError('birthDate must be a valid date.');
+  }
+
+  return parsedDate;
+};
+
+const cloneProfile = (profile) => {
+  if (profile instanceof PatientProfile) {
+    return new PatientProfile({ ...profile });
+  }
+
+  if (profile instanceof PersonalProfile) {
+    return new PersonalProfile({ ...profile });
+  }
+
+  if (profile && typeof profile === 'object') {
+    const profileData = { ...profile };
+    if ('emergencyContact' in profileData || 'emergencyNum' in profileData) {
+      return new PatientProfile(profileData);
+    }
+
+    return new PersonalProfile(profileData);
+  }
+
+  return new PersonalProfile();
+};
+
+const toProfileModel = (profileData) => {
+  if (profileData instanceof PatientProfile || profileData instanceof PersonalProfile) {
+    return cloneProfile(profileData);
+  }
+
+  if (profileData && typeof profileData === 'object') {
+    if ('emergencyContact' in profileData || 'emergencyNum' in profileData) {
+      return new PatientProfile(profileData);
+    }
+
+    return new PersonalProfile(profileData);
+  }
+
+  return new PersonalProfile();
+};
+
+const normalizeAccessChecker = (value) => (typeof value === 'function' ? value : null);
+
 class PersonalProfileService {
-  constructor(personalProfileModel) {
-    this.personalProfileModel = personalProfileModel;
+  constructor(initialProfilesByUserId = null, options = {}) {
+    this.profilesByUserId = new Map();
+    this.deletedProfileIds = new Set();
+    this.caregiverAccessChecker = normalizeAccessChecker(options.canCaregiverAccessPatient);
+
+    if (initialProfilesByUserId instanceof Map) {
+      initialProfilesByUserId.forEach((profileData, userId) => {
+        this.profilesByUserId.set(normalizeEntityId(userId, 'userId'), toProfileModel(profileData));
+      });
+      return;
+    }
+
+    if (initialProfilesByUserId && typeof initialProfilesByUserId === 'object') {
+      Object.entries(initialProfilesByUserId).forEach(([userId, profileData]) => {
+        this.profilesByUserId.set(normalizeEntityId(userId, 'userId'), toProfileModel(profileData));
+      });
+    }
   }
 
   getProfile(userId) {
-    if (!userId) {
-      throw new Error('userId is required');
+    const profileId = normalizeEntityId(userId, 'userId');
+    if (this.deletedProfileIds.has(profileId)) {
+      return null;
     }
-    return this.personalProfileModel.getProfileByUserId(userId);
+
+    return cloneProfile(this._getStoredProfile(profileId));
+  }
+
+  saveProfile(userId, profileData) {
+    const profileId = normalizeEntityId(userId, 'userId');
+    const profile = toProfileModel(profileData);
+    this.profilesByUserId.set(profileId, profile);
+    this.deletedProfileIds.delete(profileId);
+    return cloneProfile(profile);
+  }
+
+  deleteProfile(userId) {
+    const profileId = normalizeEntityId(userId, 'userId');
+    this.deletedProfileIds.add(profileId);
+    return true;
+  }
+
+  restoreProfile(userId) {
+    const profileId = normalizeEntityId(userId, 'userId');
+    this.deletedProfileIds.delete(profileId);
+    return cloneProfile(this._getStoredProfile(profileId));
   }
 
   updateProfileName(userId, newName) {
-    if (!userId || !newName) {
-      throw new Error('userId and newName are required');
-    }
-    
-    const trimmedName = newName.trim();
-    
+    const profile = this._getWritableProfile(userId);
+    const trimmedName = normalizeOptionalString(newName, 'newName');
+
     if (trimmedName.length < 2) {
       throw new Error('Name must be at least 2 characters long');
     }
-    
+
     if (trimmedName.length > 100) {
       throw new Error('Name must not exceed 100 characters');
     }
-    
-    const profile = this.personalProfileModel.getProfileByUserId(userId);
+
     return profile.updateName(trimmedName);
   }
 
   updateProfilePicture(userId, newPictureUrl) {
-    if (!userId) {
-      throw new Error('userId is required');
+    if (newPictureUrl !== undefined && newPictureUrl !== null && typeof newPictureUrl !== 'string') {
+      throw new TypeError('newPictureUrl must be a string, null, or undefined.');
     }
-    
-    if (newPictureUrl && !this._isValidUrl(newPictureUrl)) {
-      throw new Error('Invalid picture URL format');
-    }
-    
-    const profile = this.personalProfileModel.getProfileByUserId(userId);
-    return profile.updateProfilePicture(newPictureUrl);
+
+    const normalizedPicture = normalizeOptionalString(newPictureUrl, 'newPictureUrl');
+    const profile = this._getWritableProfile(userId);
+    return profile.updateProfilePicture(normalizedPicture);
   }
 
   updateProfileBirthDate(userId, newBirthDate) {
-    if (!userId || !newBirthDate) {
-      throw new Error('userId and newBirthDate are required');
-    }
-    
-    const birthDate = new Date(newBirthDate);
+    const birthDate = normalizeBirthDate(newBirthDate);
     const today = new Date();
-    
+
+    if (!birthDate) {
+      throw new Error('newBirthDate is required');
+    }
+
     if (birthDate > today) {
       throw new Error('Birth date cannot be in the future');
     }
-    
+
     const age = this.calculateAge(birthDate);
     if (age > 150) {
       throw new Error('Birth date is not within a reasonable range');
     }
-    if (age < 0) {
-      throw new Error('Invalid birth date');
-    }
 
-    const profile = this.personalProfileModel.getProfileByUserId(userId);
+    const profile = this._getWritableProfile(userId);
     return profile.updateBirthDate(birthDate);
   }
 
   updateProfileAddress(userId, newAddress) {
-    if (!userId) {
-      throw new Error('userId is required');
+    if (newAddress !== undefined && newAddress !== null && typeof newAddress !== 'string') {
+      throw new TypeError('newAddress must be a string, null, or undefined.');
     }
-    
-    if (newAddress) {
-      if (!this._isValidAddress(newAddress)) {
-        throw new Error('Address must contain at least street and city');
-      }
-    }
-    
-    const profile = this.personalProfileModel.getProfileByUserId(userId);
-    return profile.updateAddress(newAddress);
+
+    const normalizedAddress = normalizeOptionalString(newAddress, 'newAddress');
+    const profile = this._getWritableProfile(userId);
+    return profile.updateAddress(normalizedAddress);
   }
 
   calculateAge(birthDate) {
-    if (!birthDate) {
+    const normalizedBirthDate = normalizeBirthDate(birthDate);
+    if (!normalizedBirthDate) {
       throw new Error('birthDate is required');
     }
-    
-    const date = new Date(birthDate);
-    const today = new Date();
-    
-    if (date > today) {
-      throw new Error('Birth date cannot be in the future');
-    }
-    
-    return this._calculateAgeFromDate(date);
+
+    const helperProfile = new PersonalProfile({ birthDate: normalizedBirthDate });
+    return helperProfile.calculateAge(normalizedBirthDate);
   }
 
   canViewerAccessProfile(viewerRole, viewerId, ownerId) {
-    if (!viewerRole || !viewerId || !ownerId) {
+    if (!viewerRole || viewerId === undefined || viewerId === null || ownerId === undefined || ownerId === null) {
       return false;
     }
-    
-    if (viewerId === ownerId) {
+
+    const normalizedViewerRole = normalizeRole(viewerRole);
+    if (!normalizedViewerRole) {
+      return false;
+    }
+
+    const normalizedViewerId = normalizeEntityId(viewerId, 'viewerId');
+    const normalizedOwnerId = normalizeEntityId(ownerId, 'ownerId');
+
+    if (normalizedViewerId === normalizedOwnerId) {
       return true;
     }
-    
-    if (viewerRole === 'admin') {
+
+    if (normalizedViewerRole === 'admin') {
       return true;
     }
-    
-    if (viewerRole === 'caregiver') {
-      // TODO: Verify caregiver relationship through PatientCaregiverLinkService
-      return this._hasActiveCaregiverRelationship(viewerId, ownerId);
+
+    if (normalizedViewerRole === 'caregiver') {
+      return this._hasActiveCaregiverRelationship(normalizedViewerId, normalizedOwnerId);
     }
-    
+
     return false;
   }
 
-  _isValidUrl(url) {
+  _getStoredProfile(userId) {
+    const profileId = normalizeEntityId(userId, 'userId');
+    const storedProfile = this.profilesByUserId.get(profileId);
+
+    if (storedProfile) {
+      return storedProfile;
+    }
+
+    const defaultProfile = new PersonalProfile();
+    this.profilesByUserId.set(profileId, defaultProfile);
+    return defaultProfile;
+  }
+
+  _getWritableProfile(userId) {
+    const profileId = normalizeEntityId(userId, 'userId');
+    if (this.deletedProfileIds.has(profileId)) {
+      throw new Error('Profile has been deleted');
+    }
+
+    return this._getStoredProfile(profileId);
+  }
+
+  _hasActiveCaregiverRelationship(caregiverId, patientId) {
+    if (!this.caregiverAccessChecker) {
+      return false;
+    }
+
     try {
-      new URL(url);
-      return true;
+      return Boolean(this.caregiverAccessChecker(patientId, caregiverId));
     } catch {
       return false;
     }
   }
-
-  _isValidAddress(address) {
-    return address && 
-           typeof address === 'object' &&
-           address.street &&
-           address.city;
-  }
-
-  _calculateAgeFromDate(birthDate) {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  }
-
-  _hasActiveCaregiverRelationship(caregiverId, patientId) {
-    // TODO: Implement when PatientCaregiverLinkService is integrated
-    return false;
-  }
 }
 
-module.exports = PersonalProfileService;
+const personalProfileService = new PersonalProfileService();
+
+export { PersonalProfileService };
+export default personalProfileService;

@@ -6,6 +6,7 @@ import BackButton from '../../../shared/components/common/BackButton';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import SearchBar from '../../../shared/components/common/SearchBar';
 import TextCard from '../../../shared/components/common/TextCard';
+import faqService from '../../../domain/services/FaqService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
 
@@ -17,27 +18,13 @@ const TAB_KEY_TO_ROUTE = {
   notification: ROUTES.NOTIFICATION,
 };
 
-const FAQ_ITEMS = [
-  {
-    question: 'How do I update my personal information?',
-    answer: 'Go to the Profile section from the dashboard to update your name, contact number, or health details.',
-  },
-  {
-    question: 'How can I change my password?',
-    answer: 'Open Settings, choose Password Change, enter your current and new password, then tap Change Password.',
-  },
-  {
-    question: 'Where can I manage notifications?',
-    answer: 'Go to Settings and select Notifications to adjust reminder alerts and app updates.',
-  },
-  {
-    question: 'How do I contact support?',
-    answer: 'Use the Help and Support section and send your issue details so our team can assist you.',
-  },
-];
-
 export default function HelpAndSupportScreen({ navigation }) {
   const [searchTerm, setSearchTerm] = useState('');
+
+  const canGoBack =
+    typeof navigation?.canGoBack === 'function'
+      ? navigation.canGoBack()
+      : Boolean(navigation?.canGoBack);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -46,43 +33,44 @@ export default function HelpAndSupportScreen({ navigation }) {
     }
   };
 
-  const filteredFaqItems = useMemo(() => {
-    const normalizedQuery = searchTerm.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return FAQ_ITEMS;
-    }
+  const { categories, results } = useMemo(() => {
+    const normalizedQuery = searchTerm.trim();
+    const matchedFaqs = normalizedQuery ? faqService.searchFaqs(normalizedQuery) : faqService.getAllFaqs();
 
-    return FAQ_ITEMS.filter(
-      (item) =>
-        item.question.toLowerCase().includes(normalizedQuery) ||
-        item.answer.toLowerCase().includes(normalizedQuery),
-    );
+    return {
+      categories: faqService.getFaqCategories(),
+      results: matchedFaqs,
+    };
   }, [searchTerm]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
+        <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
-            <Ionicons name="help-circle" size={32} color="black" />
+            <Ionicons name="help-circle" size={32} color={colors.brandText} />
             <Text style={styles.title}>Help and Support</Text>
           </View>
-          <Text style={styles.subtitle}>How can we help you today?</Text>
+          <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
         </View>
 
-        <SearchBar
-          placeholder="Search"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-        />
+        <SearchBar placeholder="Search FAQs" value={searchTerm} onChangeText={setSearchTerm} />
+
+        <View style={styles.categoryRow}>
+          {categories.map((category) => (
+            <View key={category} style={styles.categoryChip}>
+              <Text style={styles.categoryChipText}>{category}</Text>
+            </View>
+          ))}
+        </View>
 
         <View style={styles.faqList}>
-          {filteredFaqItems.map((item, index) => (
-            <View key={`${item.question}-${index}`} style={styles.faqCardWrap}>
+          {results.map((item) => (
+            <View key={item.faqId} style={styles.faqCardWrap}>
               <View style={styles.questionIconWrap}>
                 <Ionicons name="help-circle-outline" size={24} color={colors.brandText} />
               </View>
@@ -114,7 +102,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingTop: 84,
     paddingBottom: 150,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   title: {
     ...typography.title,
@@ -134,6 +122,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  categoryChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    backgroundColor: colors.surface,
+  },
+  categoryChipText: {
+    ...typography.bodySmall,
+    color: colors.body,
+    fontWeight: '700',
   },
   faqList: {
     gap: spacing.md,

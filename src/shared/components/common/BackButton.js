@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { accessibility, colors, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 export default function BackButton({
   onPress = () => {},
@@ -12,47 +10,15 @@ export default function BackButton({
   iconStyle,
   labelStyle,
 }) {
-  const insets = useSafeAreaInsets();
-  const buttonRef = useRef(null);
-  const translateYRef = useRef(0);
-  const [translateY, setTranslateY] = useState(0);
-
-  const alignToSafeTop = useCallback(() => {
-    if (!buttonRef.current?.measureInWindow) {
-      return;
-    }
-
-    buttonRef.current.measureInWindow((_x, y) => {
-      const targetTop = insets.top - 12;
-      const nextTranslate = translateYRef.current + (targetTop - y);
-      if (!Number.isFinite(nextTranslate)) {
-        return;
-      }
-      if (Math.abs(nextTranslate - translateYRef.current) < 0.5) {
-        return;
-      }
-      translateYRef.current = nextTranslate;
-      setTranslateY(nextTranslate);
-    });
-  }, [insets.top]);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(alignToSafeTop);
-    return () => cancelAnimationFrame(frame);
-  }, [alignToSafeTop]);
-
   return (
     <Pressable
-      ref={buttonRef}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      hitSlop={8}
-      onLayout={alignToSafeTop}
+      hitSlop={spacing.xs}
       style={({ pressed }) => [
         styles.button,
-        translateY !== 0 && { transform: [{ translateY }] },
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -76,17 +42,18 @@ export default function BackButton({
   );
 }
 
-const ICON_SIZE = 48;
+const ICON_SIZE = moderateScale(40);
 
 const styles = StyleSheet.create({
   button: {
     minHeight: accessibility.minTouchTarget,
     minWidth: accessibility.minTouchTarget,
     paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
     borderRadius: radius.md,
     alignSelf: 'flex-start',
     justifyContent: 'center',
-    marginLeft: -spacing.xs,
+    marginLeft: 0,
   },
   content: {
     flexDirection: 'row',
