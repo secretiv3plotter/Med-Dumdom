@@ -13,8 +13,6 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const CURRENT_USER_ID = 'current-user';

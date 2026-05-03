@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
-import ClickableCard from '../../../shared/components/common/ClickableCard';
 import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
+import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
-import ToggleButton from '../../../shared/components/common/ToggleButton';
+import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import medTrackerService from '../../../domain/services/MedTrackerService';
+import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
@@ -20,8 +21,6 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const EMPTY_FORM = {
@@ -86,7 +85,25 @@ const formatTime = (value) => {
     return '--';
   }
 
-  return text;
+  const match = text.match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
+  if (!match) {
+    return text;
+  }
+
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) {
+    hours += 12;
+  }
+  if (meridiem === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  const displayHour = hours % 12 || 12;
+  const displayMeridiem = hours >= 12 ? 'PM' : 'AM';
+  return `${displayHour}:${minutes} ${displayMeridiem}`;
 };
 
 const normalizeTimeInput = (value) => {
@@ -160,11 +177,33 @@ const formatDoseWithUnit = (doseSize, unit) => {
 
 const formatScheduleEntry = (entry, unit = '') => {
   if (entry.scheduleType === 'meal') {
-    return `${capitalize(entry.mealContext)} ${capitalize(entry.associatedMeal)} at ${formatTime(entry.mealTime)} - ${formatDoseWithUnit(entry.doseSize, unit)}`;
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\n${capitalize(entry.mealContext)} ${capitalize(entry.associatedMeal)} at ${formatTime(entry.mealTime)}`;
   }
 
-  return `${formatTime(entry.scheduledTime)} - ${formatDoseWithUnit(entry.doseSize, unit)}`;
+  return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
+
+function ScheduleEntryText({ entry, unit = '' }) {
+  if (entry.scheduleType === 'meal') {
+    return (
+      <Text style={styles.scheduleCardTitle}>
+        Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
+        {'\n'}
+        <Text style={styles.scheduleTextStrong}>
+          {capitalize(entry.mealContext)} {capitalize(entry.associatedMeal)}
+        </Text>{' '}
+        at <Text style={styles.scheduleTextStrong}>{formatTime(entry.mealTime)}</Text>
+      </Text>
+    );
+  }
+
+  return (
+    <Text style={styles.scheduleCardTitle}>
+      Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
+      {'\n'}At <Text style={styles.scheduleTextStrong}>{formatTime(entry.scheduledTime)}</Text>
+    </Text>
+  );
+}
 
 const buildFormStateFromMedicine = (medicine) => ({
   medName: medicine.medName || '',
@@ -186,22 +225,181 @@ const buildScheduleEntriesFromMedicine = (medicine) =>
     ? medicine.dailySched.map((entry) => ({ ...entry }))
     : [];
 
+const buildScheduleDraftFromEntry = (entry) => ({
+  scheduleType: entry.scheduleType === 'meal' ? 'meal' : 'time',
+  doseSize: entry.doseSize ? String(entry.doseSize) : '',
+  scheduledTime: entry.scheduleType === 'time' ? entry.scheduledTime || '' : '',
+  mealContext: entry.scheduleType === 'meal' ? entry.mealContext || 'after' : 'after',
+  associatedMeal: entry.scheduleType === 'meal' ? entry.associatedMeal || 'breakfast' : 'breakfast',
+  mealTime: entry.scheduleType === 'meal' ? entry.mealTime || '' : '',
+});
+
 const getStatus = (entry) => {
   if (entry.isTaken) {
     return { label: 'Taken', bgColor: '#E9F8EF', textColor: colors.success };
   }
 
-  if (entry.isDue(new Date(), new Date())) {
+  const now = new Date();
+  if (entry.isMissed(now, now)) {
+    return { label: 'Missed', bgColor: '#FDECEC', textColor: colors.error };
+  }
+
+  if (entry.isDue(now, now)) {
     return { label: 'Due now', bgColor: '#FDECEC', textColor: colors.error };
+  }
+
+  if (entry.isPending(now, now)) {
+    return { label: 'Pending', bgColor: '#EEF2FF', textColor: colors.brand };
   }
 
   return { label: 'Upcoming', bgColor: '#FFF5E8', textColor: colors.warning };
 };
 
+const getScheduleStatusStyle = (medicine, scheduleIndex) => {
+  const now = new Date();
+  const status = medicine.getScheduleStatus(scheduleIndex, now, now);
+
+  if (status === 'taken') {
+    return { status, label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
+  }
+
+  if (status === 'missed') {
+    return { status, label: 'Missed', bgColor: '#FECACA', textColor: '#B91C1C' };
+  }
+
+  if (status === 'due') {
+    return { status, label: 'Due now', bgColor: '#BBF7D0', textColor: '#15803D' };
+  }
+
+  if (status === 'pending') {
+    return { status, label: 'Pending', bgColor: '#FEF08A', textColor: '#854D0E' };
+  }
+
+  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.bodyMuted };
+};
+
+const completedScheduleStyle = {
+  status: 'completed',
+  label: 'Completed',
+  bgColor: '#DCFCE7',
+  textColor: '#166534',
+};
+
+const isToday = (isoString, now = new Date()) => {
+  if (!isoString) {
+    return false;
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  return date.toDateString() === now.toDateString();
+};
+
+const isMedicineCompletedToday = (medicine, now = new Date()) =>
+  Array.isArray(medicine.dailySched) &&
+  medicine.dailySched.length > 0 &&
+  medicine.dailySched.every((entry) => entry.status === 'taken' && isToday(entry.takenAt, now));
+
+const formatDateTime = (isoString) => {
+  if (!isoString) {
+    return '--';
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return '--';
+  }
+
+  return `${date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })}, ${date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })}`;
+};
+
+const formatLastTakenMessage = (isoString) => {
+  if (!isoString) {
+    return '';
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(today.getTime());
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const takenDay = new Date(date.getTime());
+  takenDay.setHours(0, 0, 0, 0);
+
+  const timeText = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  if (takenDay.getTime() === today.getTime()) {
+    return `Last taken at ${timeText} today`;
+  }
+
+  if (takenDay.getTime() === yesterday.getTime()) {
+    return `Last taken at ${timeText} yesterday`;
+  }
+
+  return `Last taken at ${timeText} on ${date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })}`;
+};
+
+const getLatestTakenAt = (medicine) => {
+  const takenAtValues = (medicine.dailySched || [])
+    .filter((entry) => entry.status === 'taken')
+    .map((entry) => entry.takenAt)
+    .filter(Boolean)
+    .sort();
+
+  return takenAtValues[takenAtValues.length - 1] || null;
+};
+
+const getSchedulePreviewItems = (medicine) => {
+  const now = new Date();
+  const scheduleItems = (medicine.dailySched || []).map((entry, index) => ({
+    entry,
+    index,
+    statusStyle: getScheduleStatusStyle(medicine, index),
+  }));
+
+  const currentActiveItem = scheduleItems.find(({ index, statusStyle }) =>
+    (statusStyle.status === 'due' || statusStyle.status === 'pending') &&
+    medicine.isScheduleActionAvailable(index, now, now)
+  );
+  if (currentActiveItem) {
+    return [currentActiveItem];
+  }
+
+  const upcomingItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'upcoming');
+  if (upcomingItems.length) {
+    return [upcomingItems[0]];
+  }
+
+  return scheduleItems.slice(0, 1);
+};
+
 const sumDoseSizes = (scheduleEntries) =>
   scheduleEntries.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
 
-export default function MedTrackerScreen({ navigation }) {
+export default function MedTrackerScreen({ navigation, realm = null }) {
   const [version, setVersion] = useState(0);
   const [selectedMedicineId, setSelectedMedicineId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
@@ -209,14 +407,16 @@ export default function MedTrackerScreen({ navigation }) {
   const [formState, setFormState] = useState(EMPTY_FORM);
   const [scheduleDraft, setScheduleDraft] = useState(EMPTY_SCHEDULE_DRAFT);
   const [scheduleEntries, setScheduleEntries] = useState([]);
+  const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const [formError, setFormError] = useState('');
+  const [pendingScheduleAction, setPendingScheduleAction] = useState(null);
 
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
+  const activeMedTrackerService = useMemo(
+    () => (realm ? new RealmMedTrackerRepository(realm) : medTrackerService),
+    [realm],
+  );
 
-  const medicines = useMemo(() => medTrackerService.listMedEntries(CURRENT_USER_ID), [version]);
+  const medicines = useMemo(() => activeMedTrackerService.listMedEntries(CURRENT_USER_ID), [activeMedTrackerService, version]);
 
   const selectedMedicine = useMemo(
     () => medicines.find((medicine) => medicine.medEntryId === selectedMedicineId) || null,
@@ -241,6 +441,7 @@ export default function MedTrackerScreen({ navigation }) {
     setFormState(EMPTY_FORM);
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
     setScheduleEntries([]);
+    setEditingScheduleIndex(null);
   };
 
   const openCreateEditor = () => {
@@ -248,6 +449,7 @@ export default function MedTrackerScreen({ navigation }) {
     setFormState(EMPTY_FORM);
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
     setScheduleEntries([]);
+    setEditingScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('create');
   };
@@ -261,6 +463,7 @@ export default function MedTrackerScreen({ navigation }) {
     setFormState(buildFormStateFromMedicine(selectedMedicine));
     setScheduleEntries(buildScheduleEntriesFromMedicine(selectedMedicine));
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setEditingScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('edit');
   };
@@ -277,33 +480,69 @@ export default function MedTrackerScreen({ navigation }) {
       return;
     }
 
-    medTrackerService.softDeleteMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId);
+    activeMedTrackerService.softDeleteMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId);
     setIsDetailsVisible(false);
     setSelectedMedicineId(null);
     refresh();
   };
 
-  const handleToggleTaken = (nextValue) => {
-    if (!selectedMedicine) {
+  const applyScheduleStatus = (medEntryId, scheduleIndex, targetStatus, currentStatus = 'pending') => {
+    if (!medEntryId) {
       return;
     }
 
-    if (nextValue) {
-      medTrackerService.markMedTaken(CURRENT_USER_ID, selectedMedicine.medEntryId, new Date());
+    if (currentStatus === targetStatus) {
+      activeMedTrackerService.clearMedScheduleStatus(CURRENT_USER_ID, medEntryId, scheduleIndex);
+    } else if (targetStatus === 'taken') {
+      activeMedTrackerService.markMedScheduleTaken(CURRENT_USER_ID, medEntryId, scheduleIndex, new Date());
     } else {
-      medTrackerService.undoMedTaken(CURRENT_USER_ID, selectedMedicine.medEntryId);
+      activeMedTrackerService.markMedScheduleSkipped(CURRENT_USER_ID, medEntryId, scheduleIndex, new Date());
     }
 
     refresh();
   };
 
-  const addScheduleEntry = () => {
+  const requestScheduleStatusChange = (medicine, scheduleIndex, targetStatus) => {
+    if (!medicine) {
+      return;
+    }
+
+    const currentStatus = medicine.dailySched[scheduleIndex]?.status || 'pending';
+    if (currentStatus === 'taken' || currentStatus === 'skipped') {
+      setPendingScheduleAction({
+        medEntryId: medicine.medEntryId,
+        scheduleIndex,
+        targetStatus,
+        currentStatus,
+      });
+      return;
+    }
+
+    applyScheduleStatus(medicine.medEntryId, scheduleIndex, targetStatus, currentStatus);
+  };
+
+  const confirmScheduleStatusChange = () => {
+    if (!pendingScheduleAction) {
+      return;
+    }
+
+    applyScheduleStatus(
+      pendingScheduleAction.medEntryId,
+      pendingScheduleAction.scheduleIndex,
+      pendingScheduleAction.targetStatus,
+      pendingScheduleAction.currentStatus
+    );
+    setPendingScheduleAction(null);
+  };
+
+  const saveScheduleEntry = () => {
     const doseSize = parsePositiveInteger(scheduleDraft.doseSize);
     if (!doseSize) {
       setFormError('Enter a valid dose size for the schedule item.');
       return;
     }
 
+    let nextEntry;
     if (scheduleDraft.scheduleType === 'meal') {
       const mealTime = normalizeTimeInput(scheduleDraft.mealTime);
       if (!mealTime || !scheduleDraft.mealContext || !scheduleDraft.associatedMeal) {
@@ -311,16 +550,13 @@ export default function MedTrackerScreen({ navigation }) {
         return;
       }
 
-      setScheduleEntries((current) => [
-        ...current,
-        {
-          scheduleType: 'meal',
-          doseSize,
-          mealContext: scheduleDraft.mealContext,
-          associatedMeal: scheduleDraft.associatedMeal,
-          mealTime,
-        },
-      ]);
+      nextEntry = {
+        scheduleType: 'meal',
+        doseSize,
+        mealContext: scheduleDraft.mealContext,
+        associatedMeal: scheduleDraft.associatedMeal,
+        mealTime,
+      };
     } else {
       const scheduledTime = normalizeTimeInput(scheduleDraft.scheduledTime);
       if (!scheduledTime) {
@@ -328,22 +564,50 @@ export default function MedTrackerScreen({ navigation }) {
         return;
       }
 
-      setScheduleEntries((current) => [
-        ...current,
-        {
-          scheduleType: 'time',
-          doseSize,
-          scheduledTime,
-        },
-      ]);
+      nextEntry = {
+        scheduleType: 'time',
+        doseSize,
+        scheduledTime,
+      };
     }
 
+    setScheduleEntries((current) => {
+      if (editingScheduleIndex === null) {
+        return [...current, nextEntry];
+      }
+
+      return current.map((entry, index) => (index === editingScheduleIndex ? nextEntry : entry));
+    });
     setFormError('');
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setEditingScheduleIndex(null);
+  };
+
+  const editScheduleEntry = (indexToEdit) => {
+    const entry = scheduleEntries[indexToEdit];
+    if (!entry) {
+      return;
+    }
+
+    setScheduleDraft(buildScheduleDraftFromEntry(entry));
+    setEditingScheduleIndex(indexToEdit);
+    setFormError('');
   };
 
   const removeScheduleEntry = (indexToRemove) => {
     setScheduleEntries((current) => current.filter((_, index) => index !== indexToRemove));
+    setEditingScheduleIndex((current) => {
+      if (current === null) {
+        return null;
+      }
+
+      if (current === indexToRemove) {
+        setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+        return null;
+      }
+
+      return current > indexToRemove ? current - 1 : current;
+    });
   };
 
   const saveMedicine = () => {
@@ -365,7 +629,7 @@ export default function MedTrackerScreen({ navigation }) {
     }
 
     if (endDateText && !endDate) {
-      setFormError('Use YYYY-MM-DD for the end date.');
+      setFormError('Select a valid end date.');
       return;
     }
 
@@ -398,9 +662,9 @@ export default function MedTrackerScreen({ navigation }) {
     };
 
     if (editorMode === 'edit' && selectedMedicine) {
-      medTrackerService.updateMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId, payload);
+      activeMedTrackerService.updateMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId, payload);
     } else {
-      medTrackerService.addMedEntry(CURRENT_USER_ID, payload);
+      activeMedTrackerService.addMedEntry(CURRENT_USER_ID, payload);
     }
 
     resetEditor();
@@ -412,7 +676,7 @@ export default function MedTrackerScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
         <View style={styles.headerRow}>
-          <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} />
+          <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
 
         <View style={styles.headerRow}>
@@ -427,47 +691,114 @@ export default function MedTrackerScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.listSection}>
           {sortedMedicines.map((medicine) => {
-            const status = getStatus(medicine);
-            const isSelected = medicine.medEntryId === selectedMedicineId;
+            const schedulePreviewItems = getSchedulePreviewItems(medicine);
+            const latestTakenAt = getLatestTakenAt(medicine);
+            const completedToday = isMedicineCompletedToday(medicine);
 
             return (
-              <ClickableCard
+              <Pressable
                 key={medicine.medEntryId}
-                size="landscape"
-                variant="solid"
+                accessibilityRole="button"
+                accessibilityLabel={`${medicine.medName} details`}
                 onPress={() => {
                   setSelectedMedicineId(medicine.medEntryId);
                   setIsDetailsVisible(true);
                 }}
-                cardStyle={[styles.medicineCard, isSelected && styles.selectedMedicineCard]}
-                contentStyle={styles.medicineCardContent}
-                leftSlot={
+                style={styles.medicineListItem}
+              >
+                <View style={styles.medicineListHeader}>
                   <View style={styles.cardHeaderBlock}>
-                    <Text style={styles.cardHeaderName} numberOfLines={1}>
-                      {medicine.medName}
-                    </Text>
-                    <Text style={styles.cardHeaderMeta} numberOfLines={1}>
+                    <Text style={styles.cardHeaderName}>{medicine.medName}</Text>
+                    <Text style={styles.cardHeaderMeta}>
                       {`${medicine.unitStrength} • ${medicine.totalDailyAmount} ${medicine.unit} per day`}
                     </Text>
-                    <View style={styles.schedulePreviewList}>
-                      {medicine.dailySched.map((entry, index) => (
-                        <Text
-                          key={`${medicine.medEntryId}-preview-schedule-${index}`}
-                          style={styles.schedulePreviewText}
-                          numberOfLines={1}
-                        >
-                          {formatScheduleEntry(entry, medicine.unit)}
+                  </View>
+                </View>
+
+                <View style={styles.schedulePreviewList}>
+                  {completedToday ? (
+                    <View
+                      style={[
+                        styles.scheduleCard,
+                        styles.scheduleCardInList,
+                        { backgroundColor: completedScheduleStyle.bgColor },
+                      ]}
+                    >
+                      <View style={styles.scheduleCardRow}>
+                        <Text style={styles.scheduleCardTitle}>
+                          All medicines for today have been taken.
                         </Text>
-                      ))}
+                        <View style={[styles.statusBadge, { backgroundColor: completedScheduleStyle.bgColor }]}>
+                          <Text style={[styles.statusText, { color: completedScheduleStyle.textColor }]}>
+                            {completedScheduleStyle.label}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                }
-                rightSlot={
-                  <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
-                    <Text style={[styles.statusText, { color: status.textColor }]}>{status.label}</Text>
-                  </View>
-                }
-              />
+                  ) : (
+                  schedulePreviewItems.map(({ entry, index, statusStyle }) => {
+                    const now = new Date();
+                    const isTaken = statusStyle.status === 'taken';
+                    const canSelectStatus = medicine.isScheduleActionAvailable(index, now, now);
+
+                    return (
+                      <View
+                        key={`${medicine.medEntryId}-preview-schedule-${index}`}
+                        style={[
+                          styles.scheduleCard,
+                          styles.scheduleCardInList,
+                          { backgroundColor: statusStyle.bgColor },
+                        ]}
+                      >
+                        <View style={styles.scheduleCardRow}>
+                          <ScheduleEntryText entry={entry} unit={medicine.unit} />
+                          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>
+                            <Text style={[styles.statusText, { color: statusStyle.textColor }]}>
+                              {statusStyle.label}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {isTaken ? (
+                          <Text style={styles.scheduleMetaText}>
+                            Taken {formatDateTime(entry.takenAt)}
+                          </Text>
+                        ) : null}
+
+                        {statusStyle.status === 'upcoming' && latestTakenAt ? (
+                          <Text style={styles.scheduleMetaText}>
+                            {formatLastTakenMessage(latestTakenAt)}
+                          </Text>
+                        ) : null}
+
+                        {canSelectStatus ? (
+                          <View style={styles.scheduleActionRow}>
+                            <ActionButton
+                              label="Taken"
+                              onPress={(event) => {
+                                event?.stopPropagation?.();
+                                requestScheduleStatusChange(medicine, index, 'taken');
+                              }}
+                              variant={entry.status === 'taken' ? 'solid' : 'outline'}
+                              style={styles.scheduleActionButton}
+                            />
+                            <ActionButton
+                              label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
+                              variant={entry.status === 'skipped' ? 'solid' : 'outline'}
+                              onPress={(event) => {
+                                event?.stopPropagation?.();
+                                requestScheduleStatusChange(medicine, index, 'skipped');
+                              }}
+                              style={styles.scheduleActionButton}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })
+                  )}
+                </View>
+              </Pressable>
             );
           })}
         </View>
@@ -510,26 +841,52 @@ export default function MedTrackerScreen({ navigation }) {
 
             <View style={styles.scheduleSection}>
               <Text style={styles.sectionLabel}>Daily schedule</Text>
-              {selectedMedicine.dailySched.map((entry, index) => (
-                <View key={`${selectedMedicine.medEntryId}-schedule-${index}`} style={styles.scheduleCard}>
-                  <Text style={styles.scheduleCardTitle}>
-                    {formatScheduleEntry(entry, selectedMedicine.unit)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+              {selectedMedicine.dailySched.map((entry, index) => {
+                const scheduleStatus = getScheduleStatusStyle(selectedMedicine, index);
+                const isTaken = scheduleStatus.status === 'taken';
+                const now = new Date();
+                const canSelectStatus = selectedMedicine.isScheduleActionAvailable(index, now, now);
 
-            <View style={styles.toggleRow}>
-              <Text style={styles.detailLabel}>Mark as taken</Text>
-              <ToggleButton
-                value={Boolean(selectedMedicine.isTaken)}
-                onChange={handleToggleTaken}
-                size={30}
-              />
-            </View>
+                return (
+                  <View
+                    key={`${selectedMedicine.medEntryId}-schedule-${index}`}
+                    style={[styles.scheduleCard, { backgroundColor: scheduleStatus.bgColor }]}
+                  >
+                    <View style={styles.scheduleCardRow}>
+                      <ScheduleEntryText entry={entry} unit={selectedMedicine.unit} />
+                      <View style={[styles.statusBadge, { backgroundColor: scheduleStatus.bgColor }]}>
+                        <Text style={[styles.statusText, { color: scheduleStatus.textColor }]}>
+                          {scheduleStatus.label}
+                        </Text>
+                      </View>
+                    </View>
 
-            <DetailItem label="Time taken" value={selectedMedicine.timeTaken || '--'} />
-            <DetailItem label="Date taken" value={formatDate(selectedMedicine.dateTaken)} />
+                    {isTaken ? (
+                      <Text style={styles.scheduleMetaText}>
+                        Taken {formatDateTime(entry.takenAt)}
+                      </Text>
+                    ) : null}
+
+                    {canSelectStatus ? (
+                      <View style={styles.scheduleActionRow}>
+                        <ActionButton
+                          label="Taken"
+                          onPress={() => requestScheduleStatusChange(selectedMedicine, index, 'taken')}
+                          variant={entry.status === 'taken' ? 'solid' : 'outline'}
+                          style={styles.scheduleActionButton}
+                        />
+                        <ActionButton
+                          label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
+                          variant={entry.status === 'skipped' ? 'solid' : 'outline'}
+                          onPress={() => requestScheduleStatusChange(selectedMedicine, index, 'skipped')}
+                          style={styles.scheduleActionButton}
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
 
             <View style={styles.footerActionsRow}>
               <ActionButton
@@ -600,15 +957,20 @@ export default function MedTrackerScreen({ navigation }) {
             value={formState.totalDailyAmount}
             onChangeText={(value) => setFormState((current) => ({ ...current, totalDailyAmount: value }))}
           />
-          <InputBar
-            placeholder="Start date (YYYY-MM-DD)"
+          <NativeDateTimeField
+            label="Start date"
+            placeholder="Select start date"
+            accessibilityLabel="Start date"
             value={formState.startDate}
-            onChangeText={(value) => setFormState((current) => ({ ...current, startDate: value }))}
+            onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
           />
-          <InputBar
-            placeholder="End date (optional, YYYY-MM-DD)"
+          <NativeDateTimeField
+            label="End date"
+            placeholder="Select end date"
+            accessibilityLabel="End date"
             value={formState.endDate}
-            onChangeText={(value) => setFormState((current) => ({ ...current, endDate: value }))}
+            onChange={(value) => setFormState((current) => ({ ...current, endDate: value }))}
+            optional
           />
           <InputBar
             placeholder="Instructions (optional)"
@@ -651,10 +1013,13 @@ export default function MedTrackerScreen({ navigation }) {
           />
 
           {scheduleDraft.scheduleType === 'time' ? (
-            <InputBar
-              placeholder="Scheduled time (e.g. 08:00 or 8:00 AM)"
+            <NativeDateTimeField
+              mode="time"
+              label="Scheduled time"
+              placeholder="Select scheduled time"
+              accessibilityLabel="Scheduled time"
               value={scheduleDraft.scheduledTime}
-              onChangeText={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+              onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
             />
           ) : (
             <>
@@ -680,16 +1045,33 @@ export default function MedTrackerScreen({ navigation }) {
                 ))}
               </View>
 
-              <InputBar
-                placeholder="Meal time (e.g. 08:00)"
+              <NativeDateTimeField
+                mode="time"
+                label="Meal time"
+                placeholder="Select meal time"
+                accessibilityLabel="Meal time"
                 value={scheduleDraft.mealTime}
-                onChangeText={(value) => setScheduleDraft((current) => ({ ...current, mealTime: value }))}
+                onChange={(value) => setScheduleDraft((current) => ({ ...current, mealTime: value }))}
               />
             </>
           )}
 
           <View style={styles.footerActionsRow}>
-            <ActionButton label="Add schedule item" variant="solid" onPress={addScheduleEntry} />
+            {editingScheduleIndex !== null ? (
+              <ActionButton
+                label="Cancel edit"
+                variant="outline"
+                onPress={() => {
+                  setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+                  setEditingScheduleIndex(null);
+                }}
+              />
+            ) : null}
+            <ActionButton
+              label={editingScheduleIndex === null ? 'Add schedule item' : 'Update schedule item'}
+              variant="solid"
+              onPress={saveScheduleEntry}
+            />
           </View>
         </View>
 
@@ -699,10 +1081,11 @@ export default function MedTrackerScreen({ navigation }) {
             scheduleEntries.map((entry, index) => (
               <View key={`${editorMode || 'create'}-schedule-${index}`} style={styles.scheduleCard}>
                 <View style={styles.scheduleCardRow}>
-                  <Text style={styles.scheduleCardTitle}>
-                    {formatScheduleEntry(entry, formState.unit)}
-                  </Text>
-                  <DeleteButton onPress={() => removeScheduleEntry(index)} />
+                  <ScheduleEntryText entry={entry} unit={formState.unit} />
+                  <View style={styles.scheduleEditActions}>
+                    <EditButton onPress={() => editScheduleEntry(index)} />
+                    <DeleteButton onPress={() => removeScheduleEntry(index)} />
+                  </View>
                 </View>
               </View>
             ))
@@ -722,6 +1105,26 @@ export default function MedTrackerScreen({ navigation }) {
           />
         </View>
       </LargePopup>
+
+      <Modal
+        visible={Boolean(pendingScheduleAction)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingScheduleAction(null)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setPendingScheduleAction(null)}>
+          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+            <DialogBox
+              title="Change schedule status?"
+              message="This schedule item already has a selected status. Confirm to change or clear it."
+              actions={[
+                { label: 'Cancel', variant: 'outline', onPress: () => setPendingScheduleAction(null) },
+                { label: 'Confirm', variant: 'solid', onPress: confirmScheduleStatusChange },
+              ]}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
@@ -785,17 +1188,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     gap: spacing.sm,
   },
-  medicineCard: {
-    minHeight: moderateScale(108),
+  medicineListItem: {
+    backgroundColor: colors.brandSoft,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  medicineListHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   selectedMedicineCard: {
     borderColor: colors.brand,
     borderWidth: 2,
-  },
-  medicineCardContent: {
-    flex: 0,
-    justifyContent: 'flex-start',
-    paddingVertical: spacing.xs,
   },
   statusBadge: {
     borderRadius: 999,
@@ -824,10 +1233,6 @@ const styles = StyleSheet.create({
   schedulePreviewList: {
     gap: spacing.xxs,
     paddingTop: spacing.xxs,
-  },
-  schedulePreviewText: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
   },
   modalContent: {
     paddingBottom: spacing.xl + spacing.sm,
@@ -894,6 +1299,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 30,
   },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  confirmDialog: {
+    width: '100%',
+    maxWidth: moderateScale(420),
+  },
   stickyTop: {
     position: 'absolute',
     top: 0,
@@ -927,6 +1343,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
+  scheduleCardInList: {
+    padding: spacing.sm,
+  },
   scheduleCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -936,8 +1355,28 @@ const styles = StyleSheet.create({
   scheduleCardTitle: {
     ...typography.bodySmall,
     color: colors.body,
-    fontWeight: '600',
     flex: 1,
+  },
+  scheduleTextStrong: {
+    fontWeight: '700',
+  },
+  scheduleMetaText: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  scheduleActionRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  scheduleActionButton: {
+    minWidth: moderateScale(82),
+    flexGrow: 1,
+  },
+  scheduleEditActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   emptyScheduleText: {
     ...typography.bodySmall,

@@ -21,7 +21,7 @@
 // - actual networking or API calls
 // - Realm-specific persistence logic
 // - UI request/approval screens
-// - notification delivery
+// - reminder delivery
 //
 // Suggested service methods:
 // - requestPatientLink(patientId, caregiverId)

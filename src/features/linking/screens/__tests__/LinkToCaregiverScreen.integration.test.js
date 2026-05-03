@@ -26,10 +26,10 @@ describe('LinkToCaregiver integration', () => {
     const navigation = createNavigation();
     const { getByLabelText } = render(<LinkToCaregiver navigation={navigation} />);
 
-    fireEvent.press(getByLabelText('Alerts'));
+    fireEvent.press(getByLabelText('Home'));
     fireEvent.press(getByLabelText('Back'));
 
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.NOTIFICATION);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
     expect(navigation.goBack).toHaveBeenCalledTimes(1);
   });
 });

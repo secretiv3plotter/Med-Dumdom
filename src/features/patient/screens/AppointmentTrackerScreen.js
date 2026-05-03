@@ -8,6 +8,7 @@ import { AddButton, DeleteButton, EditButton } from '../../../shared/components/
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import { ROUTES } from '../../../app/navigation/routes';
@@ -20,8 +21,6 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const EMPTY_FORM = {
@@ -105,6 +104,10 @@ const getAppointmentStatus = (appointment) => {
   const now = new Date();
   const diffMinutes = Math.round((appointmentDate.getTime() - now.getTime()) / (60 * 1000));
 
+  if (diffMinutes < 0) {
+    return { label: 'Missed', bgColor: '#FDECEC', textColor: colors.error };
+  }
+
   if (diffMinutes <= 60) {
     return { label: 'Due now', bgColor: '#FDECEC', textColor: colors.error };
   }
@@ -121,11 +124,6 @@ export default function AppointmentTrackerScreen({ navigation }) {
   const [formState, setFormState] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [draftDetails, setDraftDetails] = useState(EMPTY_FORM);
-
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
 
   const appointments = useMemo(() => apptTrackerService.listApptEntries(CURRENT_USER_ID), [version]);
 
@@ -243,7 +241,7 @@ export default function AppointmentTrackerScreen({ navigation }) {
 
     const scheduledDateTime = parseDateTime(formState.dateSched.trim(), formState.timeSched.trim());
     if (!scheduledDateTime) {
-      setFormError('Use YYYY-MM-DD for the date and HH:MM for the time.');
+      setFormError('Select a valid appointment date and time.');
       return;
     }
 
@@ -267,7 +265,7 @@ export default function AppointmentTrackerScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
         <View style={styles.headerRow}>
-          <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} />
+          <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
 
         <View style={styles.headerRow}>
@@ -374,12 +372,14 @@ export default function AppointmentTrackerScreen({ navigation }) {
               label="Date scheduled"
               value={isEditingDetails ? draftDetails.dateSched : formatDate(selectedAppointment.dateSched)}
               editable={isEditingDetails}
+              mode="date"
               onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, dateSched: text }))}
             />
             <EditableDetailItem
               label="Time scheduled"
               value={isEditingDetails ? draftDetails.timeSched : formatTime(selectedAppointment.timeSched)}
               editable={isEditingDetails}
+              mode="time"
               onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, timeSched: text }))}
             />
             <EditableDetailItem
@@ -450,15 +450,20 @@ export default function AppointmentTrackerScreen({ navigation }) {
             value={formState.contactNumber}
             onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
           />
-          <InputBar
-            placeholder="Date scheduled (YYYY-MM-DD)"
+          <NativeDateTimeField
+            label="Date scheduled"
+            placeholder="Select appointment date"
+            accessibilityLabel="Date scheduled"
             value={formState.dateSched}
-            onChangeText={(value) => setFormState((current) => ({ ...current, dateSched: value }))}
+            onChange={(value) => setFormState((current) => ({ ...current, dateSched: value }))}
           />
-          <InputBar
-            placeholder="Time scheduled (HH:MM)"
+          <NativeDateTimeField
+            mode="time"
+            label="Time scheduled"
+            placeholder="Select appointment time"
+            accessibilityLabel="Time scheduled"
             value={formState.timeSched}
-            onChangeText={(value) => setFormState((current) => ({ ...current, timeSched: value }))}
+            onChange={(value) => setFormState((current) => ({ ...current, timeSched: value }))}
           />
           <InputBar
             placeholder="Note"
@@ -491,9 +496,23 @@ function DetailItem({ label, value }) {
   );
 }
 
-function EditableDetailItem({ label, value, editable, onChangeText }) {
+function EditableDetailItem({ label, value, editable, onChangeText, mode = null }) {
   if (!editable) {
     return <DetailItem label={label} value={value} />;
+  }
+
+  if (mode === 'date' || mode === 'time') {
+    return (
+      <View style={styles.detailRow}>
+        <NativeDateTimeField
+          label={label}
+          value={value}
+          mode={mode}
+          onChange={onChangeText}
+          accessibilityLabel={label}
+        />
+      </View>
+    );
   }
 
   return (

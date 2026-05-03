@@ -24,11 +24,14 @@ describe('ProfileScreen integration', () => {
     const navigation = createNavigation();
     const { getByLabelText } = render(<ProfileScreen navigation={navigation} />);
 
+    fireEvent.press(getByLabelText('Back'));
     fireEvent.press(getByLabelText('Settings'));
     fireEvent.press(getByLabelText('Med tracker'));
 
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.SETTINGS);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.SETTINGS, { returnTo: ROUTES.HOME });
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.MED_TRACKER);
+    expect(navigation.goBack).not.toHaveBeenCalled();
   });
 
   it('switches into edit mode, opens the confirmation dialog, and auto-hides the saved dialog after saving', () => {

@@ -7,8 +7,7 @@
 // - exposing privacy settings for the current patient
 // - toggling privacy permissions that exist in PatientPrivacyModel
 // - validating which role can view or edit a resource
-// - checking if a caregiver can access medication, appointment, or report data
-// - checking if export permissions are allowed
+// - checking if a caregiver can access medication or appointment data
 //
 // Use cases covered:
 // - patient sets what data caregivers can access
@@ -23,19 +22,15 @@
 // Model methods this service should wrap:
 // - toggleMedTrackerPermit()
 // - toggleConsultTrackerPermit()
-// - toggleViewReportPermit()
 // - toggleModifyMedTracker()
 // - toggleModifyApptTracker()
 // - toggleManualCaregiverReminderPermit()
-// - toggleExportMedReportPermit()
-// - toggleExportApptReportPermit()
 //
 // Suggested service methods:
 // - getPrivacySettings(patientId)
 // - updatePrivacySettings(patientId, payload)
 // - canCaregiverViewMedTracker(patientId, caregiverId)
 // - canCaregiverViewApptTracker(patientId, caregiverId)
-// - canCaregiverViewReports(patientId, caregiverId)
 // - canCaregiverModifyMedTracker(patientId, caregiverId)
 // - canCaregiverModifyApptTracker(patientId, caregiverId)
 // - canCaregiverSendManualReminder(patientId, caregiverId)
@@ -46,31 +41,25 @@
 //
 // Dependencies:
 // - direct dependencies: none
-// - commonly used by: PatientCaregiverLinkService, resource access checks in tracker/report services
+// - commonly used by: PatientCaregiverLinkService, resource access checks in tracker services
 
 import PatientPrivacy from '../models/PatientPrivacyModel';
 
 const PRIVACY_FIELDS = new Set([
   'medTrackerPermit',
   'consultTrackerPermit',
-  'viewReportPermit',
   'modifyMedTracker',
   'modifyApptTracker',
   'manualCaregiverReminderPermit',
-  'exportMedReportPermit',
-  'exportApptReportPermit',
 ]);
 
 const clonePrivacySettings = (settings) =>
   new PatientPrivacy({
     medTrackerPermit: settings.medTrackerPermit,
     consultTrackerPermit: settings.consultTrackerPermit,
-    viewReportPermit: settings.viewReportPermit,
     modifyMedTracker: settings.modifyMedTracker,
     modifyApptTracker: settings.modifyApptTracker,
     manualCaregiverReminderPermit: settings.manualCaregiverReminderPermit,
-    exportMedReportPermit: settings.exportMedReportPermit,
-    exportApptReportPermit: settings.exportApptReportPermit,
   });
 
 const normalizeEntityId = (value, fieldName) => {
@@ -164,9 +153,6 @@ export class PrivacySettingsService {
         case 'consultTrackerPermit':
           settings.toggleConsultTrackerPermit();
           break;
-        case 'viewReportPermit':
-          settings.toggleViewReportPermit();
-          break;
         case 'modifyMedTracker':
           settings.toggleModifyMedTracker();
           break;
@@ -175,12 +161,6 @@ export class PrivacySettingsService {
           break;
         case 'manualCaregiverReminderPermit':
           settings.toggleManualCaregiverReminderPermit();
-          break;
-        case 'exportMedReportPermit':
-          settings.toggleExportMedReportPermit();
-          break;
-        case 'exportApptReportPermit':
-          settings.toggleExportApptReportPermit();
           break;
         default:
           break;
@@ -206,15 +186,6 @@ export class PrivacySettingsService {
     }
 
     return this._getStoredSettings(patientId).consultTrackerPermit;
-  }
-
-  canCaregiverViewReports(patientId, caregiverId) {
-    this._assertCaregiverAccessInputs(patientId, caregiverId);
-    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
-      return false;
-    }
-
-    return this._getStoredSettings(patientId).viewReportPermit;
   }
 
   canCaregiverModifyMedTracker(patientId, caregiverId) {
@@ -244,26 +215,6 @@ export class PrivacySettingsService {
     }
 
     return this._getStoredSettings(patientId).manualCaregiverReminderPermit;
-  }
-
-  canCaregiverExportMedReport(patientId, caregiverId) {
-    this._assertCaregiverAccessInputs(patientId, caregiverId);
-    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
-      return false;
-    }
-
-    const settings = this._getStoredSettings(patientId);
-    return settings.viewReportPermit && settings.exportMedReportPermit;
-  }
-
-  canCaregiverExportApptReport(patientId, caregiverId) {
-    this._assertCaregiverAccessInputs(patientId, caregiverId);
-    if (!this._canCaregiverAccessPatient(patientId, caregiverId)) {
-      return false;
-    }
-
-    const settings = this._getStoredSettings(patientId);
-    return settings.viewReportPermit && settings.exportApptReportPermit;
   }
 
   canCaregiverAccessPatient(patientId, caregiverId) {

@@ -67,8 +67,8 @@ export default function MainDashboardCaregiverScreen({ navigation }) {
         <View style={styles.contentCard}>
           <DashboardHeader
             firstName="Jane!"
-            onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
-            onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
+            onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.CAREGIVER_HOME })}
+            onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE, { returnTo: ROUTES.CAREGIVER_HOME })}
             style={styles.header}
           />
 

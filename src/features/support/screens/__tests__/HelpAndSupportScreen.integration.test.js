@@ -22,10 +22,10 @@ describe('HelpAndSupport screen integration', () => {
     const navigation = createNavigation();
     const { getByLabelText } = render(<HelpAndSupport navigation={navigation} />);
 
-    fireEvent.press(getByLabelText('Alerts'));
+    fireEvent.press(getByLabelText('Home'));
     fireEvent.press(getByLabelText('Back'));
 
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.NOTIFICATION);
-    expect(navigation.goBack).toHaveBeenCalledTimes(1);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
+    expect(navigation.goBack).not.toHaveBeenCalled();
   });
 });

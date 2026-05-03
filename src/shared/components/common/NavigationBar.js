@@ -4,14 +4,10 @@ import { colors, radius, spacing } from '../../theme';
 import AppointmentTrackerButton from '../navigation/AppointmentTrackerButton';
 import HomeButton from '../navigation/HomeButton';
 import MedTrackerButton from '../navigation/MedTrackerButton';
-import NotificationButton from '../navigation/NotificationButton';
-import ProgressReportButton from '../navigation/ProgressReportButton';
 
 export default function NavigationBar({
   medDisabled = false,
   appointmentDisabled = false,
-  progressDisabled = false,
-  notificationsUnread = false,
   selectedTab: selectedTabProp,
   onNavigate,
   showPressAlert = true,
@@ -31,11 +27,6 @@ export default function NavigationBar({
 
   return (
     <View style={styles.container}>
-      <AppointmentTrackerButton
-        variant={selectedTab === 'appointment' ? 'solid' : 'outline'}
-        onPress={() => onTabPress('appointment', 'Appts')}
-        disabled={appointmentDisabled}
-      />
       <MedTrackerButton
         variant={selectedTab === 'med' ? 'solid' : 'outline'}
         onPress={() => onTabPress('med', 'Med')}
@@ -45,15 +36,10 @@ export default function NavigationBar({
         variant={selectedTab === 'home' ? 'solid' : 'outline'}
         onPress={() => onTabPress('home', 'Home')}
       />
-      <ProgressReportButton
-        variant={selectedTab === 'progress' ? 'solid' : 'outline'}
-        onPress={() => onTabPress('progress', 'Report')}
-        disabled={progressDisabled}
-      />
-      <NotificationButton
-        variant={selectedTab === 'notification' ? 'solid' : 'outline'}
-        onPress={() => onTabPress('notification', 'Alerts')}
-        showDot={notificationsUnread && selectedTab !== 'notification'}
+      <AppointmentTrackerButton
+        variant={selectedTab === 'appointment' ? 'solid' : 'outline'}
+        onPress={() => onTabPress('appointment', 'Appts')}
+        disabled={appointmentDisabled}
       />
     </View>
   );

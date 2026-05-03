@@ -19,6 +19,7 @@ import { CancelButton, EditButton } from '../../../shared/components/common/Crud
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import TextCard from '../../../shared/components/common/TextCard';
 import SettingsButton from '../components/SettingsButton';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
@@ -30,8 +31,6 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const FALLBACK_PROFILE = {
@@ -49,6 +48,8 @@ const toDraft = (profile) => ({
 });
 
 export default function ProfileScreen({ navigation }) {
+  const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
+
   const [profile, setProfile] = useState(() => {
     const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
@@ -76,11 +77,6 @@ export default function ProfileScreen({ navigation }) {
       }
     };
   }, []);
-
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -117,7 +113,6 @@ export default function ProfileScreen({ navigation }) {
     }, 3000);
   };
 
-  const ageLabel = profile.birthDate ? `${profile.age} years old` : 'Add your birth date';
   const displayPicture = profile.profilePicture?.trim();
 
   return (
@@ -129,11 +124,11 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.stickyTop}>
           <View style={styles.topBar}>
             <View style={styles.sideControl}>
-              <BackButton onPress={() => navigation?.goBack?.()} disabled={!canGoBack} />
+              <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
             </View>
             <Text style={styles.headerTitle}>My Profile</Text>
             <View style={styles.settingsControl}>
-              <SettingsButton onPress={() => navigation?.navigate?.(ROUTES.SETTINGS)} />
+              <SettingsButton onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: returnRoute })} />
             </View>
           </View>
         </View>
@@ -155,10 +150,6 @@ export default function ProfileScreen({ navigation }) {
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
-            <View style={styles.metaRow}>
-              <Text style={styles.meta}>{ageLabel}</Text>
-              <Text style={styles.badge}>Profile</Text>
-            </View>
           </TextCard>
 
           <TextCard cardStyle={styles.profileCard}>
@@ -202,11 +193,13 @@ export default function ProfileScreen({ navigation }) {
                   placeholder="Enter profile picture URL or file path"
                 />
 
-                <Text style={styles.label}>Birth date:</Text>
-                <InputBar
+                <NativeDateTimeField
+                  label="Birth date"
+                  placeholder="Select birth date"
+                  accessibilityLabel="Birth date"
                   value={draft.birthDate}
-                  onChangeText={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
-                  placeholder="YYYY-MM-DD"
+                  onChange={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
+                  optional
                 />
 
                 <Text style={styles.label}>Address:</Text>
@@ -235,10 +228,6 @@ export default function ProfileScreen({ navigation }) {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Address:</Text>
                   <Text style={styles.infoValue}>{profile.address || '--'}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Picture:</Text>
-                  <Text style={styles.infoValue}>{profile.profilePicture || '--'}</Text>
                 </View>
               </>
             )}

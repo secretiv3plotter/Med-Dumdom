@@ -49,16 +49,15 @@ describe('SettingsScreen integration', () => {
 
   it('routes to the nested service-backed screens', () => {
     const navigation = createNavigation();
-    const { getByText } = render(<SettingsScreen navigation={navigation} />);
+    const { getByLabelText, getByText } = render(<SettingsScreen navigation={navigation} />);
 
-    fireEvent.press(getByText('Notifications'));
+    fireEvent.press(getByLabelText('Back'));
     fireEvent.press(getByText('Privacy Settings'));
     fireEvent.press(getByText('Accessibility'));
-    fireEvent.press(getByText('Help and Support'));
 
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.NOTIFICATION_SETTINGS);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.PROFILE);
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.PRIVACY_SETTINGS);
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.ACCESSIBILITY_SETTINGS);
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HELP_AND_SUPPORT);
+    expect(navigation.goBack).not.toHaveBeenCalled();
   });
 });

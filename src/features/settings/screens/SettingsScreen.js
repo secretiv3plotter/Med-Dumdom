@@ -11,13 +11,6 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 
 const SETTINGS_ITEMS = [
   {
-    key: 'notifications',
-    title: 'Notifications',
-    subtitle: 'Manage reminders and app alerts.',
-    icon: 'notifications-outline',
-    route: ROUTES.NOTIFICATION_SETTINGS,
-  },
-  {
     key: 'privacy',
     title: 'Privacy Settings',
     subtitle: 'Control data visibility and permissions.',
@@ -31,25 +24,15 @@ const SETTINGS_ITEMS = [
     icon: 'accessibility-outline',
     route: ROUTES.ACCESSIBILITY_SETTINGS,
   },
-  {
-    key: 'support',
-    title: 'Help and Support',
-    subtitle: 'Search FAQs and get help.',
-    icon: 'help-circle-outline',
-    route: ROUTES.HELP_AND_SUPPORT,
-  },
 ];
 
 export default function SettingsScreen({ navigation }) {
+  const returnRoute = navigation?.currentParams?.returnTo || null;
+
   const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
 
   const canChangePassword = currentPassword.trim().length > 0 && newPassword.trim().length > 0;
 
@@ -73,7 +56,13 @@ export default function SettingsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!canGoBack} />
+        <BackButton
+          onPress={() =>
+            returnRoute
+              ? navigation?.navigate?.(ROUTES.PROFILE, { returnTo: returnRoute })
+              : navigation?.navigate?.(ROUTES.PROFILE)
+          }
+        />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

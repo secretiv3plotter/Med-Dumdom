@@ -5,18 +5,14 @@
 //
 // What belongs here:
 // - create reminders from medication or appointment events
-// - build reminder content for notification popups
 // - mark reminders completed, dismissed, or snoozed
-// - determine which reminders should appear in the notifications screen
 // - manage manual reminders sent by caregivers
 //
 // Use cases covered:
-// - receive reminders as pop-up notifications and in the notifications screen
 // - receive real time manual reminders from caregivers
 // - send manual reminders from caregivers to patients
 //
 // What should NOT belong here:
-// - actual device notification APIs
 // - Firebase push delivery
 // - Realm persistence details
 // - UI popup rendering
@@ -29,7 +25,6 @@
 // - snoozeReminder(reminderId, snoozeUntil)
 // - dismissReminder(reminderId)
 // - markReminderCompleted(reminderId)
-// - getNotificationFeed(userId)
 //
 // Model methods this service should wrap:
 // - markCompleted()
@@ -40,17 +35,14 @@
 //
 // Notes:
 // - this service should work with the ReminderModel
-// - actual notification scheduling belongs in a separate adapter/service later
-//
 // Dependencies:
-// - direct dependencies: MedTrackerService, ApptTrackerService, NotifSettingsService,
+// - direct dependencies: MedTrackerService, ApptTrackerService,
 //   PrivacySettingsService, PatientCaregiverLinkService
-// - commonly used by: notification screen, reminder popup logic, caregiver reminder flows
+// - commonly used by: reminder popup logic, caregiver reminder flows
 
 import Reminder from '../models/ReminderModel';
 import medTrackerService from './MedTrackerService';
 import apptTrackerService from './ApptTrackerService';
-import notifSettingsService from './NotifSettingsService';
 import privacySettingsService from './PrivacySettingsService';
 
 const normalizeEntityId = (value, fieldName) => {
@@ -104,6 +96,7 @@ const cloneReminder = (reminder) =>
         clone.ownerId = reminder.ownerId;
         clone.createdAt = reminder.createdAt ? new Date(reminder.createdAt.getTime()) : null;
         clone.dueAt = reminder.dueAt ? new Date(reminder.dueAt.getTime()) : null;
+        clone.scheduleIndex = reminder.scheduleIndex ?? null;
         clone.sourceEntry = reminder.sourceEntry ? { ...reminder.sourceEntry } : null;
         return clone;
       })();
@@ -251,6 +244,10 @@ const buildMedicationScheduleContexts = (sourceEntry, now) => {
 
   return sourceEntry.dailySched
     .map((scheduleEntry, index) => {
+      if (scheduleEntry.status === 'taken' || scheduleEntry.status === 'skipped') {
+        return null;
+      }
+
       const parsedTime = parseScheduleTime(getEffectiveScheduleTime(scheduleEntry));
       if (!parsedTime) {
         return null;
@@ -315,27 +312,7 @@ const reminderDueAt = (reminder, now) => {
     return reminder.dueAt instanceof Date ? reminder.dueAt : reminder.createdAt ?? now;
   }
 
-  if (typeof notifSettingsService.shouldTriggerNotification === 'function') {
-    const settings = normalizeReminderSettings(reminder.ownerId ? notifSettingsService.getSettings(reminder.ownerId) : null);
-    if (!notifSettingsService.shouldTriggerNotification(reminder, settings, now)) {
-      return null;
-    }
-  }
-
   return reminder.dueAt instanceof Date ? reminder.dueAt : now;
-};
-
-const startOfDayBoundary = (value) => {
-  const dateValue = normalizeDate(value, 'date') ?? new Date();
-  dateValue.setHours(0, 0, 0, 0);
-  return dateValue;
-};
-
-const endOfDayBoundary = (value) => {
-  const dateValue = startOfDayBoundary(value);
-  dateValue.setDate(dateValue.getDate() + 1);
-  dateValue.setMilliseconds(dateValue.getMilliseconds() - 1);
-  return dateValue;
 };
 
 const resolveReminderSnoozeDateTime = (reminder, settings, now) => {
@@ -366,7 +343,6 @@ export class ReminderService {
   constructor(options = {}) {
     this.medTrackerService = options.medTrackerService ?? medTrackerService;
     this.apptTrackerService = options.apptTrackerService ?? apptTrackerService;
-    this.notifSettingsService = options.notifSettingsService ?? notifSettingsService;
     this.privacySettingsService = options.privacySettingsService ?? privacySettingsService;
     this.caregiverLinkService = options.caregiverLinkService ?? null;
     this.remindersByUserId = new Map();
@@ -411,6 +387,7 @@ export class ReminderService {
     reminder.ownerId = resolvedOwnerId;
     reminder.createdAt = createdAt;
     reminder.dueAt = isValidDateTime(dueAt) ? dueAt : createdAt;
+    reminder.scheduleIndex = resolvedScheduleContext?.scheduleIndex ?? null;
     reminder.sourceEntry = sourceEntry;
     store.reminders.set(reminder.reminderId, reminder);
     this.reminderIndex.set(reminder.reminderId, { ownerId: resolvedOwnerId });
@@ -507,11 +484,6 @@ export class ReminderService {
           return Boolean(dueAt && dueAt.getTime() <= currentDateTime.getTime());
         }
 
-        if (this.notifSettingsService?.shouldTriggerNotification) {
-          const settings = this.notifSettingsService.getSettings(reminder.ownerId);
-          return this.notifSettingsService.shouldTriggerNotification(reminder, settings, currentDateTime);
-        }
-
         const dueAt = reminderDueAt(reminder, currentDateTime);
         return Boolean(dueAt && dueAt.getTime() <= currentDateTime.getTime());
       })
@@ -523,11 +495,7 @@ export class ReminderService {
     const reminder = this._getReminderById(normalizedReminderId);
     const resolvedSnoozeUntil =
       snoozeUntil === null || snoozeUntil === undefined
-        ? resolveReminderSnoozeDateTime(
-            reminder,
-            reminder.ownerId ? this.notifSettingsService?.getSettings?.(reminder.ownerId) : null,
-            new Date()
-          )
+        ? resolveReminderSnoozeDateTime(reminder, null, new Date())
         : snoozeUntil;
     reminder.snoozeReminder(resolvedSnoozeUntil);
     return cloneReminder(reminder);
@@ -548,112 +516,6 @@ export class ReminderService {
     return cloneReminder(reminder);
   }
 
-  getNotificationFeed(userId, now = new Date()) {
-    const currentDateTime = normalizeDate(now, 'now') ?? new Date();
-    const startOfToday = startOfDayBoundary(currentDateTime);
-    const startOfYesterday = new Date(startOfToday.getTime());
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const endOfToday = endOfDayBoundary(currentDateTime);
-
-    this._syncTrackerReminders(userId, now);
-    const { store } = getReminderStore(this.remindersByUserId, userId);
-    const settings = this.notifSettingsService?.getSettings?.(userId) ?? null;
-
-    return [...store.reminders.values()]
-      .filter((reminder) => !isReminderSettled(reminder))
-      .filter((reminder) => !isResolvedEntry(reminder.sourceEntry))
-      .filter((reminder) => {
-        if (
-          reminder.snoozeDateTime instanceof Date &&
-          reminder.snoozeDateTime.getTime() > currentDateTime.getTime()
-        ) {
-          return false;
-        }
-
-        if (reminder.type === 'manual') {
-          const dueAt = reminderDueAt(reminder, currentDateTime);
-          return Boolean(dueAt && dueAt.getTime() <= currentDateTime.getTime());
-        }
-
-        return Boolean(
-          this.notifSettingsService?.shouldTriggerNotification?.(reminder, settings, currentDateTime)
-        );
-      })
-      .filter((reminder) => {
-        const surfacedAt = this._getSurfaceAt(reminder, settings, currentDateTime);
-        const dueAt = reminder.dueAt instanceof Date ? reminder.dueAt : surfacedAt;
-        if (!surfacedAt && !dueAt) {
-          return false;
-        }
-
-        const candidateTime = (surfacedAt ?? dueAt).getTime();
-        const unresolvedOlderReminder = dueAt && dueAt.getTime() < startOfYesterday.getTime();
-        const isTodayOrYesterday =
-          candidateTime >= startOfYesterday.getTime() && candidateTime <= endOfToday.getTime();
-        return isTodayOrYesterday || unresolvedOlderReminder;
-      })
-      .map(cloneReminder)
-      .sort((a, b) => {
-        const aSortMeta = this._buildFeedSortMeta(a, settings, currentDateTime);
-        const bSortMeta = this._buildFeedSortMeta(b, settings, currentDateTime);
-
-        if (aSortMeta.priority !== bSortMeta.priority) {
-          return bSortMeta.priority - aSortMeta.priority;
-        }
-
-        if (aSortMeta.time !== bSortMeta.time) {
-          return aSortMeta.time - bSortMeta.time;
-        }
-
-        return a.reminderId.localeCompare(b.reminderId);
-      });
-  }
-
-  _getEffectiveDueAt(reminder, settings, now = new Date()) {
-    if (reminder.type === 'manual') {
-      const dueAt = reminderDueAt(reminder, now);
-      return dueAt instanceof Date ? dueAt : null;
-    }
-
-    if (!settings) {
-      return reminder.dueAt instanceof Date ? reminder.dueAt : null;
-    }
-
-    const ledMinutes =
-      reminder.type === 'medication'
-        ? normalizeNonNegativeMinutes(settings.medReminderTime)
-        : reminder.type === 'appointment'
-          ? normalizeNonNegativeMinutes(settings.apptReminderTime)
-          : null;
-
-    const baseDueAt = reminder.dueAt instanceof Date ? reminder.dueAt : null;
-    if (!baseDueAt || ledMinutes === null) {
-      return baseDueAt;
-    }
-
-    return new Date(baseDueAt.getTime() - ledMinutes * 60 * 1000);
-  }
-
-  _getSurfaceAt(reminder, settings, now = new Date()) {
-    return this._getEffectiveDueAt(reminder, settings, now);
-  }
-
-  _buildFeedSortMeta(reminder, settings, now = new Date()) {
-    const dueAt = reminderDueAt(reminder, now);
-    const surfacedAt = this._getSurfaceAt(reminder, settings, now);
-    const dueTime = dueAt?.getTime?.() ?? Number.POSITIVE_INFINITY;
-    const surfacedTime = surfacedAt?.getTime?.() ?? dueTime;
-    const snoozeResumeTime = reminder.snoozeDateTime?.getTime?.() ?? Number.NEGATIVE_INFINITY;
-    const nowTime = now.getTime();
-    const isDueNow = dueTime <= nowTime;
-    const resumedFromSnooze = snoozeResumeTime > Number.NEGATIVE_INFINITY && snoozeResumeTime <= nowTime;
-
-    return {
-      priority: isDueNow ? 3 : resumedFromSnooze ? 2 : 1,
-      time: isDueNow ? dueTime : resumedFromSnooze ? snoozeResumeTime : surfacedTime,
-    };
-  }
-
   _markSourceEntryCompleted(reminder) {
     if (!reminder || typeof reminder !== 'object' || reminder.type === 'manual') {
       return;
@@ -670,7 +532,11 @@ export class ReminderService {
         return;
       }
 
-      this.medTrackerService?.markMedTaken?.(ownerId, medEntryId, new Date());
+      if (Number.isInteger(reminder.scheduleIndex) && this.medTrackerService?.markMedScheduleTaken) {
+        this.medTrackerService.markMedScheduleTaken(ownerId, medEntryId, reminder.scheduleIndex, new Date());
+      } else {
+        this.medTrackerService?.markMedTaken?.(ownerId, medEntryId, new Date());
+      }
       return;
     }
 
@@ -749,69 +615,64 @@ export class ReminderService {
   _syncTrackerReminders(userId, now = new Date()) {
     const normalizedUserId = normalizeEntityId(userId, 'userId');
     const currentDateTime = normalizeDate(now, 'now') ?? new Date();
-    const settings = this.notifSettingsService?.getSettings?.(normalizedUserId) ?? null;
     const { store } = getReminderStore(this.remindersByUserId, normalizedUserId);
 
-    if (!settings || settings.medRemindersEnabled !== false) {
-      const activeMedicationReminderIds = new Set();
-      this.medTrackerService.listMedEntries(normalizedUserId).forEach((medEntry) => {
-        if (medEntry.isTaken) {
-          return;
-        }
+    const activeMedicationReminderIds = new Set();
+    this.medTrackerService.listMedEntries(normalizedUserId).forEach((medEntry) => {
+      if (medEntry.isTaken) {
+        return;
+      }
 
-        buildMedicationScheduleContexts(medEntry, currentDateTime).forEach((scheduleContext) => {
-          activeMedicationReminderIds.add(scheduleContext.reminderId);
-          const existingReminder = store.reminders.get(scheduleContext.reminderId);
-          if (existingReminder) {
-            this._refreshMedicationReminder(existingReminder, medEntry, scheduleContext);
-            return;
-          }
-
-          this._createMedicationReminder(medEntry, currentDateTime, normalizedUserId, scheduleContext);
-        });
-      });
-
-      [...store.reminders.values()]
-        .filter((reminder) => reminder.type === 'medication')
-        .filter((reminder) => !isReminderSettled(reminder))
-        .filter((reminder) => !activeMedicationReminderIds.has(reminder.reminderId))
-        .forEach((reminder) => {
-          this._removeReminderFromStore(normalizedUserId, reminder.reminderId);
-        });
-    }
-
-    if (!settings || settings.apptRemindersEnabled !== false) {
-      const activeAppointmentReminderIds = new Set();
-      this.apptTrackerService.listApptEntries(normalizedUserId).forEach((apptEntry) => {
-        if (apptEntry.isCompleted) {
-          return;
-        }
-
-        const relatedEntryId = apptEntry.apptEntryId ?? apptEntry.relatedEntryId ?? null;
-        if (!relatedEntryId) {
-          return;
-        }
-
-        const reminderId = `appt-${normalizeReminderId(relatedEntryId)}`;
-        activeAppointmentReminderIds.add(reminderId);
-
-        const existingReminder = store.reminders.get(reminderId);
+      buildMedicationScheduleContexts(medEntry, currentDateTime).forEach((scheduleContext) => {
+        activeMedicationReminderIds.add(scheduleContext.reminderId);
+        const existingReminder = store.reminders.get(scheduleContext.reminderId);
         if (existingReminder) {
-          this._refreshAppointmentReminder(existingReminder, apptEntry);
+          this._refreshMedicationReminder(existingReminder, medEntry, scheduleContext);
           return;
         }
 
-        this.createAppointmentReminder(apptEntry, currentDateTime, normalizedUserId);
+        this._createMedicationReminder(medEntry, currentDateTime, normalizedUserId, scheduleContext);
+      });
+    });
+
+    [...store.reminders.values()]
+      .filter((reminder) => reminder.type === 'medication')
+      .filter((reminder) => !isReminderSettled(reminder))
+      .filter((reminder) => !activeMedicationReminderIds.has(reminder.reminderId))
+      .forEach((reminder) => {
+        this._removeReminderFromStore(normalizedUserId, reminder.reminderId);
       });
 
-      [...store.reminders.values()]
-        .filter((reminder) => reminder.type === 'appointment')
-        .filter((reminder) => !isReminderSettled(reminder))
-        .filter((reminder) => !activeAppointmentReminderIds.has(reminder.reminderId))
-        .forEach((reminder) => {
-          this._removeReminderFromStore(normalizedUserId, reminder.reminderId);
-        });
-    }
+    const activeAppointmentReminderIds = new Set();
+    this.apptTrackerService.listApptEntries(normalizedUserId).forEach((apptEntry) => {
+      if (apptEntry.isCompleted) {
+        return;
+      }
+
+      const relatedEntryId = apptEntry.apptEntryId ?? apptEntry.relatedEntryId ?? null;
+      if (!relatedEntryId) {
+        return;
+      }
+
+      const reminderId = `appt-${normalizeReminderId(relatedEntryId)}`;
+      activeAppointmentReminderIds.add(reminderId);
+
+      const existingReminder = store.reminders.get(reminderId);
+      if (existingReminder) {
+        this._refreshAppointmentReminder(existingReminder, apptEntry);
+        return;
+      }
+
+      this.createAppointmentReminder(apptEntry, currentDateTime, normalizedUserId);
+    });
+
+    [...store.reminders.values()]
+      .filter((reminder) => reminder.type === 'appointment')
+      .filter((reminder) => !isReminderSettled(reminder))
+      .filter((reminder) => !activeAppointmentReminderIds.has(reminder.reminderId))
+      .forEach((reminder) => {
+        this._removeReminderFromStore(normalizedUserId, reminder.reminderId);
+      });
   }
 }
 

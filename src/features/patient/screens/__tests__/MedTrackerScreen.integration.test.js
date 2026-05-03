@@ -5,10 +5,23 @@ import MedTracker from '../MedTrackerScreen';
 import { ROUTES } from '../../../../app/navigation/routes';
 import { createNavigation } from '../../../../shared/test-utils/integrationTestUtils';
 
+const pickDate = (getByLabelText, fieldLabel, date) => {
+  fireEvent.press(getByLabelText(fieldLabel));
+  fireEvent(getByLabelText('date picker'), 'onChange', { type: 'set' }, new Date(`${date}T00:00:00`));
+};
+
+const pickTime = (getByLabelText, fieldLabel, time) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const value = new Date('2026-04-20T00:00:00');
+  value.setHours(hours, minutes, 0, 0);
+  fireEvent.press(getByLabelText(fieldLabel));
+  fireEvent(getByLabelText('time picker'), 'onChange', { type: 'set' }, value);
+};
+
 describe('MedTracker integration', () => {
   it('opens the medicine details editor and saves updated values', () => {
     const navigation = createNavigation();
-    const { getByText, getByLabelText } = render(
+    const { getAllByText, getByText, getByLabelText } = render(
       <MedTracker navigation={navigation} />
     );
 
@@ -24,7 +37,7 @@ describe('MedTracker integration', () => {
 
   it('adds a new medicine through the popup form', () => {
     const navigation = createNavigation();
-    const { getByText, getByLabelText } = render(
+    const { getAllByText, getByText, getByLabelText } = render(
       <MedTracker navigation={navigation} />
     );
 
@@ -33,11 +46,12 @@ describe('MedTracker integration', () => {
     fireEvent.changeText(getByLabelText('Unit strength (e.g. 500 mg)'), '100 mg');
     fireEvent.press(getByText('Tablet'));
     fireEvent.changeText(getByLabelText('Total daily amount'), '1');
-    fireEvent.changeText(getByLabelText('Start date (YYYY-MM-DD)'), '2026-04-20');
+    pickDate(getByLabelText, 'Start date', '2026-04-20');
     fireEvent.changeText(getByLabelText('Dose size'), '1');
-    fireEvent.changeText(getByLabelText('Scheduled time (e.g. 08:00 or 8:00 AM)'), '7:00 AM');
+    pickTime(getByLabelText, 'Scheduled time', '07:00');
     fireEvent.press(getByText('Add schedule item'));
-    fireEvent.press(getByText('Add Medicine'));
+    const addButtons = getAllByText('Add Medicine');
+    fireEvent.press(addButtons[addButtons.length - 1]);
 
     expect(getByText('Aspirin')).toBeTruthy();
   });
@@ -46,8 +60,10 @@ describe('MedTracker integration', () => {
     const navigation = createNavigation();
     const { getByLabelText } = render(<MedTracker navigation={navigation} />);
 
+    fireEvent.press(getByLabelText('Back'));
     fireEvent.press(getByLabelText('Home'));
 
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
+    expect(navigation.goBack).not.toHaveBeenCalled();
   });
 });

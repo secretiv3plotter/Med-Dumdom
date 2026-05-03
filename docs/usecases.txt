@@ -9,10 +9,8 @@ Patients can:
     manage their med tracker (view, add, edit, delete, confirm taken meds)
     manage their appt tracker as well (view, add, edit, cancel, finish appts, and add notes)
 
-    receive reminders which will become a pop up notification and also visible in the notifications screen
+    receive reminders from caregivers and tracker events
 
-    manage their progress report (view med and appt summaries over days, weeks, months, or years)
-    export their progress report
 
 Caregivers can:
     only manage what their patient only allowed them to

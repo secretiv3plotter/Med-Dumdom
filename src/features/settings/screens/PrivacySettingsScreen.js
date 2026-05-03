@@ -15,8 +15,6 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const PERMISSION_GROUPS = [
@@ -32,19 +30,9 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    id: 'reports',
-    title: 'Reports and sharing',
-    icon: 'document-text-outline',
-    items: [
-      { key: 'viewReportPermit', label: 'View progress report' },
-      { key: 'exportMedReportPermit', label: 'Export medication report' },
-      { key: 'exportApptReportPermit', label: 'Export appointment report' },
-    ],
-  },
-  {
     id: 'reminders',
     title: 'Reminder access',
-    icon: 'notifications-outline',
+    icon: 'alarm-outline',
     items: [
       { key: 'manualCaregiverReminderPermit', label: 'Send manual caregiver reminders' },
     ],

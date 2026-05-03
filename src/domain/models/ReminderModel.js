@@ -20,11 +20,11 @@
 
 // Do not put these in Reminder:
 
-// actual notification popup code
-// scheduling device notifications
-// Firebase push notification logic
+// actual reminder popup code
+// scheduling device reminders
+// Firebase push reminder logic
 // syncing with backend/local DB
-// Those belong in a notification/reminder service.
+// Those belong in a reminder service.
 const REMINDER_TYPES = new Set(['medication', 'appointment']);
 const REMINDER_STATUSES = new Set(['pending', 'completed', 'dismissed']);
 

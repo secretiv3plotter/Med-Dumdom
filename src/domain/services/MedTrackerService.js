@@ -2,7 +2,7 @@
 // Role:
 // Own the business logic for medication tracking.
 // This service should decide how medications are created, edited, marked taken,
-// soft-deleted, and included in due or progress calculations.
+// soft-deleted, and included in due calculations.
 //
 // What belongs here:
 // - view medication entries
@@ -17,10 +17,9 @@
 // Use cases covered:
 // - patient manages med tracker
 // - reminder generation based on medication due state
-// - progress report medication summaries
 //
 // What should NOT belong here:
-// - notification delivery
+// - reminder delivery
 // - Realm storage implementation
 // - UI cards, forms, or modals
 // - backend sync details
@@ -32,7 +31,11 @@
 // - softDeleteMedEntry(userId, medEntryId)
 // - markMedTaken(userId, medEntryId, takenAt)
 // - undoMedTaken(userId, medEntryId)
+// - markMedScheduleTaken(userId, medEntryId, scheduleIndex, takenAt)
+// - markMedScheduleSkipped(userId, medEntryId, scheduleIndex, skippedAt)
+// - clearMedScheduleStatus(userId, medEntryId, scheduleIndex)
 // - getDueMedEntries(userId, now)
+// - getMissedMedEntries(userId, now)
 // - getMedTrackerSummary(userId, range)
 //
 // Model methods this service should wrap:
@@ -48,8 +51,12 @@
 // - updatePrescriberContact(newPrescriberContact)
 // - markTaken(takenAt)
 // - clearTakenStatus()
+// - markScheduleTaken(scheduleIndex, takenAt)
+// - markScheduleSkipped(scheduleIndex, skippedAt)
+// - clearScheduleStatus(scheduleIndex)
 // - isActiveOnDate(currDate)
 // - isDue(currTime, currDate)
+// - isMissed(currTime, currDate)
 //
 // Notes:
 // - this service should work with the MedEntryModel
@@ -57,7 +64,7 @@
 //
 // Dependencies:
 // - direct dependencies: none
-// - commonly used by: ReminderService, ProgressReportService, medication tracker UI
+// - commonly used by: ReminderService, medication tracker UI
 
 import MedEntry from '../models/MedEntryModel';
 
@@ -283,8 +290,13 @@ export class MedTrackerService {
 
   listMedEntries(userId) {
     const { store } = getUserStore(this.entriesByUserId, userId);
+    const currentDateTime = new Date();
     return [...store.entries.values()]
       .filter((entry) => !store.deletedIds.has(entry.medEntryId))
+      .map((entry) => {
+        entry.resetDailyScheduleStatusesIfNeeded(currentDateTime);
+        return entry;
+      })
       .map(cloneMedEntry);
   }
 
@@ -309,9 +321,14 @@ export class MedTrackerService {
     if (updates.dosage !== undefined) nextEntry.updateUnitStrength(updates.dosage);
     if (updates.unit !== undefined) nextEntry.updateUnit(updates.unit);
     if (updates.quantityUnit !== undefined) nextEntry.updateUnit(updates.quantityUnit);
-    if (updates.totalDailyAmount !== undefined) nextEntry.updateTotalDailyAmount(updates.totalDailyAmount);
-    if (updates.amount !== undefined) nextEntry.updateTotalDailyAmount(updates.amount);
-    if (updates.dailySched !== undefined) nextEntry.updateDailySched(updates.dailySched);
+    const nextTotalDailyAmount = updates.totalDailyAmount ?? updates.amount;
+    if (updates.dailySched !== undefined && nextTotalDailyAmount !== undefined) {
+      nextEntry.updateTotalDailyAmountAndDailySched(nextTotalDailyAmount, updates.dailySched);
+    } else {
+      if (updates.totalDailyAmount !== undefined) nextEntry.updateTotalDailyAmount(updates.totalDailyAmount);
+      if (updates.amount !== undefined) nextEntry.updateTotalDailyAmount(updates.amount);
+      if (updates.dailySched !== undefined) nextEntry.updateDailySched(updates.dailySched);
+    }
     if (updates.startDate !== undefined) nextEntry.updateStartDate(updates.startDate);
     if (updates.endDate !== undefined) nextEntry.updateEndDate(updates.endDate);
     if (updates.instructions !== undefined) nextEntry.updateInstructions(updates.instructions);
@@ -354,6 +371,30 @@ export class MedTrackerService {
     return cloneMedEntry(entry);
   }
 
+  markMedScheduleTaken(userId, medEntryId, scheduleIndex, takenAt = new Date()) {
+    const { store } = getUserStore(this.entriesByUserId, userId);
+    const normalizedEntryId = normalizeEntityId(medEntryId, 'medEntryId');
+    const entry = ensureEntryActive(store, normalizedEntryId);
+    entry.markScheduleTaken(scheduleIndex, takenAt);
+    return cloneMedEntry(entry);
+  }
+
+  markMedScheduleSkipped(userId, medEntryId, scheduleIndex, skippedAt = new Date()) {
+    const { store } = getUserStore(this.entriesByUserId, userId);
+    const normalizedEntryId = normalizeEntityId(medEntryId, 'medEntryId');
+    const entry = ensureEntryActive(store, normalizedEntryId);
+    entry.markScheduleSkipped(scheduleIndex, skippedAt);
+    return cloneMedEntry(entry);
+  }
+
+  clearMedScheduleStatus(userId, medEntryId, scheduleIndex) {
+    const { store } = getUserStore(this.entriesByUserId, userId);
+    const normalizedEntryId = normalizeEntityId(medEntryId, 'medEntryId');
+    const entry = ensureEntryActive(store, normalizedEntryId);
+    entry.clearScheduleStatus(scheduleIndex);
+    return cloneMedEntry(entry);
+  }
+
   getDueMedEntries(userId, now = new Date()) {
     const currentDateTime = now instanceof Date ? new Date(now.getTime()) : new Date(now);
     if (Number.isNaN(currentDateTime.getTime())) {
@@ -361,6 +402,15 @@ export class MedTrackerService {
     }
 
     return this.listMedEntries(userId).filter((entry) => entry.isDue(currentDateTime, currentDateTime));
+  }
+
+  getMissedMedEntries(userId, now = new Date()) {
+    const currentDateTime = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+    if (Number.isNaN(currentDateTime.getTime())) {
+      throw new RangeError('now must be a valid date or datetime.');
+    }
+
+    return this.listMedEntries(userId).filter((entry) => entry.isMissed(currentDateTime, currentDateTime));
   }
 
   getMedTrackerSummary(userId, range = null) {
@@ -376,7 +426,9 @@ export class MedTrackerService {
     });
 
     const takenEntries = filteredEntries.filter((entry) => entry.isTaken).length;
-    const dueEntries = filteredEntries.filter((entry) => entry.isDue(new Date(), new Date())).length;
+    const currentDateTime = new Date();
+    const missedEntries = filteredEntries.filter((entry) => entry.isMissed(currentDateTime, currentDateTime)).length;
+    const dueEntries = filteredEntries.filter((entry) => entry.isDue(currentDateTime, currentDateTime)).length;
 
     return {
       userId: normalizeEntityId(userId, 'userId'),
@@ -385,6 +437,7 @@ export class MedTrackerService {
       activeEntries: filteredEntries.filter((entry) => entry.isActiveOnDate(new Date())).length,
       takenEntries,
       dueEntries,
+      missedEntries,
       deletedEntries: store.deletedIds.size,
       entries: filteredEntries.map(cloneMedEntry),
     };

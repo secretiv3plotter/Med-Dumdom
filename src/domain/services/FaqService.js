@@ -52,13 +52,6 @@ const DEFAULT_FAQS = [
     answer: 'Open Settings, choose Password Change, enter your current and new password, then tap Change Password.',
   },
   {
-    faqId: 'notifications',
-    category: 'Settings',
-    tags: ['notifications', 'reminders', 'alerts'],
-    question: 'Where can I manage notifications?',
-    answer: 'Go to Settings and select Notifications to adjust reminder alerts and app updates.',
-  },
-  {
     faqId: 'support-contact',
     category: 'Support',
     tags: ['help', 'support', 'contact'],

@@ -11,6 +11,25 @@ jest.mock(
   { virtual: true }
 );
 
+jest.mock(
+  '@react-native-community/datetimepicker',
+  () => {
+    const React = require('react');
+    const { Text } = require('react-native');
+
+    return ({ mode = 'date', onChange }) =>
+      React.createElement(
+        Text,
+        {
+          accessibilityLabel: `${mode} picker`,
+          onChange,
+        },
+        `${mode} picker`
+      );
+  },
+  { virtual: true }
+);
+
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');

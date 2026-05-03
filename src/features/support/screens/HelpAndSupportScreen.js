@@ -14,17 +14,12 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 export default function HelpAndSupportScreen({ navigation }) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
 
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -46,7 +41,7 @@ export default function HelpAndSupportScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
-        <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} />
+        <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

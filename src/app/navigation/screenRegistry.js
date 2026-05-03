@@ -9,14 +9,11 @@ import AppointmentTrackerScreen from '../../features/patient/screens/Appointment
 import MedTrackerScreen from '../../features/patient/screens/MedTrackerScreen';
 import PatientSpecificDashboardScreen from '../../features/patient/screens/PatientSpecificDashboardScreen';
 import ProfileScreen from '../../features/patient/screens/ProfileScreen';
-import ProgressReportScreen from '../../features/patient/screens/ProgressReportScreen';
 import PracticeGroundScreen from '../../features/practice/screens/PracticeGroundScreen';
 import AccessibilitySettingsScreen from '../../features/settings/screens/AccessibilitySettingsScreen';
-import NotificationSettingsScreen from '../../features/settings/screens/NotificationSettingsScreen';
 import PrivacySettingsScreen from '../../features/settings/screens/PrivacySettingsScreen';
 import SettingsScreen from '../../features/settings/screens/SettingsScreen';
 import HelpAndSupportScreen from '../../features/support/screens/HelpAndSupportScreen';
-import NotificationScreen from '../../features/support/screens/NotificationScreen';
 
 export const SCREEN_REGISTRY = {
   [ROUTES.SIGN_UP]: SignUpScreen,
@@ -27,10 +24,7 @@ export const SCREEN_REGISTRY = {
   [ROUTES.CAREGIVER_HOME]: MainDashboardCaregiverScreen,
   [ROUTES.APPOINTMENT_TRACKER]: AppointmentTrackerScreen,
   [ROUTES.MED_TRACKER]: MedTrackerScreen,
-  [ROUTES.PROGRESS_REPORT]: ProgressReportScreen,
   [ROUTES.HELP_AND_SUPPORT]: HelpAndSupportScreen,
-  [ROUTES.NOTIFICATION]: NotificationScreen,
-  [ROUTES.NOTIFICATION_SETTINGS]: NotificationSettingsScreen,
   [ROUTES.ACCESSIBILITY_SETTINGS]: AccessibilitySettingsScreen,
   [ROUTES.PROFILE]: ProfileScreen,
   [ROUTES.PRIVACY_SETTINGS]: PrivacySettingsScreen,

@@ -146,6 +146,63 @@ const normalizeAssociatedMeal = (value) => {
 
 const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
 
+const toMinutes = (timeValue) => {
+  const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+const DUE_NOW_GRACE_MINUTES = 3;
+const SINGLE_SCHEDULE_UPCOMING_WINDOW_MINUTES = 60;
+
+const getScheduleDateTime = (entry) => entry.takenAt || entry.skippedAt || null;
+
+const isBeforeDay = (value, day) => {
+  if (!value || !(day instanceof Date)) {
+    return true;
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return true;
+  }
+
+  const parsedDay = new Date(parsedDate.getTime());
+  parsedDay.setHours(0, 0, 0, 0);
+  return parsedDay.getTime() < day.getTime();
+};
+
+const isBeforeCurrentDay = (currDate, currentDay) => {
+  const activeDay = normalizeOptionalDate(currDate, 'currDate');
+  if (!activeDay || !(currentDay instanceof Date)) {
+    return false;
+  }
+
+  activeDay.setHours(0, 0, 0, 0);
+  return activeDay.getTime() < currentDay.getTime();
+};
+
+const normalizeScheduleStatus = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return 'pending';
+  }
+
+  const normalized = normalizeRequiredString(value, fieldName).toLowerCase();
+  if (!['pending', 'taken', 'skipped'].includes(normalized)) {
+    throw new RangeError(`${fieldName} must be pending, taken, or skipped.`);
+  }
+
+  return normalized;
+};
+
+const normalizeOptionalDateTime = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const parsedDate = normalizeDate(value, fieldName);
+  return parsedDate ? parsedDate.toISOString() : null;
+};
+
 const normalizeScheduleEntry = (entry, index) => {
   if (typeof entry === 'string' || entry instanceof Date) {
     return {
@@ -153,6 +210,9 @@ const normalizeScheduleEntry = (entry, index) => {
       doseSize: 1,
       scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
       instructions: '',
+      status: 'pending',
+      takenAt: null,
+      skippedAt: null,
     };
   }
 
@@ -172,6 +232,9 @@ const normalizeScheduleEntry = (entry, index) => {
     allowZero: false,
   });
   const instructions = normalizeOptionalString(entry.instructions, `dailySched[${index}].instructions`);
+  const status = normalizeScheduleStatus(entry.status, `dailySched[${index}].status`);
+  const takenAt = normalizeOptionalDateTime(entry.takenAt, `dailySched[${index}].takenAt`);
+  const skippedAt = normalizeOptionalDateTime(entry.skippedAt, `dailySched[${index}].skippedAt`);
 
   if (isMealBased) {
     return {
@@ -181,6 +244,9 @@ const normalizeScheduleEntry = (entry, index) => {
       associatedMeal: normalizeAssociatedMeal(entry.associatedMeal),
       mealTime: normalizeRequiredTime(entry.mealTime ?? entry.scheduledTime, `dailySched[${index}].mealTime`),
       instructions,
+      status,
+      takenAt,
+      skippedAt,
     };
   }
 
@@ -192,6 +258,9 @@ const normalizeScheduleEntry = (entry, index) => {
       `dailySched[${index}].scheduledTime`
     ),
     instructions,
+    status,
+    takenAt,
+    skippedAt,
   };
 };
 
@@ -233,6 +302,12 @@ const normalizeTimesTaken = (timesTaken) => {
   }
 
   return timesTaken.map((time, index) => normalizeTime(time, `timesTaken[${index}]`));
+};
+
+const ensureScheduleIndex = (dailySched, index) => {
+  if (!Number.isInteger(index) || index < 0 || index >= dailySched.length) {
+    throw new RangeError('scheduleIndex must point to an existing daily schedule item.');
+  }
 };
 
 export default class MedEntry {
@@ -297,6 +372,24 @@ export default class MedEntry {
     } else if (this.timeTaken || this.dateTaken) {
       throw new RangeError('timeTaken and dateTaken must be null when isTaken is false.');
     }
+
+    const hasScheduleStatus = this.dailySched.some((entry) => entry.status !== 'pending');
+    if (this.isTaken && !hasScheduleStatus) {
+      const takenDateTime = new Date(this.dateTaken.getTime());
+      const takenMinutes = toMinutes(this.timeTaken);
+      if (takenMinutes !== null) {
+        takenDateTime.setHours(Math.floor(takenMinutes / 60), takenMinutes % 60, 0, 0);
+      }
+
+      this.dailySched = this.dailySched.map((entry) => ({
+        ...entry,
+        status: 'taken',
+        takenAt: takenDateTime.toISOString(),
+        skippedAt: null,
+      }));
+    } else if (hasScheduleStatus) {
+      this.syncTakenStatusFromSchedule();
+    }
   }
 
   updateMedName(newMedName) {
@@ -339,6 +432,23 @@ export default class MedEntry {
     return this.updateTotalDailyAmount(newAmount);
   }
 
+  updateTotalDailyAmountAndDailySched(newTotalDailyAmount, newDailySched) {
+    const nextAmount = normalizeInteger(newTotalDailyAmount, 'totalDailyAmount', {
+      allowZero: false,
+    });
+    const nextSchedule = normalizeSchedule(newDailySched);
+
+    if (sumDoseSizes(nextSchedule) !== nextAmount) {
+      throw new RangeError('totalDailyAmount must match the sum of dailySched doseSize values.');
+    }
+
+    this.totalDailyAmount = nextAmount;
+    this.amount = this.totalDailyAmount;
+    this.dailySched = nextSchedule;
+    this.syncTakenStatusFromSchedule();
+    return this;
+  }
+
   updateDailySched(newDailySched) {
     const nextSchedule = normalizeSchedule(newDailySched);
     if (sumDoseSizes(nextSchedule) !== this.totalDailyAmount) {
@@ -346,6 +456,7 @@ export default class MedEntry {
     }
 
     this.dailySched = nextSchedule;
+    this.syncTakenStatusFromSchedule();
     return [...this.dailySched];
   }
 
@@ -386,6 +497,13 @@ export default class MedEntry {
     const takenDateTime = normalizeDate(takenAt, 'takenAt') ?? new Date();
     const takenTime = normalizeTime(takenDateTime, 'takenAt');
 
+    this.dailySched = this.dailySched.map((entry) => ({
+      ...entry,
+      status: 'taken',
+      takenAt: takenDateTime.toISOString(),
+      skippedAt: null,
+    }));
+
     if (!this.timesTaken.includes(takenTime)) {
       this.timesTaken.push(takenTime);
     }
@@ -398,11 +516,141 @@ export default class MedEntry {
   }
 
   clearTakenStatus() {
+    this.dailySched = this.dailySched.map((entry) => ({
+      ...entry,
+      status: 'pending',
+      takenAt: null,
+      skippedAt: null,
+    }));
     this.isTaken = false;
     this.timeTaken = null;
     this.dateTaken = null;
     this.timesTaken = [];
     return this;
+  }
+
+  syncTakenStatusFromSchedule() {
+    const takenEntries = this.dailySched.filter((entry) => entry.status === 'taken');
+    const allEntriesTaken = this.dailySched.length > 0 && takenEntries.length === this.dailySched.length;
+    this.isTaken = allEntriesTaken;
+
+    if (!takenEntries.length) {
+      this.timeTaken = null;
+      this.dateTaken = null;
+      this.timesTaken = [];
+      return this;
+    }
+
+    const takenAtValues = takenEntries
+      .map((entry) => normalizeOptionalDateTime(entry.takenAt, 'takenAt'))
+      .filter(Boolean)
+      .sort();
+    const latestTakenAt = takenAtValues[takenAtValues.length - 1] || null;
+
+    this.timesTaken = takenEntries
+      .map((entry) => (entry.takenAt ? normalizeTime(new Date(entry.takenAt), 'takenAt') : ''))
+      .filter(Boolean);
+
+    if (allEntriesTaken && latestTakenAt) {
+      const latestDate = new Date(latestTakenAt);
+      this.timeTaken = normalizeTime(latestDate, 'takenAt');
+      this.dateTaken = latestDate;
+    } else {
+      this.timeTaken = null;
+      this.dateTaken = null;
+    }
+
+    return this;
+  }
+
+  markScheduleTaken(scheduleIndex, takenAt = new Date()) {
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+    const takenDateTime = normalizeDate(takenAt, 'takenAt') ?? new Date();
+
+    this.dailySched[scheduleIndex] = {
+      ...this.dailySched[scheduleIndex],
+      status: 'taken',
+      takenAt: takenDateTime.toISOString(),
+      skippedAt: null,
+    };
+
+    this.syncTakenStatusFromSchedule();
+    return this;
+  }
+
+  markScheduleSkipped(scheduleIndex, skippedAt = new Date()) {
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+    const skippedDateTime = normalizeDate(skippedAt, 'skippedAt') ?? new Date();
+
+    this.dailySched[scheduleIndex] = {
+      ...this.dailySched[scheduleIndex],
+      status: 'skipped',
+      takenAt: null,
+      skippedAt: skippedDateTime.toISOString(),
+    };
+
+    this.syncTakenStatusFromSchedule();
+    return this;
+  }
+
+  clearScheduleStatus(scheduleIndex) {
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+
+    this.dailySched[scheduleIndex] = {
+      ...this.dailySched[scheduleIndex],
+      status: 'pending',
+      takenAt: null,
+      skippedAt: null,
+    };
+
+    this.syncTakenStatusFromSchedule();
+    return this;
+  }
+
+  resetDailyScheduleStatusesIfNeeded(now = new Date()) {
+    const currentDateTime = normalizeDate(now, 'now') ?? new Date();
+    if (Number.isNaN(currentDateTime.getTime()) || !this.dailySched.length) {
+      return false;
+    }
+
+    const firstScheduleMinutes = this.dailySched
+      .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+      .filter((minutes) => minutes !== null)
+      .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
+    const currentMinutes = toMinutes(normalizeTime(currentDateTime, 'now'));
+
+    const resetStartMinutes =
+      this.dailySched.length === 1
+        ? Math.max(0, firstScheduleMinutes - SINGLE_SCHEDULE_UPCOMING_WINDOW_MINUTES)
+        : firstScheduleMinutes;
+
+    if (firstScheduleMinutes === undefined || currentMinutes === null || currentMinutes < resetStartMinutes) {
+      return false;
+    }
+
+    const currentDay = new Date(currentDateTime.getTime());
+    currentDay.setHours(0, 0, 0, 0);
+
+    let didReset = false;
+    this.dailySched = this.dailySched.map((entry) => {
+      if (entry.status === 'pending' || !isBeforeDay(getScheduleDateTime(entry), currentDay)) {
+        return entry;
+      }
+
+      didReset = true;
+      return {
+        ...entry,
+        status: 'pending',
+        takenAt: null,
+        skippedAt: null,
+      };
+    });
+
+    if (didReset) {
+      this.syncTakenStatusFromSchedule();
+    }
+
+    return didReset;
   }
 
   isActiveOnDate(currDate = new Date()) {
@@ -434,44 +682,96 @@ export default class MedEntry {
     return true;
   }
 
-  isDue(currTime, currDate = new Date()) {
-    if (this.isTaken || !this.isActiveOnDate(currDate) || !this.dailySched.length) {
+  getScheduleStatus(scheduleIndex, currTime = new Date(), currDate = new Date()) {
+    this.resetDailyScheduleStatusesIfNeeded(currTime instanceof Date ? currTime : currDate);
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+    const scheduleEntry = this.dailySched[scheduleIndex];
+
+    if (scheduleEntry.status === 'taken') {
+      return 'taken';
+    }
+
+    if (scheduleEntry.status === 'skipped') {
+      return 'missed';
+    }
+
+    if (!this.isActiveOnDate(currDate)) {
+      return 'upcoming';
+    }
+
+    const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
+    const currentDay = new Date(currentTime.getTime());
+    currentDay.setHours(0, 0, 0, 0);
+    if (isBeforeCurrentDay(currDate, currentDay)) {
+      return 'missed';
+    }
+
+    const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+    const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
+    if (currentMinutes === null || scheduleMinutes === null) {
+      return 'upcoming';
+    }
+
+    const laterScheduledMinutes = this.dailySched
+      .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+      .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
+      .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
+
+    if (laterScheduledMinutes.length && currentMinutes >= laterScheduledMinutes[0]) {
+      return 'missed';
+    }
+
+    if (currentMinutes >= scheduleMinutes + DUE_NOW_GRACE_MINUTES) {
+      return 'pending';
+    }
+
+    return currentMinutes >= scheduleMinutes ? 'due' : 'upcoming';
+  }
+
+  isScheduleActionAvailable(scheduleIndex, currTime = new Date(), currDate = new Date()) {
+    this.resetDailyScheduleStatusesIfNeeded(currTime instanceof Date ? currTime : currDate);
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+
+    if (!this.isActiveOnDate(currDate)) {
       return false;
     }
 
     const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
-    const currentMinutes = normalizeTime(currentTime, 'currTime');
-    if (!currentMinutes) {
+    const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+    const scheduleMinutes = toMinutes(scheduleEffectiveTime(this.dailySched[scheduleIndex]));
+    if (currentMinutes === null || scheduleMinutes === null || currentMinutes < scheduleMinutes) {
       return false;
     }
 
-    const nowMinutes = (() => {
-      const match = currentMinutes.match(/^(\d{2}):(\d{2})$/);
-      if (!match) {
-        return null;
-      }
+    const nextScheduleMinutes = this.dailySched
+      .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+      .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
+      .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
 
-      return Number(match[1]) * 60 + Number(match[2]);
-    })();
+    return nextScheduleMinutes === undefined || currentMinutes < nextScheduleMinutes;
+  }
 
-    if (nowMinutes === null) {
+  isDue(currTime, currDate = new Date()) {
+    if (!this.isActiveOnDate(currDate) || !this.dailySched.length) {
       return false;
     }
 
-    const dueDoseCount = this.dailySched.reduce((count, entry) => {
-      const scheduleMinutes = (() => {
-        const effectiveTime = scheduleEffectiveTime(entry);
-        const match = effectiveTime.match(/^(\d{2}):(\d{2})$/);
-        if (!match) {
-          return null;
-        }
+    return this.dailySched.some((entry, index) => this.getScheduleStatus(index, currTime, currDate) === 'due');
+  }
 
-        return Number(match[1]) * 60 + Number(match[2]);
-      })();
+  isPending(currTime, currDate = new Date()) {
+    if (!this.isActiveOnDate(currDate) || !this.dailySched.length) {
+      return false;
+    }
 
-      return scheduleMinutes !== null && scheduleMinutes <= nowMinutes ? count + Number(entry.doseSize || 0) : count;
-    }, 0);
+    return this.dailySched.some((entry, index) => this.getScheduleStatus(index, currTime, currDate) === 'pending');
+  }
 
-    return dueDoseCount > 0;
+  isMissed(currTime, currDate = new Date()) {
+    if (!this.isActiveOnDate(currDate) || !this.dailySched.length) {
+      return false;
+    }
+
+    return this.dailySched.some((entry, index) => this.getScheduleStatus(index, currTime, currDate) === 'missed');
   }
 }

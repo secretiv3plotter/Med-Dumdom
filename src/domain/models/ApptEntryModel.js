@@ -239,4 +239,27 @@ export default class ApptEntry {
 
     return currentDateTime.getTime() >= scheduledDateTime.getTime();
   }
+
+  isMissed(currTime, currDate = new Date()) {
+    if (this.isCompleted) {
+      return false;
+    }
+
+    const scheduledDateTime = this.getScheduledDateTime();
+    if (!scheduledDateTime) {
+      return false;
+    }
+
+    const currentDateTime =
+      currTime instanceof Date
+        ? currTime
+        : parseDateTime(normalizeDateString(currDate, 'currDate'), normalizeTimeString(currTime, 'currTime')) ??
+          new Date(currDate);
+
+    if (Number.isNaN(currentDateTime.getTime())) {
+      return false;
+    }
+
+    return currentDateTime.getTime() > scheduledDateTime.getTime();
+  }
 }

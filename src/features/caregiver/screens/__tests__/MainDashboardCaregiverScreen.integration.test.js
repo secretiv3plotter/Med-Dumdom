@@ -21,8 +21,8 @@ describe('MainDashboardCaregiver screen integration', () => {
     fireEvent.press(getByText('Add a patient'));
     fireEvent.press(getByText('Review patient requests'));
 
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HELP_AND_SUPPORT);
-    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.PROFILE);
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.CAREGIVER_HOME });
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.PROFILE, { returnTo: ROUTES.CAREGIVER_HOME });
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.LINK_TO_PATIENT_MAIN);
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.LINK_REQUESTS);
   });

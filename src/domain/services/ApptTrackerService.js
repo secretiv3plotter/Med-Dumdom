@@ -16,10 +16,9 @@
 // Use cases covered:
 // - patient manages appt tracker
 // - reminder generation based on appointment due state
-// - progress report appointment summaries
 //
 // What should NOT belong here:
-// - notification delivery
+// - reminder delivery
 // - Realm storage implementation
 // - UI rendering and form handling
 // - backend sync details
@@ -32,6 +31,7 @@
 // - markApptCompleted(userId, apptEntryId, completedAt)
 // - undoApptCompleted(userId, apptEntryId)
 // - getDueApptEntries(userId, now)
+// - getMissedApptEntries(userId, now)
 // - getApptTrackerSummary(userId, range)
 //
 // Model methods this service should wrap:
@@ -46,6 +46,7 @@
 // - getScheduledDateTime()
 // - getCompletedDateTime()
 // - isDue(currTime, currDate)
+// - isMissed(currTime, currDate)
 //
 // Notes:
 // - this service should work with the ApptEntryModel
@@ -53,7 +54,7 @@
 //
 // Dependencies:
 // - direct dependencies: none
-// - commonly used by: ReminderService, ProgressReportService, appointment tracker UI
+// - commonly used by: ReminderService, appointment tracker UI
 
 import ApptEntry from '../models/ApptEntryModel';
 
@@ -313,7 +314,18 @@ export class ApptTrackerService {
       throw new RangeError('now must be a valid date or datetime.');
     }
 
-    return this.listApptEntries(userId).filter((entry) => entry.isDue(currentDateTime, currentDateTime));
+    return this.listApptEntries(userId)
+      .filter((entry) => entry.isDue(currentDateTime, currentDateTime))
+      .filter((entry) => !entry.isMissed(currentDateTime, currentDateTime));
+  }
+
+  getMissedApptEntries(userId, now = new Date()) {
+    const currentDateTime = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+    if (Number.isNaN(currentDateTime.getTime())) {
+      throw new RangeError('now must be a valid date or datetime.');
+    }
+
+    return this.listApptEntries(userId).filter((entry) => entry.isMissed(currentDateTime, currentDateTime));
   }
 
   getApptTrackerSummary(userId, range = null) {
@@ -342,7 +354,12 @@ export class ApptTrackerService {
     });
 
     const completedEntries = filteredEntries.filter((entry) => entry.isCompleted).length;
-    const dueEntries = filteredEntries.filter((entry) => entry.isDue(new Date(), new Date())).length;
+    const currentDateTime = new Date();
+    const missedEntries = filteredEntries.filter((entry) => entry.isMissed(currentDateTime, currentDateTime)).length;
+    const dueEntries = filteredEntries
+      .filter((entry) => entry.isDue(currentDateTime, currentDateTime))
+      .filter((entry) => !entry.isMissed(currentDateTime, currentDateTime))
+      .length;
 
     return {
       userId: normalizeEntityId(userId, 'userId'),
@@ -351,6 +368,7 @@ export class ApptTrackerService {
       activeEntries: filteredEntries.filter((entry) => !entry.isCompleted).length,
       completedEntries,
       dueEntries,
+      missedEntries,
       cancelledEntries: store.cancelledIds.size,
       entries: filteredEntries.map(cloneApptEntry),
     };

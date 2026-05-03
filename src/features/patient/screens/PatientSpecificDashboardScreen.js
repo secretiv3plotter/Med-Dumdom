@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import BackButton from '../../../shared/components/common/BackButton';
 import ClickableCard from '../../../shared/components/common/ClickableCard';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import TextCard from '../../../shared/components/common/TextCard';
 import patientCaregiverLinkService from '../../../domain/services/PatientCaregiverLinkService';
 import privacySettingsService from '../../../domain/services/PrivacySettingsService';
@@ -19,14 +19,13 @@ const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
-  progress: ROUTES.PROGRESS_REPORT,
-  notification: ROUTES.NOTIFICATION,
 };
 
 const EMPTY_REMINDER = {
   title: '',
   message: '',
-  dueAt: '',
+  dueDate: '',
+  dueTime: '',
 };
 
 export default function PatientSpecificDashboardScreen({ navigation }) {
@@ -41,11 +40,6 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
   const [reminderDraft, setReminderDraft] = useState(EMPTY_REMINDER);
   const [statusMessage, setStatusMessage] = useState('');
   const timeoutRef = useRef(null);
-
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
 
   const hasAccess = useMemo(() => {
     if (!selectedPatientId) {
@@ -71,14 +65,6 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
     return privacySettingsService.canCaregiverViewApptTracker(selectedPatientId, CURRENT_CAREGIVER_ID);
   }, [selectedPatientId]);
 
-  const canViewReports = useMemo(() => {
-    if (!selectedPatientId) {
-      return false;
-    }
-
-    return privacySettingsService.canCaregiverViewReports(selectedPatientId, CURRENT_CAREGIVER_ID);
-  }, [selectedPatientId]);
-
   const canSendManualReminder = useMemo(() => {
     if (!selectedPatientId) {
       return false;
@@ -99,7 +85,11 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
       return;
     }
 
-    const dueAtText = reminderDraft.dueAt.trim();
+    const dueAtText = reminderDraft.dueDate && reminderDraft.dueTime
+      ? `${reminderDraft.dueDate}T${reminderDraft.dueTime}:00`
+      : reminderDraft.dueDate
+        ? `${reminderDraft.dueDate}T00:00:00`
+        : '';
     const parsedDueAt = dueAtText ? new Date(dueAtText) : new Date();
     const dueAt = Number.isNaN(parsedDueAt.getTime()) ? new Date() : parsedDueAt;
     reminderService.createManualReminder(CURRENT_CAREGIVER_ID, selectedPatientId, {
@@ -119,11 +109,10 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topSection}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!canGoBack} />
         <DashboardHeader
           firstName={selectedPatientFirstName}
-          onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT)}
-          onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE)}
+          onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
+          onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE, { returnTo: ROUTES.HOME })}
           style={styles.header}
         />
       </View>
@@ -143,18 +132,6 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
             title="Manual Reminder"
             subtitle="Send a manual reminder to this patient"
             onPress={() => setManualReminderOpen(true)}
-            cardStyle={[styles.actionCard, styles.progressCardSize]}
-            titleStyle={styles.actionCardTitle}
-            subtitleStyle={styles.actionCardSubtitle}
-          />
-        ) : null}
-
-        {canViewReports ? (
-          <ClickableCard
-            size="landscape"
-            title="Progress Report"
-            subtitle="View progress report and history"
-            onPress={() => navigation?.navigate?.(ROUTES.PROGRESS_REPORT, { patientName: selectedPatientName })}
             cardStyle={[styles.actionCard, styles.progressCardSize]}
             titleStyle={styles.actionCardTitle}
             subtitleStyle={styles.actionCardSubtitle}
@@ -186,7 +163,7 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
           </View>
         ) : null}
 
-        {hasAccess && !canViewReports && !canViewMedTracker && !canViewApptTracker && !canSendManualReminder ? (
+        {hasAccess && !canViewMedTracker && !canViewApptTracker && !canSendManualReminder ? (
           <Text style={styles.restrictedText}>This patient has not granted any caregiver access yet.</Text>
         ) : null}
       </ScrollView>
@@ -215,12 +192,22 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
               style={[styles.input, styles.messageInput]}
               multiline
             />
-            <TextInput
-              placeholder="Due at (optional YYYY-MM-DD HH:MM)"
-              placeholderTextColor={colors.placeholder}
-              value={reminderDraft.dueAt}
-              onChangeText={(value) => setReminderDraft((current) => ({ ...current, dueAt: value }))}
-              style={styles.input}
+            <NativeDateTimeField
+              label="Due date"
+              placeholder="Select due date"
+              accessibilityLabel="Due date"
+              value={reminderDraft.dueDate}
+              onChange={(value) => setReminderDraft((current) => ({ ...current, dueDate: value }))}
+              optional
+            />
+            <NativeDateTimeField
+              mode="time"
+              label="Due time"
+              placeholder="Select due time"
+              accessibilityLabel="Due time"
+              value={reminderDraft.dueTime}
+              onChange={(value) => setReminderDraft((current) => ({ ...current, dueTime: value }))}
+              optional
             />
             <View style={styles.dialogActions}>
               <ActionButton label="Cancel" variant="outline" onPress={() => setManualReminderOpen(false)} />
