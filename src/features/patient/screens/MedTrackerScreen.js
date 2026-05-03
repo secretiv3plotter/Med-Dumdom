@@ -142,6 +142,13 @@ const normalizeTimeInput = (value) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
+const toMinutes = (timeValue) => {
+  const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
+
 const parsePositiveInteger = (value) => {
   const text = String(value || '').trim();
   if (!text) {
@@ -183,7 +190,9 @@ const formatScheduleEntry = (entry, unit = '') => {
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
 
-function ScheduleEntryText({ entry, unit = '' }) {
+function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
+  const scheduleDayLabel = dayLabel ? ` ${dayLabel}` : '';
+
   if (entry.scheduleType === 'meal') {
     return (
       <Text style={styles.scheduleCardTitle}>
@@ -192,7 +201,7 @@ function ScheduleEntryText({ entry, unit = '' }) {
         <Text style={styles.scheduleTextStrong}>
           {capitalize(entry.mealContext)} {capitalize(entry.associatedMeal)}
         </Text>{' '}
-        at <Text style={styles.scheduleTextStrong}>{formatTime(entry.mealTime)}</Text>
+        at <Text style={styles.scheduleTextStrong}>{formatTime(entry.mealTime)}</Text>{scheduleDayLabel}
       </Text>
     );
   }
@@ -200,7 +209,7 @@ function ScheduleEntryText({ entry, unit = '' }) {
   return (
     <Text style={styles.scheduleCardTitle}>
       Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
-      {'\n'}At <Text style={styles.scheduleTextStrong}>{formatTime(entry.scheduledTime)}</Text>
+      {'\n'}At <Text style={styles.scheduleTextStrong}>{formatTime(entry.scheduledTime)}</Text>{scheduleDayLabel}
     </Text>
   );
 }
@@ -255,8 +264,7 @@ const getStatus = (entry) => {
   return { label: 'Upcoming', bgColor: '#FFF5E8', textColor: colors.warning };
 };
 
-const getScheduleStatusStyle = (medicine, scheduleIndex) => {
-  const now = new Date();
+const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
   const status = medicine.getScheduleStatus(scheduleIndex, now, now);
 
   if (status === 'taken') {
@@ -275,7 +283,28 @@ const getScheduleStatusStyle = (medicine, scheduleIndex) => {
     return { status, label: 'Pending', bgColor: '#FEF08A', textColor: '#854D0E' };
   }
 
-  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.bodyMuted };
+  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#854D0E' };
+};
+
+const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = new Date()) => {
+  if (statusStyle.status !== 'upcoming') {
+    return false;
+  }
+
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(entry));
+  const currentMinutes = toMinutes(normalizeTimeInput(`${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`));
+  if (scheduleMinutes === null || currentMinutes === null) {
+    return false;
+  }
+
+  const tomorrow = new Date(now.getTime());
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (!medicine.isActiveOnDate(now) && medicine.isActiveOnDate(tomorrow)) {
+    return true;
+  }
+
+  return medicine.isActiveOnDate(now) && currentMinutes >= scheduleMinutes;
 };
 
 const completedScheduleStyle = {
@@ -283,6 +312,11 @@ const completedScheduleStyle = {
   label: 'Completed',
   bgColor: '#DCFCE7',
   textColor: '#166534',
+};
+
+const missedPreviewStyle = {
+  bgColor: '#FED7AA',
+  textColor: '#9A3412',
 };
 
 const isToday = (isoString, now = new Date()) => {
@@ -372,12 +406,37 @@ const getLatestTakenAt = (medicine) => {
   return takenAtValues[takenAtValues.length - 1] || null;
 };
 
-const getSchedulePreviewItems = (medicine) => {
-  const now = new Date();
+const getMissedAmountToday = (medicine, scheduleItems) =>
+  scheduleItems.reduce((total, { entry, statusStyle }) => {
+    if (statusStyle.status !== 'missed') {
+      return total;
+    }
+
+    return total + Number(entry.doseSize || 0);
+  }, 0);
+
+const getNearestScheduleItem = (scheduleItems, now = new Date()) => {
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return [...scheduleItems]
+    .map((item) => {
+      const scheduleMinutes = toMinutes(scheduleEffectiveTime(item.entry));
+      const minutesUntilNext =
+        scheduleMinutes === null
+          ? Number.POSITIVE_INFINITY
+          : scheduleMinutes >= currentMinutes
+            ? scheduleMinutes - currentMinutes
+            : 1440 - currentMinutes + scheduleMinutes;
+
+      return { ...item, minutesUntilNext };
+    })
+    .sort((firstItem, secondItem) => firstItem.minutesUntilNext - secondItem.minutesUntilNext)[0] || null;
+};
+
+const getMedicinePreviewState = (medicine, now = new Date()) => {
   const scheduleItems = (medicine.dailySched || []).map((entry, index) => ({
     entry,
     index,
-    statusStyle: getScheduleStatusStyle(medicine, index),
+    statusStyle: getScheduleStatusStyle(medicine, index, now),
   }));
 
   const currentActiveItem = scheduleItems.find(({ index, statusStyle }) =>
@@ -385,15 +444,42 @@ const getSchedulePreviewItems = (medicine) => {
     medicine.isScheduleActionAvailable(index, now, now)
   );
   if (currentActiveItem) {
-    return [currentActiveItem];
+    return { type: 'schedules', items: [currentActiveItem] };
   }
 
   const upcomingItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'upcoming');
   if (upcomingItems.length) {
-    return [upcomingItems[0]];
+    return { type: 'schedules', items: [getNearestScheduleItem(upcomingItems, now)] };
   }
 
-  return scheduleItems.slice(0, 1);
+  if (isMedicineCompletedToday(medicine, now)) {
+    return { type: 'completed' };
+  }
+
+  const missedAmount = getMissedAmountToday(medicine, scheduleItems);
+  if (missedAmount > 0) {
+    return { type: 'missed', missedAmount };
+  }
+
+  const nearestItem = getNearestScheduleItem(scheduleItems, now);
+  if (nearestItem) {
+    return {
+      type: 'schedules',
+      items: [
+        {
+          ...nearestItem,
+          statusStyle: {
+            status: 'upcoming',
+            label: 'Upcoming',
+            bgColor: colors.surface,
+            textColor: '#854D0E',
+          },
+        },
+      ],
+    };
+  }
+
+  return { type: 'schedules', items: [] };
 };
 
 const sumDoseSizes = (scheduleEntries) =>
@@ -410,6 +496,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const [formError, setFormError] = useState('');
   const [pendingScheduleAction, setPendingScheduleAction] = useState(null);
+  const [pendingDeleteMedicine, setPendingDeleteMedicine] = useState(null);
+  const [pendingDeleteScheduleIndex, setPendingDeleteScheduleIndex] = useState(null);
 
   const activeMedTrackerService = useMemo(
     () => (realm ? new RealmMedTrackerRepository(realm) : medTrackerService),
@@ -442,6 +530,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
+    setPendingDeleteScheduleIndex(null);
   };
 
   const openCreateEditor = () => {
@@ -450,6 +539,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
+    setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('create');
   };
@@ -464,6 +554,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setScheduleEntries(buildScheduleEntriesFromMedicine(selectedMedicine));
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
     setEditingScheduleIndex(null);
+    setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('edit');
   };
@@ -475,12 +566,24 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     }
   };
 
-  const handleDeleteMedicine = () => {
+  const requestDeleteMedicine = () => {
     if (!selectedMedicine) {
       return;
     }
 
-    activeMedTrackerService.softDeleteMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId);
+    setPendingDeleteMedicine({
+      medEntryId: selectedMedicine.medEntryId,
+      medName: selectedMedicine.medName,
+    });
+  };
+
+  const confirmDeleteMedicine = () => {
+    if (!pendingDeleteMedicine) {
+      return;
+    }
+
+    activeMedTrackerService.softDeleteMedEntry(CURRENT_USER_ID, pendingDeleteMedicine.medEntryId);
+    setPendingDeleteMedicine(null);
     setIsDetailsVisible(false);
     setSelectedMedicineId(null);
     refresh();
@@ -542,6 +645,13 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       return;
     }
 
+    const activatedAt = new Date().toISOString();
+    const scheduleStatusDefaults = {
+      status: 'pending',
+      takenAt: null,
+      skippedAt: null,
+      activatedAt,
+    };
     let nextEntry;
     if (scheduleDraft.scheduleType === 'meal') {
       const mealTime = normalizeTimeInput(scheduleDraft.mealTime);
@@ -556,6 +666,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         mealContext: scheduleDraft.mealContext,
         associatedMeal: scheduleDraft.associatedMeal,
         mealTime,
+        ...scheduleStatusDefaults,
       };
     } else {
       const scheduledTime = normalizeTimeInput(scheduleDraft.scheduledTime);
@@ -568,6 +679,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         scheduleType: 'time',
         doseSize,
         scheduledTime,
+        ...scheduleStatusDefaults,
       };
     }
 
@@ -594,7 +706,16 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setFormError('');
   };
 
-  const removeScheduleEntry = (indexToRemove) => {
+  const requestDeleteScheduleEntry = (indexToRemove) => {
+    setPendingDeleteScheduleIndex(indexToRemove);
+  };
+
+  const confirmDeleteScheduleEntry = () => {
+    if (pendingDeleteScheduleIndex === null) {
+      return;
+    }
+
+    const indexToRemove = pendingDeleteScheduleIndex;
     setScheduleEntries((current) => current.filter((_, index) => index !== indexToRemove));
     setEditingScheduleIndex((current) => {
       if (current === null) {
@@ -608,6 +729,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
 
       return current > indexToRemove ? current - 1 : current;
     });
+    setPendingDeleteScheduleIndex(null);
   };
 
   const saveMedicine = () => {
@@ -691,9 +813,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.listSection}>
           {sortedMedicines.map((medicine) => {
-            const schedulePreviewItems = getSchedulePreviewItems(medicine);
+            const previewState = getMedicinePreviewState(medicine);
             const latestTakenAt = getLatestTakenAt(medicine);
-            const completedToday = isMedicineCompletedToday(medicine);
 
             return (
               <Pressable
@@ -716,7 +837,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                 </View>
 
                 <View style={styles.schedulePreviewList}>
-                  {completedToday ? (
+                  {previewState.type === 'completed' ? (
                     <View
                       style={[
                         styles.scheduleCard,
@@ -726,7 +847,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                     >
                       <View style={styles.scheduleCardRow}>
                         <Text style={styles.scheduleCardTitle}>
-                          All medicines for today have been taken.
+                          All meds for today have been taken.
                         </Text>
                         <View style={[styles.statusBadge, { backgroundColor: completedScheduleStyle.bgColor }]}>
                           <Text style={[styles.statusText, { color: completedScheduleStyle.textColor }]}>
@@ -735,11 +856,29 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                         </View>
                       </View>
                     </View>
-                  ) : (
-                  schedulePreviewItems.map(({ entry, index, statusStyle }) => {
+                  ) : null}
+
+                  {previewState.type === 'missed' ? (
+                    <View
+                      style={[
+                        styles.scheduleCard,
+                        styles.scheduleCardInList,
+                        { backgroundColor: missedPreviewStyle.bgColor },
+                      ]}
+                    >
+                      <Text style={[styles.scheduleCardTitle, { color: missedPreviewStyle.textColor }]}>
+                        You're done for today.
+                        {'\n'}But you missed some of your meds.
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {previewState.type === 'schedules' ? (
+                  previewState.items.map(({ entry, index, statusStyle }) => {
                     const now = new Date();
                     const isTaken = statusStyle.status === 'taken';
                     const canSelectStatus = medicine.isScheduleActionAvailable(index, now, now);
+                    const dayLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, now) ? 'tomorrow' : '';
 
                     return (
                       <View
@@ -751,8 +890,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                         ]}
                       >
                         <View style={styles.scheduleCardRow}>
-                          <ScheduleEntryText entry={entry} unit={medicine.unit} />
-                          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>
+                          <ScheduleEntryText entry={entry} unit={medicine.unit} dayLabel={dayLabel} />
+                          <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>
                             <Text style={[styles.statusText, { color: statusStyle.textColor }]}>
                               {statusStyle.label}
                             </Text>
@@ -796,11 +935,21 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                       </View>
                     );
                   })
+                  ) : (
+                    null
                   )}
                 </View>
               </Pressable>
             );
           })}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Review previous records"
+            onPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER_HISTORY)}
+            style={styles.historyBar}
+          >
+            <Text style={styles.historyBarText}>Review previous records</Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -818,7 +967,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
               </View>
               <View style={styles.detailActionsTop}>
                 <EditButton onPress={openEditEditor} />
-                <DeleteButton onPress={handleDeleteMedicine} />
+                <DeleteButton onPress={requestDeleteMedicine} />
               </View>
             </View>
           ) : null
@@ -846,6 +995,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                 const isTaken = scheduleStatus.status === 'taken';
                 const now = new Date();
                 const canSelectStatus = selectedMedicine.isScheduleActionAvailable(index, now, now);
+                const dayLabel = isUpcomingScheduleTomorrow(selectedMedicine, entry, scheduleStatus, now) ? 'tomorrow' : '';
 
                 return (
                   <View
@@ -853,8 +1003,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                     style={[styles.scheduleCard, { backgroundColor: scheduleStatus.bgColor }]}
                   >
                     <View style={styles.scheduleCardRow}>
-                      <ScheduleEntryText entry={entry} unit={selectedMedicine.unit} />
-                      <View style={[styles.statusBadge, { backgroundColor: scheduleStatus.bgColor }]}>
+                      <ScheduleEntryText entry={entry} unit={selectedMedicine.unit} dayLabel={dayLabel} />
+                      <View style={[styles.statusBadge, { backgroundColor: scheduleStatus.badgeBgColor || scheduleStatus.bgColor }]}>
                         <Text style={[styles.statusText, { color: scheduleStatus.textColor }]}>
                           {scheduleStatus.label}
                         </Text>
@@ -1084,7 +1234,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                   <ScheduleEntryText entry={entry} unit={formState.unit} />
                   <View style={styles.scheduleEditActions}>
                     <EditButton onPress={() => editScheduleEntry(index)} />
-                    <DeleteButton onPress={() => removeScheduleEntry(index)} />
+                    <DeleteButton onPress={() => requestDeleteScheduleEntry(index)} />
                   </View>
                 </View>
               </View>
@@ -1120,6 +1270,46 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
               actions={[
                 { label: 'Cancel', variant: 'outline', onPress: () => setPendingScheduleAction(null) },
                 { label: 'Confirm', variant: 'solid', onPress: confirmScheduleStatusChange },
+              ]}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={Boolean(pendingDeleteMedicine)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingDeleteMedicine(null)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteMedicine(null)}>
+          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+            <DialogBox
+              title="Delete medicine?"
+              message={`Are you sure you want to delete ${pendingDeleteMedicine?.medName || 'this medicine'} from your med tracker?`}
+              actions={[
+                { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteMedicine(null) },
+                { label: 'Delete', variant: 'solid', onPress: confirmDeleteMedicine },
+              ]}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={pendingDeleteScheduleIndex !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingDeleteScheduleIndex(null)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteScheduleIndex(null)}>
+          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+            <DialogBox
+              title="Delete schedule item?"
+              message="Are you sure you want to delete this schedule item?"
+              actions={[
+                { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteScheduleIndex(null) },
+                { label: 'Delete', variant: 'solid', onPress: confirmDeleteScheduleEntry },
               ]}
             />
           </Pressable>
@@ -1233,6 +1423,22 @@ const styles = StyleSheet.create({
   schedulePreviewList: {
     gap: spacing.xxs,
     paddingTop: spacing.xxs,
+  },
+  historyBar: {
+    minHeight: moderateScale(48),
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  historyBarText: {
+    ...typography.body,
+    color: colors.brand,
+    fontWeight: '700',
   },
   modalContent: {
     paddingBottom: spacing.xl + spacing.sm,

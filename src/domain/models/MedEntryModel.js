@@ -203,6 +203,29 @@ const normalizeOptionalDateTime = (value, fieldName) => {
   return parsedDate ? parsedDate.toISOString() : null;
 };
 
+const isSameDay = (firstValue, secondValue) => {
+  const firstDate = normalizeOptionalDate(firstValue, 'firstDate');
+  const secondDate = normalizeOptionalDate(secondValue, 'secondDate');
+  if (!firstDate || !secondDate) {
+    return false;
+  }
+
+  firstDate.setHours(0, 0, 0, 0);
+  secondDate.setHours(0, 0, 0, 0);
+  return firstDate.getTime() === secondDate.getTime();
+};
+
+const isDeferredUntilNextScheduleDay = (entry, currentTime, scheduleMinutes) => {
+  const activatedAt = normalizeOptionalDateTime(entry.activatedAt ?? entry.createdAt, 'activatedAt');
+  if (!activatedAt || scheduleMinutes === null || !isSameDay(activatedAt, currentTime)) {
+    return false;
+  }
+
+  const activatedMinutes = toMinutes(normalizeTime(new Date(activatedAt), 'activatedAt'));
+  const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  return activatedMinutes !== null && currentMinutes !== null && activatedMinutes > scheduleMinutes && currentMinutes >= scheduleMinutes;
+};
+
 const normalizeScheduleEntry = (entry, index) => {
   if (typeof entry === 'string' || entry instanceof Date) {
     return {
@@ -213,6 +236,7 @@ const normalizeScheduleEntry = (entry, index) => {
       status: 'pending',
       takenAt: null,
       skippedAt: null,
+      activatedAt: null,
     };
   }
 
@@ -235,6 +259,7 @@ const normalizeScheduleEntry = (entry, index) => {
   const status = normalizeScheduleStatus(entry.status, `dailySched[${index}].status`);
   const takenAt = normalizeOptionalDateTime(entry.takenAt, `dailySched[${index}].takenAt`);
   const skippedAt = normalizeOptionalDateTime(entry.skippedAt, `dailySched[${index}].skippedAt`);
+  const activatedAt = normalizeOptionalDateTime(entry.activatedAt ?? entry.createdAt, `dailySched[${index}].activatedAt`);
 
   if (isMealBased) {
     return {
@@ -247,6 +272,7 @@ const normalizeScheduleEntry = (entry, index) => {
       status,
       takenAt,
       skippedAt,
+      activatedAt,
     };
   }
 
@@ -261,6 +287,7 @@ const normalizeScheduleEntry = (entry, index) => {
     status,
     takenAt,
     skippedAt,
+    activatedAt,
   };
 };
 
@@ -712,6 +739,10 @@ export default class MedEntry {
       return 'upcoming';
     }
 
+    if (isDeferredUntilNextScheduleDay(scheduleEntry, currentTime, scheduleMinutes)) {
+      return 'upcoming';
+    }
+
     const laterScheduledMinutes = this.dailySched
       .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
       .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
@@ -740,6 +771,10 @@ export default class MedEntry {
     const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
     const scheduleMinutes = toMinutes(scheduleEffectiveTime(this.dailySched[scheduleIndex]));
     if (currentMinutes === null || scheduleMinutes === null || currentMinutes < scheduleMinutes) {
+      return false;
+    }
+
+    if (isDeferredUntilNextScheduleDay(this.dailySched[scheduleIndex], currentTime, scheduleMinutes)) {
       return false;
     }
 

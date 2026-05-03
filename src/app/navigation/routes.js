@@ -7,6 +7,7 @@ export const ROUTES = {
   CAREGIVER_HOME: 'MainDashboardCaregiver',
   APPOINTMENT_TRACKER: 'ApptTracker',
   MED_TRACKER: 'MedTracker',
+  MED_TRACKER_HISTORY: 'MedTrackerHistory',
   HELP_AND_SUPPORT: 'HelpAndSupport',
   ACCESSIBILITY_SETTINGS: 'AccessibilitySettings',
   PROFILE: 'ProfileScreen',
@@ -14,5 +15,4 @@ export const ROUTES = {
   LINK_TO_CAREGIVER: 'LinkToCaregiver',
   LINK_TO_PATIENT_MAIN: 'LinkToPatientMainPage',
   LINK_REQUESTS: 'LinkRequestsPage',
-  PRACTICE_GROUND: 'PracticeGround',
 };

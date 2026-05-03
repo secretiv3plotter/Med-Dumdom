@@ -80,6 +80,7 @@ const toRealmScheduleEntry = (entry, index) => ({
   status: entry.status ?? 'pending',
   takenAt: toNullableDate(entry.takenAt),
   skippedAt: toNullableDate(entry.skippedAt),
+  activatedAt: toNullableDate(entry.activatedAt),
 });
 
 const toModelScheduleEntry = (entry) => ({
@@ -93,6 +94,7 @@ const toModelScheduleEntry = (entry) => ({
   status: entry.status || 'pending',
   takenAt: entry.takenAt || null,
   skippedAt: entry.skippedAt || null,
+  activatedAt: entry.activatedAt || null,
 });
 
 const toMedEntryModel = (entry) =>
@@ -122,7 +124,45 @@ const toHistoryScheduleEntry = (entry) => ({
   finalStatus: entry.status === 'taken' ? 'taken' : 'missed',
   takenAt: toNullableDate(entry.takenAt),
   skippedAt: toNullableDate(entry.skippedAt),
+  activatedAt: toNullableDate(entry.activatedAt),
   resolvedAt: toNullableDate(entry.takenAt || entry.skippedAt) ?? new Date(),
+});
+
+const toHistoryModelScheduleEntry = (entry) => ({
+  scheduleIndex: Number(entry.scheduleIndex ?? 0),
+  scheduleType: entry.scheduleType,
+  doseSize: Number(entry.doseSize || 0),
+  scheduledTime: entry.scheduledTime || null,
+  mealContext: entry.mealContext || null,
+  associatedMeal: entry.associatedMeal || null,
+  mealTime: entry.mealTime || null,
+  instructions: entry.instructions || '',
+  finalStatus: entry.finalStatus || 'missed',
+  takenAt: entry.takenAt || null,
+  skippedAt: entry.skippedAt || null,
+  activatedAt: entry.activatedAt || null,
+  resolvedAt: entry.resolvedAt || null,
+});
+
+const toHistoryModel = (entry) => ({
+  historyId: entry.historyId,
+  patientUserId: entry.patientUserId,
+  medEntryId: entry.medEntryId,
+  historyDate: entry.historyDate,
+  medName: entry.medName,
+  unitStrength: entry.unitStrength,
+  unit: entry.unit,
+  totalDailyAmount: entry.totalDailyAmount,
+  startDate: entry.startDate,
+  endDate: entry.endDate,
+  instructions: entry.instructions || '',
+  inventoryCount: entry.inventoryCount ?? null,
+  prescriberContact: entry.prescriberContact || '',
+  dailySchedFinalStatuses: Array.from(entry.dailySchedFinalStatuses || []).map(toHistoryModelScheduleEntry),
+  completedAllSchedules: Boolean(entry.completedAllSchedules),
+  isDeleted: Boolean(entry.isDeleted),
+  deletedAt: entry.deletedAt || null,
+  createdAt: entry.createdAt,
 });
 
 const hasPreviousDayStatus = (entry, currentDayKey) =>
@@ -237,6 +277,7 @@ export default class RealmMedTrackerRepository {
         inventoryCount: medEntry.inventoryCount,
         prescriberContact: medEntry.prescriberContact || '',
         isDeleted: false,
+        deletedAt: null,
         createdAt: existingCreatedAt || now,
         updatedAt: now,
       },
@@ -267,6 +308,8 @@ export default class RealmMedTrackerRepository {
         prescriberContact: entry.prescriberContact || '',
         dailySchedFinalStatuses: Array.from(entry.dailySched || []).map(toHistoryScheduleEntry),
         completedAllSchedules: Array.from(entry.dailySched || []).every((scheduleEntry) => scheduleEntry.status === 'taken'),
+        isDeleted: false,
+        deletedAt: null,
         createdAt: new Date(),
       },
       'modified',
@@ -300,7 +343,61 @@ export default class RealmMedTrackerRepository {
 
   listMedTrackerDailyHistory(userId) {
     const normalizedUserId = normalizeUserId(userId);
-    return Array.from(this.realm.objects('MedTrackerDailyHistory').filtered('patientUserId == $0', normalizedUserId));
+    return this.write(() => {
+      this.ensurePatientUser(normalizedUserId);
+      this.listMedEntries(normalizedUserId);
+      return Array.from(this.realm.objects('MedTrackerDailyHistory').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
+        .map(toHistoryModel)
+        .sort((firstEntry, secondEntry) => {
+          const dateCompare = String(secondEntry.historyDate || '').localeCompare(String(firstEntry.historyDate || ''));
+          if (dateCompare !== 0) {
+            return dateCompare;
+          }
+
+          return String(secondEntry.medName || '').localeCompare(String(firstEntry.medName || ''));
+        });
+    });
+  }
+
+  deleteMedTrackerDailyHistory(userId, historyId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    if (!normalizedHistoryId) {
+      throw new RangeError('historyId cannot be empty.');
+    }
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId || entry.isDeleted) {
+        throw new Error(`Med tracker history not found: ${historyId}`);
+      }
+
+      entry.isDeleted = true;
+      entry.deletedAt = new Date();
+      return true;
+    });
+  }
+
+  deleteMedTrackerDailyHistoryRecords(userId, historyIds = []) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryIds = Array.from(new Set(historyIds.map((historyId) => String(historyId || '').trim()).filter(Boolean)));
+    if (!normalizedHistoryIds.length) {
+      return 0;
+    }
+
+    return this.write(() => {
+      let deletedCount = 0;
+      normalizedHistoryIds.forEach((historyId) => {
+        const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
+        if (entry && entry.patientUserId === normalizedUserId && !entry.isDeleted) {
+          entry.isDeleted = true;
+          entry.deletedAt = new Date();
+          deletedCount += 1;
+        }
+      });
+
+      return deletedCount;
+    });
   }
 
   listMedEntries(userId) {
@@ -372,6 +469,7 @@ export default class RealmMedTrackerRepository {
     return this.write(() => {
       const entry = this.getActiveEntry(userId, medEntryId);
       entry.isDeleted = true;
+      entry.deletedAt = new Date();
       entry.updatedAt = new Date();
       return true;
     });

@@ -151,6 +151,47 @@ describe('missed status', () => {
     expect(entry.dailySched[0].takenAt).toBeTruthy();
   });
 
+  it('keeps a newly added past schedule upcoming until tomorrow', () => {
+    const entry = buildMedEntry({
+      totalDailyAmount: 1,
+      dailySched: [
+        {
+          scheduleType: 'time',
+          scheduledTime: '08:00',
+          doseSize: 1,
+          activatedAt: '2026-05-03T10:00:00',
+        },
+      ],
+    });
+
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('upcoming');
+    expect(entry.isMissed(new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(false);
+    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(false);
+    expect(entry.getScheduleStatus(0, new Date('2026-05-04T08:00:00'), new Date('2026-05-04T08:00:00'))).toBe('due');
+  });
+
+  it('defers only the same-day schedule that was already past when added', () => {
+    const entry = buildMedEntry({
+      dailySched: [
+        {
+          scheduleType: 'time',
+          scheduledTime: '08:00',
+          doseSize: 1,
+          activatedAt: '2026-05-03T10:00:00',
+        },
+        {
+          scheduleType: 'time',
+          scheduledTime: '20:00',
+          doseSize: 1,
+          activatedAt: '2026-05-03T10:00:00',
+        },
+      ],
+    });
+
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('upcoming');
+    expect(entry.getScheduleStatus(1, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('due');
+  });
+
   it('marks uncompleted appointments as missed after the scheduled time', () => {
     const entry = buildApptEntry();
 

@@ -66,4 +66,13 @@ describe('MedTracker integration', () => {
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
     expect(navigation.goBack).not.toHaveBeenCalled();
   });
+
+  it('opens previous medicine records from the review bar', () => {
+    const navigation = createNavigation();
+    const { getByLabelText } = render(<MedTracker navigation={navigation} />);
+
+    fireEvent.press(getByLabelText('Review previous records'));
+
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.MED_TRACKER_HISTORY);
+  });
 });

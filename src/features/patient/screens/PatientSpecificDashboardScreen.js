@@ -120,7 +120,7 @@ export default function PatientSpecificDashboardScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.container}>
         <TextCard
           title={patientPossessive}
-          body="Med+Dumdum"
+          body="Med+Dumdom"
           cardStyle={styles.patientTitleCard}
           titleStyle={styles.patientTitle}
           bodyStyle={styles.patientProgram}

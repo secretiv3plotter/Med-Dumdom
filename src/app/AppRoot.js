@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RealmProvider, useRealm } from '../localdb/realm';
+import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -51,6 +51,11 @@ function AppContent() {
       return true;
     }
 
+    if (currentRoute === ROUTES.MED_TRACKER_HISTORY) {
+      navigateTo(ROUTES.MED_TRACKER);
+      return true;
+    }
+
     if (currentRoute === ROUTES.HELP_AND_SUPPORT || currentRoute === ROUTES.PROFILE) {
       navigateTo(currentParams.returnTo || ROUTES.HOME);
       return true;
@@ -90,7 +95,10 @@ function AppContent() {
   }, [currentRoute, currentParams, history.length]);
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.CAREGIVER_HOME];
-  const screenProps = currentRoute === ROUTES.MED_TRACKER ? { navigation, realm } : { navigation };
+  const screenProps =
+    currentRoute === ROUTES.MED_TRACKER || currentRoute === ROUTES.MED_TRACKER_HISTORY
+      ? { navigation, realm }
+      : { navigation };
 
   return (
     <SafeAreaProvider>

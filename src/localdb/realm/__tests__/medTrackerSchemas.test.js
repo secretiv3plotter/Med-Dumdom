@@ -9,7 +9,7 @@ import {
 
 describe('med tracker Realm schemas', () => {
   it('exports the current schema set and version', () => {
-    expect(MED_TRACKER_REALM_SCHEMA_VERSION).toBe(1);
+    expect(MED_TRACKER_REALM_SCHEMA_VERSION).toBe(3);
     expect(medTrackerRealmConfig.schema).toBe(medTrackerRealmSchemas);
     expect(medTrackerRealmSchemas.map((schema) => schema.name)).toEqual([
       'PatientUser',
@@ -26,10 +26,14 @@ describe('med tracker Realm schemas', () => {
     expect(MedEntrySchema.primaryKey).toBe('medEntryId');
     expect(MedEntrySchema.properties.patientUserId).toMatchObject({ type: 'string', indexed: true });
     expect(MedEntrySchema.properties.dailySched).toBe('MedDailySchedule[]');
+    expect(MedEntrySchema.properties.isDeleted).toMatchObject({ type: 'bool', default: false });
+    expect(MedEntrySchema.properties.deletedAt).toBe('date?');
 
     expect(MedTrackerDailyHistorySchema.primaryKey).toBe('historyId');
     expect(MedTrackerDailyHistorySchema.properties.patientUserId).toMatchObject({ type: 'string', indexed: true });
     expect(MedTrackerDailyHistorySchema.properties.medEntryId).toMatchObject({ type: 'string', indexed: true });
     expect(MedTrackerDailyHistorySchema.properties.dailySchedFinalStatuses).toBe('MedDailyScheduleHistory[]');
+    expect(MedTrackerDailyHistorySchema.properties.isDeleted).toMatchObject({ type: 'bool', default: false });
+    expect(MedTrackerDailyHistorySchema.properties.deletedAt).toBe('date?');
   });
 });
