@@ -28,10 +28,15 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled })
       <View style={styles.controlRow}>
         <Pressable
           disabled={disabled}
+          unstable_pressDelay={0}
           accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
           onPress={decrease}
-          style={[styles.stepBtn, disabled ? styles.stepBtnDisabled : styles.stepBtnActive]}
+          style={({ pressed }) => [
+            styles.stepBtn,
+            disabled ? styles.stepBtnDisabled : styles.stepBtnActive,
+            pressed && !disabled && styles.stepBtnPressed,
+          ]}
         >
           <Text style={[styles.stepBtnText, disabled ? styles.stepBtnTextDisabled : styles.stepBtnTextActive]}>-</Text>
         </Pressable>
@@ -46,10 +51,15 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled })
         />
         <Pressable
           disabled={disabled}
+          unstable_pressDelay={0}
           accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
           onPress={increase}
-          style={[styles.stepBtn, disabled ? styles.stepBtnDisabled : styles.stepBtnActive]}
+          style={({ pressed }) => [
+            styles.stepBtn,
+            disabled ? styles.stepBtnDisabled : styles.stepBtnActive,
+            pressed && !disabled && styles.stepBtnPressed,
+          ]}
         >
           <Text style={[styles.stepBtnText, disabled ? styles.stepBtnTextDisabled : styles.stepBtnTextActive]}>+</Text>
         </Pressable>
@@ -136,6 +146,10 @@ const styles = StyleSheet.create({
   stepBtnDisabled: {
     backgroundColor: colors.pageBg,
     borderColor: colors.border,
+  },
+  stepBtnPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
   },
   stepBtnText: {
     ...typography.subtitle,

@@ -82,9 +82,18 @@ export default function NativeDateTimeField({
   mode = 'date',
   optional = false,
   accessibilityLabel,
+  minimumDate,
+  maximumDate,
 }) {
   const [isPickerVisible, setPickerVisible] = useState(false);
-  const selectedDate = useMemo(() => parseValue(value, mode) ?? new Date(), [mode, value]);
+  const selectedDate = useMemo(() => {
+    const parsedValue = parseValue(value, mode) ?? new Date();
+    if (mode !== 'date' || !(minimumDate instanceof Date) || parsedValue >= minimumDate) {
+      return parsedValue;
+    }
+
+    return minimumDate;
+  }, [minimumDate, mode, value]);
   const displayValue = formatDisplayValue(value, mode);
   const resolvedPlaceholder = placeholder || (mode === 'time' ? 'Select time' : 'Select date');
   const resolvedLabel = accessibilityLabel || label || resolvedPlaceholder;
@@ -113,6 +122,7 @@ export default function NativeDateTimeField({
           accessibilityRole="button"
           accessibilityLabel={resolvedLabel}
           accessibilityHint={`Opens the native ${mode} picker`}
+          unstable_pressDelay={0}
           onPress={() => setPickerVisible(true)}
           style={({ pressed }) => [styles.field, pressed && styles.fieldPressed]}
         >
@@ -124,8 +134,9 @@ export default function NativeDateTimeField({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Clear ${resolvedLabel}`}
+            unstable_pressDelay={0}
             onPress={() => onChange('')}
-            style={styles.clearButton}
+            style={({ pressed }) => [styles.clearButton, pressed && styles.clearButtonPressed]}
           >
             <Text style={styles.clearText}>Clear</Text>
           </Pressable>
@@ -137,6 +148,8 @@ export default function NativeDateTimeField({
           mode={mode}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handlePickerChange}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
         />
       ) : null}
     </View>
@@ -168,6 +181,7 @@ const styles = StyleSheet.create({
   },
   fieldPressed: {
     borderColor: colors.focusRing,
+    backgroundColor: '#C7DBFF',
   },
   value: {
     ...typography.body,
@@ -184,6 +198,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  clearButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
   clearText: {
     ...typography.bodySmall,

@@ -37,7 +37,12 @@ export default function UserCard({
 
       <View style={styles.actionsRow}>
         <Pressable
-          style={[styles.button, styles.secondaryButton]}
+          style={({ pressed }) => [
+            styles.button,
+            styles.secondaryButton,
+            pressed && styles.secondaryButtonPressed,
+          ]}
+          unstable_pressDelay={0}
           onPress={onSecondaryAction}
           accessibilityRole="button"
           accessibilityLabel={secondaryActionLabel}
@@ -46,7 +51,12 @@ export default function UserCard({
         </Pressable>
 
         <Pressable
-          style={[styles.button, styles.primaryButton]}
+          style={({ pressed }) => [
+            styles.button,
+            styles.primaryButton,
+            pressed && styles.primaryButtonPressed,
+          ]}
+          unstable_pressDelay={0}
           onPress={onPrimaryAction}
           accessibilityRole="button"
           accessibilityLabel={primaryActionLabel}
@@ -132,5 +142,13 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.body,
+  },
+  primaryButtonPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
+  },
+  secondaryButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
 });

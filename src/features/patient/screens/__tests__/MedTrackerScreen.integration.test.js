@@ -18,6 +18,8 @@ const pickTime = (getByLabelText, fieldLabel, time) => {
   fireEvent(getByLabelText('time picker'), 'onChange', { type: 'set' }, value);
 };
 
+const formatDateInput = (date) => date.toISOString().slice(0, 10);
+
 describe('MedTracker integration', () => {
   it('opens the medicine details editor and saves updated values', () => {
     const navigation = createNavigation();
@@ -43,10 +45,10 @@ describe('MedTracker integration', () => {
 
     fireEvent.press(getByText('Add'));
     fireEvent.changeText(getByLabelText('Name of the medicine'), 'Aspirin');
-    fireEvent.changeText(getByLabelText('Unit strength (e.g. 500 mg)'), '100 mg');
+    fireEvent.changeText(getByLabelText('Unit strength'), '100 mg');
     fireEvent.press(getByText('Tablet'));
     fireEvent.changeText(getByLabelText('Total daily amount'), '1');
-    pickDate(getByLabelText, 'Start date', '2026-04-20');
+    pickDate(getByLabelText, 'Start date', formatDateInput(new Date()));
     fireEvent.changeText(getByLabelText('Dose size'), '1');
     pickTime(getByLabelText, 'Scheduled time', '07:00');
     fireEvent.press(getByText('Add schedule item'));
@@ -54,6 +56,115 @@ describe('MedTracker integration', () => {
     fireEvent.press(addButtons[addButtons.length - 1]);
 
     expect(getByText('Aspirin')).toBeTruthy();
+  });
+
+  it('allows medicine without unit strength and omits the preview separator', () => {
+    const navigation = createNavigation();
+    const { getAllByText, getByText, getByLabelText, queryByText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.press(getByText('Add'));
+    fireEvent.changeText(getByLabelText('Name of the medicine'), 'Vitamin D');
+    fireEvent.press(getByText('Tablet'));
+    fireEvent.changeText(getByLabelText('Total daily amount'), '2');
+    pickDate(getByLabelText, 'Start date', formatDateInput(new Date()));
+    fireEvent.changeText(getByLabelText('Dose size'), '2');
+    pickTime(getByLabelText, 'Scheduled time', '07:00');
+    fireEvent.press(getByText('Add schedule item'));
+    const addButtons = getAllByText('Add Medicine');
+    fireEvent.press(addButtons[addButtons.length - 1]);
+
+    expect(getByText('Vitamin D')).toBeTruthy();
+    expect(getByText('2 tablet per day')).toBeTruthy();
+    expect(queryByText('• 2 tablet per day')).toBeNull();
+  });
+
+  it('does not allow new medicines to start before today', () => {
+    const navigation = createNavigation();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const { getAllByText, getByText, getByLabelText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.press(getByText('Add'));
+    fireEvent.changeText(getByLabelText('Name of the medicine'), 'Past Med');
+    fireEvent.changeText(getByLabelText('Unit strength'), '10 mg');
+    fireEvent.press(getByText('Tablet'));
+    fireEvent.changeText(getByLabelText('Total daily amount'), '1');
+    pickDate(getByLabelText, 'Start date', formatDateInput(yesterday));
+    const addButtons = getAllByText('Add Medicine');
+    fireEvent.press(addButtons[addButtons.length - 1]);
+
+    expect(getByText('Start date must be today or a future date.')).toBeTruthy();
+  });
+
+  it('does not allow duplicate medicines', () => {
+    const navigation = createNavigation();
+    const { getAllByText, getByText, getByLabelText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.press(getByText('Add'));
+    fireEvent.changeText(getByLabelText('Name of the medicine'), 'Losartan');
+    fireEvent.changeText(getByLabelText('Unit strength'), '50 mg');
+    fireEvent.press(getByText('Tablet'));
+    fireEvent.changeText(getByLabelText('Total daily amount'), '1');
+    pickDate(getByLabelText, 'Start date', formatDateInput(new Date()));
+    fireEvent.changeText(getByLabelText('Dose size'), '1');
+    pickTime(getByLabelText, 'Scheduled time', '07:00');
+    fireEvent.press(getByText('Add schedule item'));
+    const addButtons = getAllByText('Add Medicine');
+    fireEvent.press(addButtons[addButtons.length - 1]);
+
+    expect(getByText('This medicine already exists in your tracker.')).toBeTruthy();
+  });
+
+  it('does not allow duplicate schedule items', () => {
+    const navigation = createNavigation();
+    const { getByText, getByLabelText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.press(getByText('Add'));
+    fireEvent.changeText(getByLabelText('Dose size'), '1');
+    pickTime(getByLabelText, 'Scheduled time', '07:00');
+    fireEvent.press(getByText('Add schedule item'));
+    fireEvent.changeText(getByLabelText('Dose size'), '1');
+    pickTime(getByLabelText, 'Scheduled time', '07:00');
+    fireEvent.press(getByText('Add schedule item'));
+
+    expect(getByText('This schedule item already exists.')).toBeTruthy();
+  });
+
+  it('filters the medicine list from the search field', () => {
+    const navigation = createNavigation();
+    const { getByLabelText, getByText, queryByText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.changeText(getByLabelText('Search medicines'), 'losartan');
+
+    expect(getByText('Losartan')).toBeTruthy();
+    expect(queryByText('Metformin')).toBeNull();
+  });
+
+  it('treats skipped and missed search terms as equivalent', () => {
+    const navigation = createNavigation();
+    const { getAllByText, getByLabelText, getByText } = render(
+      <MedTracker navigation={navigation} />
+    );
+
+    fireEvent.press(getByText('Losartan'));
+    fireEvent.press(getAllByText('Skip')[0]);
+    fireEvent.changeText(getByLabelText('Search medicines'), 'missed');
+
+    expect(getAllByText('Losartan').length).toBeGreaterThan(0);
+
+    fireEvent.changeText(getByLabelText('Search medicines'), 'skiped');
+
+    expect(getAllByText('Losartan').length).toBeGreaterThan(0);
   });
 
   it('routes through the navigation bar', () => {

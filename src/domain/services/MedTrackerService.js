@@ -47,7 +47,6 @@
 // - updateStartDate(newStartDate)
 // - updateEndDate(newEndDate)
 // - updateInstructions(newInstructions)
-// - updateInventoryCount(newInventoryCount)
 // - updatePrescriberContact(newPrescriberContact)
 // - markTaken(takenAt)
 // - clearTakenStatus()
@@ -113,7 +112,6 @@ const buildDemoEntries = () => [
     startDate: new Date('2026-01-01'),
     endDate: null,
     instructions: 'Take with food.',
-    inventoryCount: 30,
     prescriberContact: 'Dr. Santos',
     isTaken: false,
     timeTaken: null,
@@ -128,7 +126,6 @@ const buildDemoEntries = () => [
     startDate: new Date('2026-01-15'),
     endDate: null,
     instructions: '',
-    inventoryCount: 20,
     prescriberContact: 'Dr. Reyes',
     isTaken: false,
     timeTaken: null,
@@ -167,12 +164,13 @@ const cloneMedEntry = (entry) =>
     startDate: entry.startDate,
     endDate: entry.endDate,
     instructions: entry.instructions,
-    inventoryCount: entry.inventoryCount,
     prescriberContact: entry.prescriberContact,
     isTaken: entry.isTaken,
     timeTaken: entry.timeTaken,
     dateTaken: entry.dateTaken,
     timesTaken: [...entry.timesTaken],
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
   });
 
 const toMedEntryModel = (medData) => {
@@ -253,10 +251,14 @@ export class MedTrackerService {
 
     if (!initialEntriesByUserId) {
       const { normalizedUserId, store } = getUserStore(this.entriesByUserId, 'current-user');
-      buildDemoEntries().forEach((entry) => {
+      const demoEntries = buildDemoEntries();
+      const demoCreatedAtBase = Date.now() - demoEntries.length * 1000;
+      demoEntries.forEach((entry, index) => {
         const medEntry = toMedEntryModel(entry);
         const entryId = medEntry.medEntryId || `${normalizedUserId}-med-${++store.counter}`;
         medEntry.medEntryId = entryId;
+        medEntry.createdAt = new Date(demoCreatedAtBase + index * 1000);
+        medEntry.updatedAt = medEntry.createdAt;
         store.entries.set(entryId, medEntry);
       });
       return;
@@ -304,6 +306,8 @@ export class MedTrackerService {
     const { normalizedUserId, store } = getUserStore(this.entriesByUserId, userId);
     const medEntry = toMedEntryModel(medData);
     medEntry.medEntryId = medEntry.medEntryId || `${normalizedUserId}-med-${++store.counter}`;
+    medEntry.createdAt = medEntry.createdAt || new Date();
+    medEntry.updatedAt = new Date();
     store.entries.set(medEntry.medEntryId, medEntry);
     store.deletedIds.delete(medEntry.medEntryId);
     return cloneMedEntry(medEntry);
@@ -332,8 +336,6 @@ export class MedTrackerService {
     if (updates.startDate !== undefined) nextEntry.updateStartDate(updates.startDate);
     if (updates.endDate !== undefined) nextEntry.updateEndDate(updates.endDate);
     if (updates.instructions !== undefined) nextEntry.updateInstructions(updates.instructions);
-    if (updates.inventoryCount !== undefined) nextEntry.updateInventoryCount(updates.inventoryCount);
-    if (updates.inventory_count !== undefined) nextEntry.updateInventoryCount(updates.inventory_count);
     if (updates.prescriberContact !== undefined) nextEntry.updatePrescriberContact(updates.prescriberContact);
     if (updates.prescriber_contact !== undefined) nextEntry.updatePrescriberContact(updates.prescriber_contact);
 

@@ -202,6 +202,7 @@ export default function InputBar({
       {secureTextEntry ? (
         <TouchableOpacity
           onPress={togglePasswordVisibility}
+          activeOpacity={0.72}
           hitSlop={EYE_HIT_SLOP}
           accessibilityRole="button"
           accessibilityState={{ selected: isPasswordVisible }}

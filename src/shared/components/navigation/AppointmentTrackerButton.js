@@ -11,12 +11,17 @@ export default function AppointmentTrackerButton({ onPress, variant = 'outline',
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      unstable_pressDelay={0}
       accessible
       accessibilityRole="button"
       accessibilityLabel="Appointments"
       accessibilityHint="Opens appointment tracker section"
       accessibilityState={{ disabled, selected: isSolid }}
-      style={[styles.button, isSolid ? styles.solidButton : styles.outlineButton]}
+      style={({ pressed }) => [
+        styles.button,
+        isSolid ? styles.solidButton : styles.outlineButton,
+        pressed && !disabled && styles.pressed,
+      ]}
     >
       <Ionicons
         name={isSolid ? 'calendar' : 'calendar-outline'}
@@ -48,5 +53,10 @@ const styles = StyleSheet.create({
   text: {
     ...typography.bodySmall,
     fontWeight: '600',
+  },
+  pressed: {
+    backgroundColor: '#C7DBFF',
+    borderWidth: 1,
+    borderColor: colors.brandText,
   },
 });

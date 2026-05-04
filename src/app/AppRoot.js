@@ -3,6 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
+import {
+  SHOULD_CLEAR_SEED_MED_DATA,
+  SHOULD_SEED_MED_TRACKER_DATA,
+  clearMedTrackerSeedData,
+  seedMedTrackerTestData,
+} from '../localdb/realm/seedMedTrackerTestData';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -93,6 +99,17 @@ function AppContent() {
     const subscription = BackHandler.addEventListener('hardwareBackPress', goToHardwareBackTarget);
     return () => subscription.remove();
   }, [currentRoute, currentParams, history.length]);
+
+  useEffect(() => {
+    if (SHOULD_CLEAR_SEED_MED_DATA) {
+      clearMedTrackerSeedData(realm);
+      return;
+    }
+
+    if (SHOULD_SEED_MED_TRACKER_DATA) {
+      seedMedTrackerTestData(realm);
+    }
+  }, [realm]);
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.CAREGIVER_HOME];
   const screenProps =

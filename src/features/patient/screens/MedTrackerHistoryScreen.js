@@ -3,6 +3,7 @@ import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, View } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
+import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import { DeleteButton } from '../../../shared/components/common/CrudButton';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
@@ -10,6 +11,9 @@ import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
+const CONTENT_BOTTOM_PADDING = moderateScale(150);
+const PILL_RADIUS = moderateScale(999);
+const FOOTER_NAV_Z_INDEX = 30;
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -20,6 +24,13 @@ const TAB_KEY_TO_ROUTE = {
 const capitalize = (value) => String(value || '')
   .trim()
   .replace(/^\w/, (char) => char.toUpperCase());
+
+const normalizeSearchText = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/\bskip+p?ed\b/g, 'missed skipped skip')
+  .replace(/\bskips?\b/g, 'missed skipped skip')
+  .replace(/\bmiss(?:ed|es)?\b/g, 'missed skipped skip');
 
 const formatDate = (value) => {
   if (!value) {
@@ -84,6 +95,53 @@ const formatDoseWithUnit = (doseSize, unit) => {
   return normalizedUnit ? `${doseSize} ${normalizedUnit}` : String(doseSize);
 };
 
+const getTakenAmountForRecord = (record) =>
+  (record.dailySchedFinalStatuses || []).reduce(
+    (total, entry) => total + (entry.finalStatus === 'taken' ? Number(entry.doseSize || 0) : 0),
+    0
+  );
+
+const getTakenAmountForRecords = (records) =>
+  (records || []).reduce((total, record) => total + getTakenAmountForRecord(record), 0);
+
+const formatTakenAmount = (records, unit, label = 'Taken') =>
+  `${label}: ${formatDoseWithUnit(getTakenAmountForRecords(records), unit)}`;
+
+const formatMedicineMeta = (record) => {
+  const dailyAmountText = `${record.totalDailyAmount} ${record.unit} per day`;
+  return record.unitStrength ? `${record.unitStrength} - ${dailyAmountText}` : dailyAmountText;
+};
+
+const buildHistoryRecordSearchText = (record) => {
+  const recordDate = getRecordDate(record);
+  const recordYear = recordDate.getFullYear();
+  const recordMonth = Number.isNaN(recordDate.getTime()) ? '' : monthName(recordDate.getMonth());
+  return [
+    record.medName,
+    record.unitStrength,
+    record.unit,
+    record.totalDailyAmount,
+    record.instructions,
+    record.prescriberContact,
+    record.historyDate,
+    formatDate(record.historyDate),
+    recordYear,
+    recordMonth,
+    formatTakenAmount([record], record.unit, 'taken'),
+    ...(record.dailySchedFinalStatuses || []).flatMap((entry) => [
+      entry.finalStatus,
+      entry.scheduleType,
+      entry.doseSize,
+      entry.scheduledTime,
+      entry.mealContext,
+      entry.associatedMeal,
+      entry.mealTime,
+      formatScheduleText(entry, record.unit),
+      formatDateTime(entry.takenAt || entry.skippedAt || entry.resolvedAt),
+    ]),
+  ].filter((value) => value !== undefined && value !== null).map(normalizeSearchText).join(' ');
+};
+
 const formatScheduleText = (entry, unit) => {
   if (entry.scheduleType === 'meal') {
     return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\n${capitalize(entry.mealContext)} ${capitalize(entry.associatedMeal)} at ${formatTime(entry.mealTime)}`;
@@ -95,6 +153,10 @@ const formatScheduleText = (entry, unit) => {
 const getStatusStyle = (status) => {
   if (status === 'taken') {
     return { label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
+  }
+
+  if (status === 'skipped') {
+    return { label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' };
   }
 
   return { label: 'Missed', bgColor: '#FED7AA', textColor: '#9A3412' };
@@ -137,7 +199,6 @@ const buildMedGroups = (records) =>
       startDate: record.startDate,
       endDate: record.endDate,
       instructions: record.instructions,
-      inventoryCount: record.inventoryCount,
       prescriberContact: record.prescriberContact,
       latestDate: record.historyDate,
       records: [],
@@ -153,7 +214,6 @@ const buildMedGroups = (records) =>
       existingGroup.startDate = record.startDate;
       existingGroup.endDate = record.endDate;
       existingGroup.instructions = record.instructions;
-      existingGroup.inventoryCount = record.inventoryCount;
       existingGroup.prescriberContact = record.prescriberContact;
     }
 
@@ -188,7 +248,12 @@ const groupRecordsByWeek = (records) =>
 
 function OptionCard({ title, subtitle, onPress, onDelete = null }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.optionCard}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      unstable_pressDelay={0}
+      style={({ pressed }) => [styles.optionCard, pressed && styles.pressedCard]}
+    >
       <View style={styles.optionContent}>
         <Text style={styles.optionTitle}>{title}</Text>
         {subtitle ? <Text style={styles.optionSubtitle}>{subtitle}</Text> : null}
@@ -207,7 +272,12 @@ function OptionCard({ title, subtitle, onPress, onDelete = null }) {
 
 function BreadcrumbButton({ label, onPress }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.breadcrumbButton}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      unstable_pressDelay={0}
+      style={({ pressed }) => [styles.breadcrumbButton, pressed && styles.pressedControl]}
+    >
       <Text style={styles.breadcrumbText}>{label}</Text>
     </Pressable>
   );
@@ -223,6 +293,8 @@ function DetailRow({ label, value }) {
 }
 
 function MedicineDetailsCard({ medicine }) {
+  const totalTaken = formatDoseWithUnit(getTakenAmountForRecords(medicine.records), medicine.unit);
+
   return (
     <View style={styles.detailsCard}>
       <Text style={styles.detailsTitle}>{medicine.medName}</Text>
@@ -231,10 +303,7 @@ function MedicineDetailsCard({ medicine }) {
       <DetailRow label="Start date" value={formatDate(medicine.startDate)} />
       <DetailRow label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
       <DetailRow label="Instructions" value={medicine.instructions || '--'} />
-      <DetailRow
-        label="Inventory count"
-        value={medicine.inventoryCount === null || medicine.inventoryCount === undefined ? '--' : String(medicine.inventoryCount)}
-      />
+      <DetailRow label="Total taken in records" value={totalTaken} />
       <DetailRow label="Prescriber contact" value={medicine.prescriberContact || '--'} />
     </View>
   );
@@ -271,10 +340,13 @@ function DayRecordCard({ record, onDelete = null }) {
         <View style={styles.recordHeaderText}>
           <Text style={styles.recordDate}>{formatDate(record.historyDate)}</Text>
           <Text style={styles.recordName}>{record.medName}</Text>
-        <Text style={styles.recordMeta}>
-          {`${record.unitStrength} - ${record.totalDailyAmount} ${record.unit} per day`}
-        </Text>
-      </View>
+          <Text style={styles.recordMeta}>
+            {formatMedicineMeta(record)}
+          </Text>
+          <Text style={styles.recordMeta}>
+            {formatTakenAmount([record], record.unit, 'Taken this day')}
+          </Text>
+        </View>
         {onDelete ? <DeleteButton onPress={() => onDelete(record)} /> : null}
       </View>
 
@@ -300,6 +372,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState(null);
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const historyRecords = useMemo(() => {
     if (!realm) {
@@ -309,7 +382,16 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
     return new RealmMedTrackerRepository(realm).listMedTrackerDailyHistory(CURRENT_USER_ID);
   }, [realm, version]);
 
-  const medGroups = useMemo(() => buildMedGroups(historyRecords), [historyRecords]);
+  const filteredHistoryRecords = useMemo(() => {
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    if (!normalizedQuery) {
+      return historyRecords;
+    }
+
+    return historyRecords.filter((record) => buildHistoryRecordSearchText(record).includes(normalizedQuery));
+  }, [historyRecords, searchQuery]);
+
+  const medGroups = useMemo(() => buildMedGroups(filteredHistoryRecords), [filteredHistoryRecords]);
   const selectedMed = useMemo(
     () => medGroups.find((group) => group.key === selectedMedKey) || null,
     [medGroups, selectedMedKey]
@@ -457,6 +539,16 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
       <ScrollView contentContainerStyle={styles.content}>
         {historyRecords.length ? (
           <>
+            <View style={styles.searchWrap}>
+              <InputBar
+                placeholder="Search previous records"
+                accessibilityLabel="Search previous records"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoComplete="off"
+              />
+            </View>
+
             <View style={styles.breadcrumbRow}>
               {selectedMed ? (
                 <BreadcrumbButton
@@ -501,8 +593,13 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={isCleanupMode ? 'Done cleaning records' : 'Clean up records'}
+                  unstable_pressDelay={0}
                   onPress={() => setIsCleanupMode((current) => !current)}
-                  style={[styles.cleanupBar, isCleanupMode && styles.cleanupBarActive]}
+                  style={({ pressed }) => [
+                    styles.cleanupBar,
+                    isCleanupMode && styles.cleanupBarActive,
+                    pressed && styles.pressedControl,
+                  ]}
                 >
                   <Text style={[styles.cleanupBarText, isCleanupMode && styles.cleanupBarTextActive]}>
                     {isCleanupMode ? 'Done cleaning records' : 'Clean up records'}
@@ -512,18 +609,19 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Clear all records"
+                    unstable_pressDelay={0}
                     onPress={() => requestDeleteRecords('all', 'all previous records', historyRecords)}
-                    style={styles.clearAllBar}
+                    style={({ pressed }) => [styles.clearAllBar, pressed && styles.pressedControl]}
                   >
                     <Text style={styles.clearAllBarText}>Clear all records</Text>
                   </Pressable>
                 ) : null}
                 <Text style={styles.sectionTitle}>Medicines</Text>
-                {medGroups.map((group) => (
+                {medGroups.length ? medGroups.map((group) => (
                   <OptionCard
                     key={group.key}
                     title={group.medName}
-                    subtitle={`${group.unitStrength} - Latest record ${formatDate(group.latestDate)}`}
+                    subtitle={`${group.unitStrength ? `${group.unitStrength} - ` : ''}Latest record ${formatDate(group.latestDate)} - ${formatTakenAmount(group.records, group.unit, 'Total taken')}`}
                     onPress={() => selectMed(group.key)}
                     onDelete={
                       isCleanupMode
@@ -535,7 +633,12 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                         : null
                     }
                   />
-                ))}
+                )) : (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No records found.</Text>
+                    <Text style={styles.emptyText}>Try another medicine, date, schedule, or status.</Text>
+                  </View>
+                )}
               </>
             ) : null}
 
@@ -543,11 +646,11 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
               <>
                 <MedicineDetailsCard medicine={selectedMed} />
                 <Text style={styles.sectionTitle}>Years</Text>
-                {years.map((year) => (
+                {years.length ? years.map((year) => (
                   <OptionCard
                     key={year}
                     title={String(year)}
-                    subtitle={`${selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year).length} records`}
+                    subtitle={`${selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year).length} records - ${formatTakenAmount(selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year), selectedMed.unit, 'Taken this year')}`}
                     onPress={() => selectYear(year)}
                     onDelete={
                       isCleanupMode
@@ -559,18 +662,23 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                         : null
                     }
                   />
-                ))}
+                )) : (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No years found.</Text>
+                    <Text style={styles.emptyText}>Try adjusting your search.</Text>
+                  </View>
+                )}
               </>
             ) : null}
 
             {selectedMed && selectedYear && selectedMonth === null ? (
               <>
                 <Text style={styles.sectionTitle}>Months</Text>
-                {months.map((month) => (
+                {months.length ? months.map((month) => (
                   <OptionCard
                     key={month}
                     title={monthName(month)}
-                    subtitle={`${yearRecords.filter((record) => getRecordDate(record).getMonth() === month).length} records`}
+                    subtitle={`${yearRecords.filter((record) => getRecordDate(record).getMonth() === month).length} records - ${formatTakenAmount(yearRecords.filter((record) => getRecordDate(record).getMonth() === month), selectedMed.unit, 'Taken this month')}`}
                     onPress={() => selectMonth(month)}
                     onDelete={
                       isCleanupMode
@@ -582,18 +690,23 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                         : null
                     }
                   />
-                ))}
+                )) : (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No months found.</Text>
+                    <Text style={styles.emptyText}>Try adjusting your search.</Text>
+                  </View>
+                )}
               </>
             ) : null}
 
             {selectedMed && selectedYear && selectedMonth !== null && !selectedWeek ? (
               <>
                 <Text style={styles.sectionTitle}>Weeks</Text>
-                {weekGroups.map((week) => (
+                {weekGroups.length ? weekGroups.map((week) => (
                   <OptionCard
                     key={week.key}
                     title={`${formatDate(week.startDate)} - ${formatDate(week.endDate)}`}
-                    subtitle={`${week.records.length} days with records`}
+                    subtitle={`${week.records.length} days with records - ${formatTakenAmount(week.records, selectedMed.unit, 'Taken this week')}`}
                     onPress={() => setSelectedWeekKey(week.key)}
                     onDelete={
                       isCleanupMode
@@ -605,14 +718,19 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                         : null
                     }
                   />
-                ))}
+                )) : (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No weeks found.</Text>
+                    <Text style={styles.emptyText}>Try adjusting your search.</Text>
+                  </View>
+                )}
               </>
             ) : null}
 
             {selectedWeek ? (
               <>
                 <Text style={styles.sectionTitle}>Days</Text>
-                {dayRecords.map((record) => (
+                {dayRecords.length ? dayRecords.map((record) => (
                   <DayRecordCard
                     key={record.historyId}
                     record={record}
@@ -626,7 +744,12 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                         : null
                     }
                   />
-                ))}
+                )) : (
+                  <View style={styles.emptyCard}>
+                    <Text style={styles.emptyTitle}>No days found.</Text>
+                    <Text style={styles.emptyText}>Try adjusting your search.</Text>
+                  </View>
+                )}
               </>
             ) : null}
           </>
@@ -690,8 +813,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: 150,
+    paddingBottom: CONTENT_BOTTOM_PADDING,
     gap: spacing.sm,
+  },
+  searchWrap: {
+    marginBottom: spacing.xs,
   },
   breadcrumbRow: {
     flexDirection: 'row',
@@ -788,6 +914,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.xxs,
   },
+  pressedCard: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  pressedControl: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
   optionContent: {
     flex: 1,
     minWidth: 0,
@@ -861,7 +995,7 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   statusBadge: {
-    borderRadius: 999,
+    borderRadius: PILL_RADIUS,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
   },
@@ -893,7 +1027,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 30,
+    zIndex: FOOTER_NAV_Z_INDEX,
   },
   confirmOverlay: {
     flex: 1,

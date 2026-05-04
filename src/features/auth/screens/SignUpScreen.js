@@ -81,7 +81,11 @@ export default function SignUpScreen({ navigation }) {
             style={styles.signUpButton}
           />
           <Text style={styles.loginPrompt}>Already have an account?</Text>
-          <Pressable onPress={() => navigation?.navigate?.(ROUTES.LOG_IN)}>
+          <Pressable
+            onPress={() => navigation?.navigate?.(ROUTES.LOG_IN)}
+            unstable_pressDelay={0}
+            style={({ pressed }) => pressed && styles.linkPressed}
+          >
             <Text style={styles.loginLink}>Log In</Text>
           </Pressable>
         </View>
@@ -135,6 +139,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.brand,
     textAlign: 'center',
+  },
+  linkPressed: {
+    backgroundColor: '#C7DBFF',
+    borderRadius: spacing.xs,
   },
   fieldLabel: {
     fontSize: 16,

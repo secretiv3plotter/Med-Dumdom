@@ -15,12 +15,14 @@ export default function ActionButton({
   return (
     <Pressable
       disabled={disabled}
+      unstable_pressDelay={0}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={[
+      style={({ pressed }) => [
         styles.button,
         outline ? styles.outlineButton : styles.solidButton,
+        pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
         disabled && styles.disabled,
         style,
       ]}
@@ -54,6 +56,13 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: colors.brand,
+  },
+  solidPressed: {
+    backgroundColor: colors.brandText,
+  },
+  outlinePressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
   disabled: {
     opacity: 0.6,

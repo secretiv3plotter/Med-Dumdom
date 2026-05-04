@@ -9,12 +9,17 @@ export default function HomeButton({ onPress, variant = 'outline' }) {
   return (
     <Pressable
       onPress={onPress}
+      unstable_pressDelay={0}
       accessible
       accessibilityRole="button"
       accessibilityLabel="Home"
       accessibilityHint="Opens the home section"
       accessibilityState={{ selected: isSolid }}
-      style={[styles.button, isSolid ? styles.solidButton : styles.outlineButton]}
+      style={({ pressed }) => [
+        styles.button,
+        isSolid ? styles.solidButton : styles.outlineButton,
+        pressed && styles.pressed,
+      ]}
     >
       <Ionicons
         name={isSolid ? 'home' : 'home-outline'}
@@ -46,5 +51,10 @@ const styles = StyleSheet.create({
   text: {
     ...typography.bodySmall,
     fontWeight: '600',
+  },
+  pressed: {
+    backgroundColor: '#C7DBFF',
+    borderWidth: 1,
+    borderColor: colors.brandText,
   },
 });

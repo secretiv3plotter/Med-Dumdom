@@ -140,6 +140,7 @@ export default function ClickableCard({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      unstable_pressDelay={0}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title || subtitle || 'Card button'}
       accessibilityState={{ disabled: isDisabled }}
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   pressed: {
-    opacity: 0.8,
+    backgroundColor: '#C7DBFF',
   },
   disabled: {
     opacity: 0.45,

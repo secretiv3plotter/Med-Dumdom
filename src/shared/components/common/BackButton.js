@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
 export default function BackButton({
@@ -14,6 +15,7 @@ export default function BackButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      unstable_pressDelay={0}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={spacing.xs}
@@ -25,59 +27,50 @@ export default function BackButton({
       ]}
     >
       <View style={styles.content}>
-        <Text style={[styles.icon, iconStyle]}>{'\u2039'}</Text>
-        {showLabel && (
-          <View style={styles.labelWrap}>
-            <Text
-              style={[styles.label, labelStyle]}
-              onPress={disabled ? undefined : onPress}
-              suppressHighlighting
-            >
-              {label}
-            </Text>
-          </View>
-        )}
+        <Ionicons
+          name="chevron-back"
+          size={ICON_SIZE}
+          color={colors.brandText}
+          style={[styles.icon, iconStyle]}
+        />
+        {showLabel ? <Text style={[styles.label, labelStyle]}>{label}</Text> : null}
       </View>
     </Pressable>
   );
 }
 
-const ICON_SIZE = moderateScale(40);
+const ICON_SIZE = moderateScale(30);
+const BUTTON_HEIGHT = accessibility.minTouchTarget;
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: accessibility.minTouchTarget,
-    minWidth: accessibility.minTouchTarget,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xxs,
+    minHeight: BUTTON_HEIGHT,
+    minWidth: BUTTON_HEIGHT,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     borderRadius: radius.md,
     alignSelf: 'flex-start',
     justifyContent: 'center',
+    alignItems: 'flex-start',
     marginLeft: 0,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 0,
+    minHeight: BUTTON_HEIGHT,
   },
   icon: {
-    color: colors.brandText,
-    fontSize: ICON_SIZE,
-    lineHeight: ICON_SIZE,
-  },
-  labelWrap: {
-    height: ICON_SIZE,
-    justifyContent: 'center',
+    marginLeft: moderateScale(-5),
   },
   label: {
     ...typography.button,
     color: colors.brandText,
     marginLeft: 0,
-    textAlignVertical: 'center',
     includeFontPadding: false,
   },
   pressed: {
-    opacity: 0.75,
+    backgroundColor: '#C7DBFF',
   },
   disabled: {
     opacity: 0.45,

@@ -49,7 +49,6 @@ const MedEntrySchema = {
     startDate: 'date',
     endDate: 'date?',
     instructions: 'string?',
-    inventoryCount: 'int?',
     prescriberContact: 'string?',
     isDeleted: { type: 'bool', default: false },
     deletedAt: 'date?',
@@ -93,7 +92,6 @@ const MedTrackerDailyHistorySchema = {
     startDate: 'date',
     endDate: 'date?',
     instructions: 'string?',
-    inventoryCount: 'int?',
     prescriberContact: 'string?',
     dailySchedFinalStatuses: 'MedDailyScheduleHistory[]',
     completedAllSchedules: { type: 'bool', default: false },
@@ -111,7 +109,7 @@ export const medTrackerRealmSchemas = [
   MedTrackerDailyHistorySchema,
 ];
 
-export const MED_TRACKER_REALM_SCHEMA_VERSION = 3;
+export const MED_TRACKER_REALM_SCHEMA_VERSION = 4;
 
 export const medTrackerRealmConfig = {
   schema: medTrackerRealmSchemas,

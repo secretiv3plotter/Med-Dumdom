@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -15,7 +15,10 @@ import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
-const TOP_OVERLAY_HEIGHT = moderateScale(170);
+const DETAILS_ACTIONS_RESERVED_WIDTH = moderateScale(140);
+const PILL_RADIUS = moderateScale(999);
+const FOOTER_NAV_Z_INDEX = 30;
+const LIVE_STATUS_REFRESH_MS = 1000;
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -31,7 +34,6 @@ const EMPTY_FORM = {
   startDate: '',
   endDate: '',
   instructions: '',
-  inventoryCount: '',
   prescriberContact: '',
 };
 
@@ -60,6 +62,20 @@ const parseDateInput = (value) => {
 
   const parsed = new Date(`${text}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const startOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+const isBeforeDate = (date, minimumDate) => {
+  if (!(date instanceof Date) || !(minimumDate instanceof Date)) {
+    return false;
+  }
+
+  return date.getTime() < minimumDate.getTime();
 };
 
 const formatDate = (value) => {
@@ -149,6 +165,61 @@ const toMinutes = (timeValue) => {
 
 const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
 
+const getSchedulesEarliestToLatest = (dailySched = []) =>
+  dailySched
+    .map((entry, index) => ({
+      entry,
+      index,
+      sortMinutes: toMinutes(scheduleEffectiveTime(entry)) ?? Number.NEGATIVE_INFINITY,
+    }))
+    .sort((first, second) => first.sortMinutes - second.sortMinutes || first.index - second.index);
+
+const getScheduleMissedDisplayTime = (medicine, entry, scheduleIndex, now = new Date()) => {
+  if (entry.skippedAt) {
+    return entry.skippedAt;
+  }
+
+  if (typeof medicine?.getScheduleMissedDateTime === 'function') {
+    return medicine.getScheduleMissedDateTime(scheduleIndex, now);
+  }
+
+  return null;
+};
+
+const normalizeSearchText = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/\bskip+p?ed\b/g, 'missed skipped skip')
+  .replace(/\bskips?\b/g, 'missed skipped skip')
+  .replace(/\bmiss(?:ed|es)?\b/g, 'missed skipped skip');
+
+const buildMedicineSearchText = (medicine) => [
+  medicine.medName,
+  medicine.unitStrength,
+  medicine.unit,
+  medicine.totalDailyAmount,
+  medicine.instructions,
+  medicine.prescriberContact,
+  ...(medicine.dailySched || []).flatMap((entry) => [
+    entry.scheduleType,
+    entry.doseSize,
+    entry.scheduledTime,
+    entry.mealContext,
+    entry.associatedMeal,
+    entry.mealTime,
+    entry.status,
+  ]),
+].filter((value) => value !== undefined && value !== null).map(normalizeSearchText).join(' ');
+
+const getSortTime = (value) => {
+  if (!value) {
+    return 0;
+  }
+
+  const parsedDate = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? 0 : parsedDate.getTime();
+};
+
 const parsePositiveInteger = (value) => {
   const text = String(value || '').trim();
   if (!text) {
@@ -157,20 +228,6 @@ const parsePositiveInteger = (value) => {
 
   const numeric = Number(text);
   if (!Number.isInteger(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return numeric;
-};
-
-const parseNonNegativeInteger = (value) => {
-  const text = String(value || '').trim();
-  if (!text) {
-    return null;
-  }
-
-  const numeric = Number(text);
-  if (!Number.isInteger(numeric) || numeric < 0) {
     return null;
   }
 
@@ -222,10 +279,6 @@ const buildFormStateFromMedicine = (medicine) => ({
   startDate: medicine.startDate ? medicine.startDate.toISOString().slice(0, 10) : '',
   endDate: medicine.endDate ? medicine.endDate.toISOString().slice(0, 10) : '',
   instructions: medicine.instructions || '',
-  inventoryCount:
-    medicine.inventoryCount === undefined || medicine.inventoryCount === null
-      ? ''
-      : String(medicine.inventoryCount),
   prescriberContact: medicine.prescriberContact || '',
 });
 
@@ -273,6 +326,10 @@ const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
 
   if (status === 'missed') {
     return { status, label: 'Missed', bgColor: '#FECACA', textColor: '#B91C1C' };
+  }
+
+  if (status === 'skipped') {
+    return { status, label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' };
   }
 
   if (status === 'due') {
@@ -337,6 +394,43 @@ const isMedicineCompletedToday = (medicine, now = new Date()) =>
   medicine.dailySched.length > 0 &&
   medicine.dailySched.every((entry) => entry.status === 'taken' && isToday(entry.takenAt, now));
 
+const formatRelativeDateLabel = (value, now = new Date()) => {
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '--';
+  }
+
+  const currentDay = new Date(now.getTime());
+  currentDay.setHours(0, 0, 0, 0);
+
+  const dateDay = new Date(date.getTime());
+  dateDay.setHours(0, 0, 0, 0);
+
+  const yesterday = new Date(currentDay.getTime());
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const tomorrow = new Date(currentDay.getTime());
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (dateDay.getTime() === currentDay.getTime()) {
+    return 'today';
+  }
+
+  if (dateDay.getTime() === tomorrow.getTime()) {
+    return 'tomorrow';
+  }
+
+  if (dateDay.getTime() === yesterday.getTime()) {
+    return 'yesterday';
+  }
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
 const formatDateTime = (isoString) => {
   if (!isoString) {
     return '--';
@@ -347,14 +441,30 @@ const formatDateTime = (isoString) => {
     return '--';
   }
 
-  return `${date.toLocaleTimeString('en-US', {
+  const timeText = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-  })}, ${date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })}`;
+  });
+  const dateText = formatRelativeDateLabel(date);
+  const isRelativeDate = dateText === 'today' || dateText === 'tomorrow' || dateText === 'yesterday';
+
+  return isRelativeDate ? `${timeText} ${dateText}` : `${timeText}, ${dateText}`;
+};
+
+const formatTimeFromDateTime = (isoString) => {
+  if (!isoString) {
+    return '';
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 };
 
 const formatLastTakenMessage = (isoString) => {
@@ -367,33 +477,17 @@ const formatLastTakenMessage = (isoString) => {
     return '';
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const yesterday = new Date(today.getTime());
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const takenDay = new Date(date.getTime());
-  takenDay.setHours(0, 0, 0, 0);
-
   const timeText = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
+  const dateText = formatRelativeDateLabel(date);
 
-  if (takenDay.getTime() === today.getTime()) {
-    return `Last taken at ${timeText} today`;
+  if (dateText === 'today' || dateText === 'tomorrow' || dateText === 'yesterday') {
+    return `Last taken at ${timeText} ${dateText}`;
   }
 
-  if (takenDay.getTime() === yesterday.getTime()) {
-    return `Last taken at ${timeText} yesterday`;
-  }
-
-  return `Last taken at ${timeText} on ${date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })}`;
+  return `Last taken at ${timeText} on ${dateText}`;
 };
 
 const getLatestTakenAt = (medicine) => {
@@ -408,12 +502,85 @@ const getLatestTakenAt = (medicine) => {
 
 const getMissedAmountToday = (medicine, scheduleItems) =>
   scheduleItems.reduce((total, { entry, statusStyle }) => {
-    if (statusStyle.status !== 'missed') {
+    if (statusStyle.status !== 'missed' && statusStyle.status !== 'skipped') {
       return total;
     }
 
     return total + Number(entry.doseSize || 0);
   }, 0);
+
+const getStatusTimesSummary = (medicine, now = new Date()) => {
+  const summary = {
+    taken: [],
+    missed: [],
+  };
+
+  (medicine.dailySched || []).forEach((entry, index) => {
+    const statusStyle = getScheduleStatusStyle(medicine, index, now);
+    if (statusStyle.status === 'taken') {
+      summary.taken.push({
+        timeText: formatTimeFromDateTime(entry.takenAt) || formatTime(scheduleEffectiveTime(entry)),
+        sortMinutes: toMinutes(scheduleEffectiveTime(entry)) ?? Number.POSITIVE_INFINITY,
+      });
+    }
+    if (statusStyle.status === 'skipped' || statusStyle.status === 'missed') {
+      summary.missed.push({
+        timeText:
+          statusStyle.status === 'skipped'
+            ? formatTimeFromDateTime(entry.skippedAt) || formatTime(scheduleEffectiveTime(entry))
+            : formatTime(scheduleEffectiveTime(entry)),
+        sortMinutes: toMinutes(scheduleEffectiveTime(entry)) ?? Number.POSITIVE_INFINITY,
+      });
+    }
+  });
+
+  summary.taken.sort((first, second) => first.sortMinutes - second.sortMinutes);
+  summary.missed.sort((first, second) => first.sortMinutes - second.sortMinutes);
+  return summary;
+};
+
+function TimeListText({ items, variant = 'taken' }) {
+  if (!items.length) {
+    return null;
+  }
+
+  const timeStyle = variant === 'missed' ? styles.summaryMissedTimeText : styles.summaryTakenTimeText;
+  return items.map((item, index) => (
+      <Text key={`${item.timeText}-${index}`} style={styles.summaryTimeItem}>
+        {'• '}
+        <Text style={timeStyle}>{item.timeText}</Text>
+      </Text>
+    ));
+}
+
+function StatusTimesColumn({ title, items, variant }) {
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <View style={styles.summaryColumn}>
+      <Text style={styles.summaryColumnTitle}>{title}</Text>
+      <TimeListText items={items} variant={variant} />
+    </View>
+  );
+}
+
+function StatusTimesSummary({ summary }) {
+  if (!summary.taken.length && !summary.missed.length) {
+    return null;
+  }
+
+  return (
+    <View style={styles.statusTimesSummary}>
+      <Text style={styles.summaryTitle}>Today so far,</Text>
+      <View style={styles.summaryColumnRow}>
+        <StatusTimesColumn title="Taken at" items={summary.taken} variant="taken" />
+        <StatusTimesColumn title="Missed at" items={summary.missed} variant="missed" />
+      </View>
+    </View>
+  );
+}
 
 const getNearestScheduleItem = (scheduleItems, now = new Date()) => {
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -485,6 +652,48 @@ const getMedicinePreviewState = (medicine, now = new Date()) => {
 const sumDoseSizes = (scheduleEntries) =>
   scheduleEntries.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
 
+const normalizeDuplicateKey = (value) => String(value || '').trim().toLowerCase();
+
+const getMedicineDuplicateKey = ({ medName, unitStrength, unit }) =>
+  [
+    normalizeDuplicateKey(medName),
+    normalizeDuplicateKey(unitStrength),
+    normalizeDuplicateKey(unit),
+  ].join('|');
+
+const formatMedicineMeta = (medicine) => {
+  const dailyAmountText = `${medicine.totalDailyAmount} ${medicine.unit} per day`;
+  return medicine.unitStrength ? `${medicine.unitStrength} • ${dailyAmountText}` : dailyAmountText;
+};
+
+const getScheduleDuplicateKey = (entry) =>
+  [
+    normalizeDuplicateKey(entry.scheduleType),
+    normalizeDuplicateKey(scheduleEffectiveTime(entry)),
+    normalizeDuplicateKey(entry.mealContext),
+    normalizeDuplicateKey(entry.associatedMeal),
+  ].join('|');
+
+const hasDuplicateScheduleEntry = (scheduleEntries, nextEntry, editingIndex = null) => {
+  const nextKey = getScheduleDuplicateKey(nextEntry);
+  return scheduleEntries.some((entry, index) =>
+    index !== editingIndex && getScheduleDuplicateKey(entry) === nextKey
+  );
+};
+
+const hasDuplicateSchedules = (scheduleEntries) => {
+  const seenKeys = new Set();
+  return scheduleEntries.some((entry) => {
+    const key = getScheduleDuplicateKey(entry);
+    if (seenKeys.has(key)) {
+      return true;
+    }
+
+    seenKeys.add(key);
+    return false;
+  });
+};
+
 export default function MedTrackerScreen({ navigation, realm = null }) {
   const [version, setVersion] = useState(0);
   const [selectedMedicineId, setSelectedMedicineId] = useState(null);
@@ -498,6 +707,9 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
   const [pendingScheduleAction, setPendingScheduleAction] = useState(null);
   const [pendingDeleteMedicine, setPendingDeleteMedicine] = useState(null);
   const [pendingDeleteScheduleIndex, setPendingDeleteScheduleIndex] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [footerNavHeight, setFooterNavHeight] = useState(0);
+  const [observedNow, setObservedNow] = useState(() => new Date());
 
   const activeMedTrackerService = useMemo(
     () => (realm ? new RealmMedTrackerRepository(realm) : medTrackerService),
@@ -512,16 +724,37 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
   );
 
   const sortedMedicines = useMemo(() => {
-    return [...medicines].sort((left, right) => {
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    const visibleMedicines = normalizedQuery
+      ? medicines.filter((medicine) => buildMedicineSearchText(medicine).includes(normalizedQuery))
+      : medicines;
+
+    return [...visibleMedicines].sort((left, right) => {
+      const createdTimeDifference = getSortTime(right.createdAt) - getSortTime(left.createdAt);
+      if (createdTimeDifference !== 0) {
+        return createdTimeDifference;
+      }
+
       if (left.isTaken !== right.isTaken) {
         return left.isTaken ? 1 : -1;
       }
 
       return left.medName.localeCompare(right.medName);
     });
-  }, [medicines]);
+  }, [medicines, searchQuery]);
 
-  const refresh = () => setVersion((current) => current + 1);
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setObservedNow(new Date());
+    }, LIVE_STATUS_REFRESH_MS);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const refresh = () => {
+    setObservedNow(new Date());
+    setVersion((current) => current + 1);
+  };
 
   const resetEditor = () => {
     setEditorMode(null);
@@ -683,6 +916,11 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       };
     }
 
+    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, editingScheduleIndex)) {
+      setFormError('This schedule item already exists.');
+      return;
+    }
+
     setScheduleEntries((current) => {
       if (editingScheduleIndex === null) {
         return [...current, nextEntry];
@@ -741,11 +979,9 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     const endDateText = formState.endDate.trim();
     const endDate = endDateText ? parseDateInput(endDateText) : null;
     const instructions = formState.instructions.trim();
-    const inventoryCountText = formState.inventoryCount.trim();
-    const inventoryCount = inventoryCountText ? parseNonNegativeInteger(inventoryCountText) : null;
     const prescriberContact = formState.prescriberContact.trim();
 
-    if (!medName || !unitStrength || !unit || !totalDailyAmount || !startDate) {
+    if (!medName || !unit || !totalDailyAmount || !startDate) {
       setFormError('Complete the required medication fields.');
       return;
     }
@@ -755,13 +991,28 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       return;
     }
 
-    if (inventoryCountText && inventoryCount === null) {
-      setFormError('Inventory count must be a whole number.');
+    if (editorMode !== 'edit' && isBeforeDate(startDate, startOfToday())) {
+      setFormError('Start date must be today or a future date.');
       return;
     }
 
     if (!scheduleEntries.length) {
       setFormError('Add at least one schedule item.');
+      return;
+    }
+
+    const duplicateMedicineKey = getMedicineDuplicateKey({ medName, unitStrength, unit });
+    const hasDuplicateMedicine = medicines.some((medicine) =>
+      medicine.medEntryId !== selectedMedicine?.medEntryId &&
+      getMedicineDuplicateKey(medicine) === duplicateMedicineKey
+    );
+    if (hasDuplicateMedicine) {
+      setFormError('This medicine already exists in your tracker.');
+      return;
+    }
+
+    if (hasDuplicateSchedules(scheduleEntries)) {
+      setFormError('Remove duplicate schedule items before saving.');
       return;
     }
 
@@ -779,7 +1030,6 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       startDate,
       endDate,
       instructions,
-      inventoryCount,
       prescriberContact,
     };
 
@@ -796,45 +1046,61 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyTop}>
-        <View style={styles.headerRow}>
+      <View style={styles.topHeader}>
+        <View style={styles.backButtonRow}>
           <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
 
         <View style={styles.headerRow}>
           <View style={styles.headerTextWrap}>
             <Text style={styles.title}>Med Tracker</Text>
-            <Text style={styles.subtitle}>Track daily strengths, schedules, and inventory in one place.</Text>
+            <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
           </View>
           <AddButton onPress={openCreateEditor} />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+        <View style={styles.searchWrap}>
+          <InputBar
+            placeholder="Search medicines"
+            accessibilityLabel="Search medicines"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoComplete="off"
+          />
+        </View>
         <View style={styles.listSection}>
-          {sortedMedicines.map((medicine) => {
-            const previewState = getMedicinePreviewState(medicine);
+          {sortedMedicines.length ? sortedMedicines.map((medicine) => {
+            const previewState = getMedicinePreviewState(medicine, observedNow);
             const latestTakenAt = getLatestTakenAt(medicine);
+            const statusTimesSummary = getStatusTimesSummary(medicine, observedNow);
 
             return (
               <Pressable
                 key={medicine.medEntryId}
                 accessibilityRole="button"
                 accessibilityLabel={`${medicine.medName} details`}
+                unstable_pressDelay={0}
                 onPress={() => {
                   setSelectedMedicineId(medicine.medEntryId);
                   setIsDetailsVisible(true);
                 }}
-                style={styles.medicineListItem}
+                style={({ pressed }) => [
+                  styles.medicineListItem,
+                  pressed && styles.pressedCard,
+                ]}
               >
                 <View style={styles.medicineListHeader}>
                   <View style={styles.cardHeaderBlock}>
                     <Text style={styles.cardHeaderName}>{medicine.medName}</Text>
                     <Text style={styles.cardHeaderMeta}>
-                      {`${medicine.unitStrength} • ${medicine.totalDailyAmount} ${medicine.unit} per day`}
+                      {formatMedicineMeta(medicine)}
                     </Text>
                   </View>
                 </View>
+
+                <StatusTimesSummary summary={statusTimesSummary} />
 
                 <View style={styles.schedulePreviewList}>
                   {previewState.type === 'completed' ? (
@@ -875,10 +1141,9 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
 
                   {previewState.type === 'schedules' ? (
                   previewState.items.map(({ entry, index, statusStyle }) => {
-                    const now = new Date();
                     const isTaken = statusStyle.status === 'taken';
-                    const canSelectStatus = medicine.isScheduleActionAvailable(index, now, now);
-                    const dayLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, now) ? 'tomorrow' : '';
+                    const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
+                    const dayLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
 
                     return (
                       <View
@@ -941,12 +1206,18 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                 </View>
               </Pressable>
             );
-          })}
+          }) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>No medicines found.</Text>
+              <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
+            </View>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Review previous records"
+            unstable_pressDelay={0}
             onPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER_HISTORY)}
-            style={styles.historyBar}
+            style={({ pressed }) => [styles.historyBar, pressed && styles.pressedControl]}
           >
             <Text style={styles.historyBarText}>Review previous records</Text>
           </Pressable>
@@ -977,25 +1248,24 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         {selectedMedicine ? (
           <>
             <DetailItem label="Medication name" value={selectedMedicine.medName} />
-            <DetailItem label="Unit strength" value={selectedMedicine.unitStrength} />
+            <DetailItem label="Unit strength" value={selectedMedicine.unitStrength || '--'} />
             <DetailItem label="Total daily amount" value={`${selectedMedicine.totalDailyAmount} ${selectedMedicine.unit}`} />
             <DetailItem label="Start date" value={formatDate(selectedMedicine.startDate)} />
             <DetailItem label="End date" value={selectedMedicine.endDate ? formatDate(selectedMedicine.endDate) : 'Indefinite'} />
             <DetailItem label="Instructions" value={selectedMedicine.instructions || '--'} />
-            <DetailItem
-              label="Inventory count"
-              value={selectedMedicine.inventoryCount === null ? '--' : String(selectedMedicine.inventoryCount)}
-            />
             <DetailItem label="Prescriber contact" value={selectedMedicine.prescriberContact || '--'} />
 
             <View style={styles.scheduleSection}>
               <Text style={styles.sectionLabel}>Daily schedule</Text>
-              {selectedMedicine.dailySched.map((entry, index) => {
-                const scheduleStatus = getScheduleStatusStyle(selectedMedicine, index);
+              {getSchedulesEarliestToLatest(selectedMedicine.dailySched).map(({ entry, index }) => {
+                const scheduleStatus = getScheduleStatusStyle(selectedMedicine, index, observedNow);
                 const isTaken = scheduleStatus.status === 'taken';
-                const now = new Date();
-                const canSelectStatus = selectedMedicine.isScheduleActionAvailable(index, now, now);
-                const dayLabel = isUpcomingScheduleTomorrow(selectedMedicine, entry, scheduleStatus, now) ? 'tomorrow' : '';
+                const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
+                const canSelectStatus = selectedMedicine.isScheduleActionAvailable(index, observedNow, observedNow);
+                const dayLabel = isUpcomingScheduleTomorrow(selectedMedicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
+                const missedDisplayTime = isMissed
+                  ? getScheduleMissedDisplayTime(selectedMedicine, entry, index, observedNow)
+                  : null;
 
                 return (
                   <View
@@ -1014,6 +1284,12 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
                     {isTaken ? (
                       <Text style={styles.scheduleMetaText}>
                         Taken {formatDateTime(entry.takenAt)}
+                      </Text>
+                    ) : null}
+
+                    {missedDisplayTime ? (
+                      <Text style={styles.scheduleMetaText}>
+                        Missed {formatDateTime(missedDisplayTime)}
                       </Text>
                     ) : null}
 
@@ -1070,9 +1346,10 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
             onChangeText={(value) => setFormState((current) => ({ ...current, medName: value }))}
           />
           <InputBar
-            placeholder="Unit strength (e.g. 500 mg)"
+            placeholder="Unit strength (optional)"
             value={formState.unitStrength}
             onChangeText={(value) => setFormState((current) => ({ ...current, unitStrength: value }))}
+            accessibilityLabel="Unit strength"
           />
           <View style={styles.scheduleBuilder}>
             <Text style={styles.sectionLabel}>Unit</Text>
@@ -1113,6 +1390,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
             accessibilityLabel="Start date"
             value={formState.startDate}
             onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
+            minimumDate={editorMode === 'edit' ? undefined : startOfToday()}
           />
           <NativeDateTimeField
             label="End date"
@@ -1126,12 +1404,6 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
             placeholder="Instructions (optional)"
             value={formState.instructions}
             onChangeText={(value) => setFormState((current) => ({ ...current, instructions: value }))}
-          />
-          <InputBar
-            placeholder="Inventory count (optional)"
-            keyboardType="number-pad"
-            value={formState.inventoryCount}
-            onChangeText={(value) => setFormState((current) => ({ ...current, inventoryCount: value }))}
           />
           <InputBar
             placeholder="Prescriber contact (optional)"
@@ -1316,7 +1588,15 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         </Pressable>
       </Modal>
 
-      <View style={styles.footerNav}>
+      <View
+        style={styles.footerNav}
+        onLayout={(event) => {
+          const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+          setFooterNavHeight((currentHeight) => (
+            currentHeight === nextHeight ? currentHeight : nextHeight
+          ));
+        }}
+      >
         <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
@@ -1336,9 +1616,14 @@ function SegmentButton({ label, selected, onPress }) {
   return (
     <Pressable
       onPress={onPress}
+      unstable_pressDelay={0}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+      style={({ pressed }) => [
+        styles.segmentButton,
+        selected && styles.segmentButtonSelected,
+        pressed && styles.pressedControl,
+      ]}
     >
       <Text style={[styles.segmentButtonText, selected && styles.segmentButtonTextSelected]}>{label}</Text>
     </Pressable>
@@ -1351,9 +1636,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   content: {
-    padding: spacing.lg,
-    paddingTop: TOP_OVERLAY_HEIGHT,
-    paddingBottom: 150,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
   headerRow: {
@@ -1361,6 +1646,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  backButtonRow: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
   },
   headerTextWrap: {
     flex: 1,
@@ -1374,9 +1663,29 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.bodyMuted,
   },
+  searchWrap: {
+    marginBottom: 0,
+  },
   listSection: {
-    marginTop: spacing.sm,
+    marginTop: 0,
     gap: spacing.sm,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  emptyText: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
   },
   medicineListItem: {
     backgroundColor: colors.brandSoft,
@@ -1385,6 +1694,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.md,
     gap: spacing.sm,
+  },
+  pressedCard: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
   medicineListHeader: {
     flexDirection: 'row',
@@ -1397,7 +1710,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   statusBadge: {
-    borderRadius: 999,
+    borderRadius: PILL_RADIUS,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
   },
@@ -1420,6 +1733,46 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.body,
   },
+  statusTimesSummary: {
+    gap: spacing.xxs,
+  },
+  summaryTitle: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  summaryColumnRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  summaryColumn: {
+    width: moderateScale(75),
+    maxWidth: '48%',
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+  },
+  summaryColumnTitle: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    textAlign: 'left',
+    alignSelf: 'stretch',
+  },
+  summaryTimeItem: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    textAlign: 'left',
+    alignSelf: 'stretch',
+  },
+  summaryTakenTimeText: {
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  summaryMissedTimeText: {
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
   schedulePreviewList: {
     gap: spacing.xxs,
     paddingTop: spacing.xxs,
@@ -1440,6 +1793,10 @@ const styles = StyleSheet.create({
     color: colors.brand,
     fontWeight: '700',
   },
+  pressedControl: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
   modalContent: {
     paddingBottom: spacing.xl + spacing.sm,
   },
@@ -1455,7 +1812,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: spacing.sm,
     minHeight: moderateScale(72),
-    paddingRight: 140,
+    paddingRight: DETAILS_ACTIONS_RESERVED_WIDTH,
   },
   detailsHeaderTextBlock: {
     justifyContent: 'center',
@@ -1503,7 +1860,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 30,
+    zIndex: FOOTER_NAV_Z_INDEX,
   },
   confirmOverlay: {
     flex: 1,
@@ -1516,17 +1873,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: moderateScale(420),
   },
-  stickyTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+  topHeader: {
     backgroundColor: colors.pageBg,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md + spacing.sm,
-    paddingBottom: spacing.sm,
-    minHeight: TOP_OVERLAY_HEIGHT,
+    paddingTop: 0,
+    paddingBottom: spacing.xs,
+    gap: spacing.xxs,
   },
   scheduleBuilder: {
     gap: spacing.sm,

@@ -252,7 +252,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardPressed: {
-    opacity: 0.82,
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
   rowLeft: {
     flexDirection: 'row',

@@ -108,7 +108,8 @@ export default function MainDashboardCaregiverScreen({ navigation }) {
               <Pressable
                 key={patient.id}
                 onPress={() => openPatientDashboard(patient)}
-                style={styles.patientPressable}
+                unstable_pressDelay={0}
+                style={({ pressed }) => [styles.patientPressable, pressed && styles.patientPressablePressed]}
               >
                 <View style={styles.patientCard}>
                   <View style={styles.patientCardRow}>
@@ -204,6 +205,9 @@ const styles = StyleSheet.create({
   },
   patientPressable: {
     borderRadius: radius.lg,
+  },
+  patientPressablePressed: {
+    backgroundColor: '#C7DBFF',
   },
   patientCard: {
     backgroundColor: colors.surface,

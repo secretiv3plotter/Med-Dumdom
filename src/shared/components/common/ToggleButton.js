@@ -22,8 +22,18 @@ export default function ToggleButton({
   return (
     <Pressable
       disabled={isLockedOff}
+      unstable_pressDelay={0}
       onPress={() => onChange(!isOn)}
-      style={[styles.wrapper, { width: trackWidth, height: resolvedSize, opacity: isLockedOff ? 0.7 : 1 }]}
+      style={({ pressed }) => [
+        styles.wrapper,
+        {
+          width: trackWidth,
+          height: resolvedSize,
+          opacity: isLockedOff ? 0.7 : 1,
+          backgroundColor: pressed && !isLockedOff ? '#C7DBFF' : 'transparent',
+          borderRadius: resolvedSize / 2,
+        },
+      ]}
     >
       <View
         style={[

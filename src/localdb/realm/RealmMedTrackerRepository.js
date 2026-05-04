@@ -15,7 +15,6 @@ const demoEntries = [
     startDate: new Date('2026-01-01'),
     endDate: null,
     instructions: 'Take with food.',
-    inventoryCount: 30,
     prescriberContact: 'Dr. Santos',
   },
   {
@@ -27,7 +26,6 @@ const demoEntries = [
     startDate: new Date('2026-01-15'),
     endDate: null,
     instructions: '',
-    inventoryCount: 20,
     prescriberContact: 'Dr. Reyes',
   },
 ];
@@ -101,19 +99,20 @@ const toMedEntryModel = (entry) =>
   new MedEntry({
     medEntryId: entry.medEntryId,
     medName: entry.medName,
-    unitStrength: entry.unitStrength,
+    unitStrength: entry.unitStrength || '',
     unit: entry.unit,
     totalDailyAmount: entry.totalDailyAmount,
     dailySched: Array.from(entry.dailySched || []).map(toModelScheduleEntry),
     startDate: entry.startDate,
     endDate: entry.endDate,
     instructions: entry.instructions || '',
-    inventoryCount: entry.inventoryCount ?? null,
     prescriberContact: entry.prescriberContact || '',
+    createdAt: entry.createdAt || null,
+    updatedAt: entry.updatedAt || null,
   });
 
-const toHistoryScheduleEntry = (entry) => ({
-  scheduleIndex: Number(entry.scheduleIndex ?? 0),
+const toHistoryScheduleEntry = (entry, index = 0) => ({
+  scheduleIndex: Number(entry.scheduleIndex ?? index),
   scheduleType: entry.scheduleType,
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime ?? null,
@@ -121,7 +120,7 @@ const toHistoryScheduleEntry = (entry) => ({
   associatedMeal: entry.associatedMeal ?? null,
   mealTime: entry.mealTime ?? null,
   instructions: entry.instructions ?? '',
-  finalStatus: entry.status === 'taken' ? 'taken' : 'missed',
+  finalStatus: entry.status === 'taken' ? 'taken' : entry.status === 'skipped' ? 'skipped' : 'missed',
   takenAt: toNullableDate(entry.takenAt),
   skippedAt: toNullableDate(entry.skippedAt),
   activatedAt: toNullableDate(entry.activatedAt),
@@ -150,13 +149,12 @@ const toHistoryModel = (entry) => ({
   medEntryId: entry.medEntryId,
   historyDate: entry.historyDate,
   medName: entry.medName,
-  unitStrength: entry.unitStrength,
+  unitStrength: entry.unitStrength || '',
   unit: entry.unit,
   totalDailyAmount: entry.totalDailyAmount,
   startDate: entry.startDate,
   endDate: entry.endDate,
   instructions: entry.instructions || '',
-  inventoryCount: entry.inventoryCount ?? null,
   prescriberContact: entry.prescriberContact || '',
   dailySchedFinalStatuses: Array.from(entry.dailySchedFinalStatuses || []).map(toHistoryModelScheduleEntry),
   completedAllSchedules: Boolean(entry.completedAllSchedules),
@@ -267,14 +265,13 @@ export default class RealmMedTrackerRepository {
         medEntryId: medEntry.medEntryId,
         patientUserId: normalizedUserId,
         medName: medEntry.medName,
-        unitStrength: medEntry.unitStrength,
+        unitStrength: medEntry.unitStrength || '',
         unit: medEntry.unit,
         totalDailyAmount: medEntry.totalDailyAmount,
         dailySched: medEntry.dailySched.map(toRealmScheduleEntry),
         startDate: medEntry.startDate,
         endDate: medEntry.endDate,
         instructions: medEntry.instructions || '',
-        inventoryCount: medEntry.inventoryCount,
         prescriberContact: medEntry.prescriberContact || '',
         isDeleted: false,
         deletedAt: null,
@@ -298,13 +295,12 @@ export default class RealmMedTrackerRepository {
         medEntryId: entry.medEntryId,
         historyDate: historyDateKey,
         medName: entry.medName,
-        unitStrength: entry.unitStrength,
+        unitStrength: entry.unitStrength || '',
         unit: entry.unit,
         totalDailyAmount: entry.totalDailyAmount,
         startDate: entry.startDate,
         endDate: entry.endDate,
         instructions: entry.instructions || '',
-        inventoryCount: entry.inventoryCount,
         prescriberContact: entry.prescriberContact || '',
         dailySchedFinalStatuses: Array.from(entry.dailySched || []).map(toHistoryScheduleEntry),
         completedAllSchedules: Array.from(entry.dailySched || []).every((scheduleEntry) => scheduleEntry.status === 'taken'),
@@ -457,7 +453,6 @@ export default class RealmMedTrackerRepository {
       if (updates.startDate !== undefined) currentModel.updateStartDate(updates.startDate);
       if (updates.endDate !== undefined) currentModel.updateEndDate(updates.endDate);
       if (updates.instructions !== undefined) currentModel.updateInstructions(updates.instructions);
-      if (updates.inventoryCount !== undefined) currentModel.updateInventoryCount(updates.inventoryCount);
       if (updates.prescriberContact !== undefined) currentModel.updatePrescriberContact(updates.prescriberContact);
 
       this.persistMedEntry(userId, currentModel, existingEntry.createdAt);

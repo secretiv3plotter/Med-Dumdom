@@ -22,10 +22,15 @@ export default function HelpButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      unstable_pressDelay={0}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      style={[styles.container, style]}
+      style={({ pressed }) => [
+        styles.container,
+        pressed && !disabled && styles.pressed,
+        style,
+      ]}
       {...pressableProps}
     >
       <View style={[styles.iconWrap, iconWrapStyle, circleStyle]}>
@@ -67,5 +72,9 @@ const styles = StyleSheet.create({
   },
   disabledText: {
     color: colors.bodyMuted,
+  },
+  pressed: {
+    backgroundColor: '#C7DBFF',
+    borderRadius: spacing.xs,
   },
 });

@@ -65,17 +65,37 @@ describe('missed status', () => {
 
     expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:10:00'), new Date('2026-05-03T20:10:00'))).toBe('taken');
     expect(entry.dailySched[0].takenAt).toBe('2026-05-03T08:05:00.000Z');
-    expect(entry.getScheduleStatus(1, new Date('2026-05-03T20:10:00'), new Date('2026-05-03T20:10:00'))).toBe('missed');
+    expect(entry.getScheduleStatus(1, new Date('2026-05-03T20:10:00'), new Date('2026-05-03T20:10:00'))).toBe('skipped');
+    expect(entry.isMissed(new Date('2026-05-03T20:10:00'), new Date('2026-05-03T20:10:00'))).toBe(true);
     expect(entry.isTaken).toBe(false);
   });
 
-  it('only allows schedule status actions from due time until the next schedule', () => {
+  it('records the missed time when a missed schedule is later marked skipped', () => {
+    const entry = buildMedEntry();
+    const missedAt = new Date('2026-05-03T20:00:00');
+
+    entry.markScheduleSkipped(0, new Date('2026-05-03T21:15:00'));
+
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T21:15:00'), new Date('2026-05-03T21:15:00'))).toBe('skipped');
+    expect(entry.dailySched[0].skippedAt).toBe(missedAt.toISOString());
+  });
+
+  it('records the skip press time when the schedule is not missed yet', () => {
+    const entry = buildMedEntry();
+    const skippedAt = new Date('2026-05-03T08:05:00');
+
+    entry.markScheduleSkipped(0, skippedAt);
+
+    expect(entry.dailySched[0].skippedAt).toBe(skippedAt.toISOString());
+  });
+
+  it('allows schedule status actions from due time until the day ends', () => {
     const entry = buildMedEntry();
 
     expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T07:59:00'), new Date('2026-05-03T07:59:00'))).toBe(false);
     expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T08:00:00'), new Date('2026-05-03T08:00:00'))).toBe(true);
     expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T19:59:00'), new Date('2026-05-03T19:59:00'))).toBe(true);
-    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(false);
+    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(true);
     expect(entry.isScheduleActionAvailable(1, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(true);
   });
 
@@ -98,6 +118,13 @@ describe('missed status', () => {
     expect(updatedEntry.dailySched[1].status).toBe('pending');
     expect(updatedEntry.isTaken).toBe(false);
     expect(updatedEntry.timeTaken).toBe(null);
+  });
+
+  it('allows medication unit strength to be omitted', () => {
+    const entry = buildMedEntry({ unitStrength: '' });
+
+    expect(entry.unitStrength).toBe('');
+    expect(entry.dosage).toBe('');
   });
 
   it('updates medication daily amount and schedule count together', () => {
@@ -151,7 +178,7 @@ describe('missed status', () => {
     expect(entry.dailySched[0].takenAt).toBeTruthy();
   });
 
-  it('keeps a newly added past schedule upcoming until tomorrow', () => {
+  it('allows a newly added past single schedule to be taken or skipped today', () => {
     const entry = buildMedEntry({
       totalDailyAmount: 1,
       dailySched: [
@@ -164,13 +191,13 @@ describe('missed status', () => {
       ],
     });
 
-    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('upcoming');
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('pending');
     expect(entry.isMissed(new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(false);
-    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(false);
+    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(true);
     expect(entry.getScheduleStatus(0, new Date('2026-05-04T08:00:00'), new Date('2026-05-04T08:00:00'))).toBe('due');
   });
 
-  it('defers only the same-day schedule that was already past when added', () => {
+  it('allows a newly added past schedule until the day ends', () => {
     const entry = buildMedEntry({
       dailySched: [
         {
@@ -188,7 +215,10 @@ describe('missed status', () => {
       ],
     });
 
-    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('upcoming');
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T10:00:00'), new Date('2026-05-03T10:00:00'))).toBe('pending');
+    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T10:00:00'), new Date('2026-05-03T10:00:00'))).toBe(true);
+    expect(entry.getScheduleStatus(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('missed');
+    expect(entry.isScheduleActionAvailable(0, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe(true);
     expect(entry.getScheduleStatus(1, new Date('2026-05-03T20:00:00'), new Date('2026-05-03T20:00:00'))).toBe('due');
   });
 
