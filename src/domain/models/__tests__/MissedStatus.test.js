@@ -239,11 +239,50 @@ describe('missed status', () => {
     expect(entry.isMissed(new Date('2026-05-03T10:10:00'), new Date('2026-05-03T10:10:00'))).toBe(false);
   });
 
+  it('allows optional appointment doctor and contact fields and supports skipped status', () => {
+    const entry = buildApptEntry({
+      doctorName: '',
+      contactNumber: '',
+    });
+
+    expect(entry.doctorName).toBe('');
+    expect(entry.contactNumber).toBe('');
+
+    entry.markSkipped(new Date('2026-05-03T10:05:00'));
+
+    expect(entry.isSkipped).toBe(true);
+    expect(entry.getStatus(new Date('2026-05-03T10:10:00'), new Date('2026-05-03T10:10:00'))).toBe('skipped');
+    expect(entry.isMissed(new Date('2026-05-03T10:10:00'), new Date('2026-05-03T10:10:00'))).toBe(false);
+  });
+
   it('separates due and missed appointment entries in the service', () => {
     const service = new ApptTrackerService({ user1: [buildApptEntry()] });
 
     expect(service.getDueApptEntries('user1', new Date('2026-05-03T10:00:00'))).toHaveLength(1);
     expect(service.getMissedApptEntries('user1', new Date('2026-05-03T10:01:00'))).toHaveLength(1);
     expect(service.getDueApptEntries('user1', new Date('2026-05-03T10:01:00'))).toHaveLength(0);
+  });
+
+  it('keeps soft deleted appointments available as previous records', () => {
+    const service = new ApptTrackerService({ user1: [buildApptEntry()] });
+
+    service.softDeleteApptEntry('user1', 'appt-1');
+    const previousRecords = service.listPreviousApptRecords('user1', new Date('2026-05-03T09:00:00'));
+
+    expect(service.listApptEntries('user1')).toHaveLength(0);
+    expect(previousRecords).toHaveLength(1);
+    expect(previousRecords[0].deleted).toBe(true);
+    expect(service.getApptTrackerSummary('user1').deletedEntries).toBe(1);
+  });
+
+  it('keeps skipped appointments available as previous records', () => {
+    const service = new ApptTrackerService({ user1: [buildApptEntry()] });
+
+    service.markApptSkipped('user1', 'appt-1', new Date('2026-05-03T10:05:00'));
+    const previousRecords = service.listPreviousApptRecords('user1', new Date('2026-05-03T10:10:00'));
+
+    expect(previousRecords).toHaveLength(1);
+    expect(previousRecords[0].skipped).toBe(true);
+    expect(service.getApptTrackerSummary('user1').skippedEntries).toBe(1);
   });
 });

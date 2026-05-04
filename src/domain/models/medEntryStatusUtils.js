@@ -1,0 +1,187 @@
+import {
+  DUE_NOW_GRACE_MINUTES,
+  SINGLE_SCHEDULE_UPCOMING_WINDOW_MINUTES,
+  dateTimeAtMinutes,
+  ensureScheduleIndex,
+  getScheduleDateTime,
+  isBeforeCurrentDay,
+  isBeforeDay,
+  normalizeDate,
+  normalizeOptionalDate,
+  normalizeTime,
+  scheduleEffectiveTime,
+  toMinutes,
+} from './medEntryModelUtils';
+
+export const resetDailyScheduleStatusesIfNeeded = (medEntry, now = new Date(), syncTakenStatus) => {
+  const currentDateTime = normalizeDate(now, 'now') ?? new Date();
+  if (Number.isNaN(currentDateTime.getTime()) || !medEntry.dailySched.length) {
+    return false;
+  }
+
+  const firstScheduleMinutes = medEntry.dailySched
+    .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+    .filter((minutes) => minutes !== null)
+    .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
+  const currentMinutes = toMinutes(normalizeTime(currentDateTime, 'now'));
+
+  const resetStartMinutes =
+    medEntry.dailySched.length === 1
+      ? Math.max(0, firstScheduleMinutes - SINGLE_SCHEDULE_UPCOMING_WINDOW_MINUTES)
+      : firstScheduleMinutes;
+
+  if (firstScheduleMinutes === undefined || currentMinutes === null || currentMinutes < resetStartMinutes) {
+    return false;
+  }
+
+  const currentDay = new Date(currentDateTime.getTime());
+  currentDay.setHours(0, 0, 0, 0);
+
+  let didReset = false;
+  medEntry.dailySched = medEntry.dailySched.map((entry) => {
+    if (entry.status === 'pending' || !isBeforeDay(getScheduleDateTime(entry), currentDay)) {
+      return entry;
+    }
+
+    didReset = true;
+    return {
+      ...entry,
+      status: 'pending',
+      takenAt: null,
+      skippedAt: null,
+    };
+  });
+
+  if (didReset) {
+    syncTakenStatus?.();
+  }
+
+  return didReset;
+};
+
+export const isActiveOnDate = (medEntry, currDate = new Date()) => {
+  const currentDay = normalizeOptionalDate(currDate, 'currDate');
+
+  if (!currentDay) {
+    return false;
+  }
+
+  const startDay = normalizeOptionalDate(medEntry.startDate, 'startDate');
+  const endDay = normalizeOptionalDate(medEntry.endDate, 'endDate');
+
+  if (startDay) {
+    startDay.setHours(0, 0, 0, 0);
+  }
+  currentDay.setHours(0, 0, 0, 0);
+
+  if (startDay && currentDay < startDay) {
+    return false;
+  }
+
+  if (endDay) {
+    endDay.setHours(0, 0, 0, 0);
+    if (currentDay > endDay) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date(), currDate = new Date(), syncTakenStatus) => {
+  resetDailyScheduleStatusesIfNeeded(medEntry, currTime instanceof Date ? currTime : currDate, syncTakenStatus);
+  ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
+  const scheduleEntry = medEntry.dailySched[scheduleIndex];
+
+  if (scheduleEntry.status === 'taken') {
+    return 'taken';
+  }
+
+  if (scheduleEntry.status === 'skipped') {
+    return 'skipped';
+  }
+
+  if (!isActiveOnDate(medEntry, currDate)) {
+    return 'upcoming';
+  }
+
+  const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
+  const currentDay = new Date(currentTime.getTime());
+  currentDay.setHours(0, 0, 0, 0);
+  if (isBeforeCurrentDay(currDate, currentDay)) {
+    return 'missed';
+  }
+
+  const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
+  if (currentMinutes === null || scheduleMinutes === null) {
+    return 'upcoming';
+  }
+
+  const laterScheduledMinutes = medEntry.dailySched
+    .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+    .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
+    .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
+
+  if (laterScheduledMinutes.length && currentMinutes >= laterScheduledMinutes[0]) {
+    return 'missed';
+  }
+
+  if (currentMinutes >= scheduleMinutes + DUE_NOW_GRACE_MINUTES) {
+    return 'pending';
+  }
+
+  return currentMinutes >= scheduleMinutes ? 'due' : 'upcoming';
+};
+
+export const getScheduleMissedDateTime = (medEntry, scheduleIndex, currTime = new Date()) => {
+  ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
+  const currentDateTime = normalizeDate(currTime, 'currTime') ?? new Date();
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));
+  if (scheduleMinutes === null) {
+    return currentDateTime;
+  }
+
+  const laterScheduledMinutes = medEntry.dailySched
+    .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
+    .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
+    .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
+
+  if (laterScheduledMinutes.length) {
+    return dateTimeAtMinutes(currentDateTime, laterScheduledMinutes[0]);
+  }
+
+  const nextDay = new Date(currentDateTime.getTime());
+  nextDay.setDate(nextDay.getDate() + 1);
+  nextDay.setHours(0, 0, 0, 0);
+  return nextDay;
+};
+
+export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = new Date(), currDate = new Date(), syncTakenStatus) => {
+  resetDailyScheduleStatusesIfNeeded(medEntry, currTime instanceof Date ? currTime : currDate, syncTakenStatus);
+  ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
+
+  if (!isActiveOnDate(medEntry, currDate)) {
+    return false;
+  }
+
+  const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
+  const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));
+  if (currentMinutes === null || scheduleMinutes === null || currentMinutes < scheduleMinutes) {
+    return false;
+  }
+
+  return true;
+};
+
+export const hasScheduleStatus = (medEntry, targetStatuses, currTime, currDate = new Date(), syncTakenStatus) => {
+  if (!isActiveOnDate(medEntry, currDate) || !medEntry.dailySched.length) {
+    return false;
+  }
+
+  const statuses = Array.isArray(targetStatuses) ? targetStatuses : [targetStatuses];
+  return medEntry.dailySched.some((entry, index) =>
+    statuses.includes(getScheduleStatus(medEntry, index, currTime, currDate, syncTakenStatus))
+  );
+};

@@ -1,0 +1,334 @@
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import ActionButton from '../../../shared/components/common/ActionButton';
+import BackButton from '../../../shared/components/common/BackButton';
+import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
+import DialogBox from '../../../shared/components/common/DialogBox';
+import InputBar from '../../../shared/components/common/InputBar';
+import LargePopup from '../../../shared/components/common/LargePopup';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { MedTrackerEditorContent } from './MedTrackerEditorContent';
+import { MedicineDetailsContent, MedicinePreviewCard } from './MedTrackerScreenComponents';
+
+const DETAILS_ACTIONS_RESERVED_WIDTH = moderateScale(140);
+
+export function MedTrackerHeader({ onBack, onCreate }) {
+  return (
+    <View style={styles.topHeader}>
+      <View style={styles.backButtonRow}>
+        <BackButton onPress={onBack} />
+      </View>
+
+      <View style={styles.headerRow}>
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.title}>Medicines</Text>
+          <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
+        </View>
+        <AddButton onPress={onCreate} />
+      </View>
+    </View>
+  );
+}
+
+export function MedicineListSection({
+  footerNavHeight,
+  medicines,
+  observedNow,
+  searchQuery,
+  onSearchChange,
+  onOpenMedicine,
+  onReviewRecords,
+  onScheduleStatusChange,
+}) {
+  return (
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+      <View style={styles.searchWrap}>
+        <InputBar
+          placeholder="Search medicines"
+          accessibilityLabel="Search medicines"
+          value={searchQuery}
+          onChangeText={onSearchChange}
+          autoComplete="off"
+        />
+      </View>
+      <View style={styles.listSection}>
+        {medicines.length ? medicines.map((medicine) => (
+          <MedicinePreviewCard
+            key={medicine.medEntryId}
+            medicine={medicine}
+            observedNow={observedNow}
+            onOpen={() => onOpenMedicine(medicine)}
+            onScheduleStatusChange={onScheduleStatusChange}
+          />
+        )) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No medicines found.</Text>
+            <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
+          </View>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Review previous records"
+          unstable_pressDelay={0}
+          onPress={onReviewRecords}
+          style={({ pressed }) => [styles.historyBar, pressed && styles.pressedControl]}
+        >
+          <Text style={styles.historyBarText}>Review previous records</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+export function MedicineDetailsPopup({
+  medicine,
+  visible,
+  observedNow,
+  onClose,
+  onEdit,
+  onDelete,
+  onScheduleStatusChange,
+}) {
+  return (
+    <LargePopup
+      visible={visible && Boolean(medicine)}
+      onClose={onClose}
+      header={
+        medicine ? (
+          <View style={styles.detailsHeaderRow}>
+            <View style={styles.detailsHeaderTextBlock}>
+              <Text style={styles.detailsTitle}>Medicine Details</Text>
+              <Text style={styles.detailsMedicineName}>{medicine.medName}</Text>
+            </View>
+            <View style={styles.detailActionsTop}>
+              <EditButton onPress={onEdit} />
+              <DeleteButton onPress={onDelete} />
+            </View>
+          </View>
+        ) : null
+      }
+      contentContainerStyle={styles.modalContent}
+    >
+      {medicine ? (
+        <>
+          <MedicineDetailsContent
+            medicine={medicine}
+            observedNow={observedNow}
+            onScheduleStatusChange={onScheduleStatusChange}
+          />
+
+          <View style={styles.footerActionsRow}>
+            <ActionButton label="Close" variant="outline" onPress={onClose} />
+          </View>
+        </>
+      ) : null}
+    </LargePopup>
+  );
+}
+
+export function MedicineEditorPopup({
+  visible,
+  editorMode,
+  formState,
+  scheduleDraft,
+  scheduleEntries,
+  editingScheduleIndex,
+  formError,
+  setFormState,
+  setScheduleDraft,
+  onCancelScheduleEdit,
+  onSaveScheduleEntry,
+  onEditScheduleEntry,
+  onDeleteScheduleEntry,
+  onCancel,
+  onSaveMedicine,
+}) {
+  return (
+    <LargePopup
+      visible={visible}
+      onClose={onCancel}
+      header={
+        <View style={styles.detailsHeaderRow}>
+          <View style={styles.detailsHeaderTextBlock}>
+            <Text style={styles.detailsTitle}>{editorMode === 'edit' ? 'Edit Medicine' : 'Add Medicine'}</Text>
+          </View>
+        </View>
+      }
+      contentContainerStyle={styles.modalContent}
+    >
+      <MedTrackerEditorContent
+        editorMode={editorMode}
+        formState={formState}
+        scheduleDraft={scheduleDraft}
+        scheduleEntries={scheduleEntries}
+        editingScheduleIndex={editingScheduleIndex}
+        formError={formError}
+        setFormState={setFormState}
+        setScheduleDraft={setScheduleDraft}
+        onCancelScheduleEdit={onCancelScheduleEdit}
+        onSaveScheduleEntry={onSaveScheduleEntry}
+        onEditScheduleEntry={onEditScheduleEntry}
+        onDeleteScheduleEntry={onDeleteScheduleEntry}
+        onCancel={onCancel}
+        onSaveMedicine={onSaveMedicine}
+      />
+    </LargePopup>
+  );
+}
+
+export function ConfirmationDialogModal({
+  visible,
+  title,
+  message,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={styles.confirmOverlay} onPress={onCancel}>
+        <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+          <DialogBox
+            title={title}
+            message={message}
+            actions={[
+              { label: 'Cancel', variant: 'outline', onPress: onCancel },
+              { label: confirmLabel, variant: 'solid', onPress: onConfirm },
+            ]}
+          />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  backButtonRow: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerTextWrap: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  title: {
+    ...typography.title,
+    color: colors.title,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.bodyMuted,
+  },
+  searchWrap: {
+    marginBottom: 0,
+  },
+  listSection: {
+    marginTop: 0,
+    gap: spacing.sm,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  emptyText: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  historyBar: {
+    minHeight: moderateScale(48),
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  historyBarText: {
+    ...typography.body,
+    color: colors.brand,
+    fontWeight: '700',
+  },
+  pressedControl: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  modalContent: {
+    paddingBottom: spacing.xl + spacing.sm,
+  },
+  detailsTitle: {
+    ...typography.titleSmall,
+    fontWeight: '700',
+    color: colors.title,
+  },
+  detailsHeaderRow: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: spacing.sm,
+    minHeight: moderateScale(72),
+    paddingRight: DETAILS_ACTIONS_RESERVED_WIDTH,
+  },
+  detailsHeaderTextBlock: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+  },
+  detailsMedicineName: {
+    ...typography.body,
+    color: colors.body,
+    fontWeight: '600',
+  },
+  detailActionsTop: {
+    position: 'absolute',
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  footerActionsRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  confirmDialog: {
+    width: '100%',
+    maxWidth: moderateScale(420),
+  },
+  topHeader: {
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 0,
+    paddingBottom: spacing.xs,
+    gap: spacing.xxs,
+  },
+});

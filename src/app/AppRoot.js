@@ -62,6 +62,11 @@ function AppContent() {
       return true;
     }
 
+    if (currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY) {
+      navigateTo(ROUTES.APPOINTMENT_TRACKER);
+      return true;
+    }
+
     if (currentRoute === ROUTES.HELP_AND_SUPPORT || currentRoute === ROUTES.PROFILE) {
       navigateTo(currentParams.returnTo || ROUTES.HOME);
       return true;
@@ -113,7 +118,10 @@ function AppContent() {
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.CAREGIVER_HOME];
   const screenProps =
-    currentRoute === ROUTES.MED_TRACKER || currentRoute === ROUTES.MED_TRACKER_HISTORY
+    currentRoute === ROUTES.MED_TRACKER ||
+    currentRoute === ROUTES.MED_TRACKER_HISTORY ||
+    currentRoute === ROUTES.APPOINTMENT_TRACKER ||
+    currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY
       ? { navigation, realm }
       : { navigation };
 

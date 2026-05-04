@@ -7,6 +7,8 @@ export {
   MedEntrySchema,
   MedDailyScheduleHistorySchema,
   MedTrackerDailyHistorySchema,
+  ApptEntrySchema,
+  ApptTrackerHistorySchema,
 } from './medTrackerSchemas';
 
 export { realmEncryptionKey } from './encryptionKey';

@@ -101,15 +101,66 @@ const MedTrackerDailyHistorySchema = {
   },
 };
 
+const ApptEntrySchema = {
+  name: 'ApptEntry',
+  primaryKey: 'apptEntryId',
+  properties: {
+    apptEntryId: 'string',
+    patientUserId: { type: 'string', indexed: true },
+    concern: 'string',
+    address: 'string',
+    doctorName: 'string?',
+    contactNumber: 'string?',
+    dateSched: { type: 'string', indexed: true },
+    timeSched: 'string',
+    note: 'string?',
+    isCompleted: { type: 'bool', default: false },
+    isSkipped: { type: 'bool', default: false },
+    completedAt: 'date?',
+    skippedAt: 'date?',
+    isDeleted: { type: 'bool', default: false },
+    deletedAt: 'date?',
+    createdAt: 'date',
+    updatedAt: 'date',
+  },
+};
+
+const ApptTrackerHistorySchema = {
+  name: 'ApptTrackerHistory',
+  primaryKey: 'historyId',
+  properties: {
+    historyId: 'string',
+    patientUserId: { type: 'string', indexed: true },
+    apptEntryId: { type: 'string', indexed: true },
+    concern: 'string',
+    address: 'string',
+    doctorName: 'string?',
+    contactNumber: 'string?',
+    dateSched: { type: 'string', indexed: true },
+    timeSched: 'string',
+    note: 'string?',
+    finalStatus: 'string',
+    completedAt: 'date?',
+    skippedAt: 'date?',
+    missedAt: 'date?',
+    deletedAt: 'date?',
+    isDeleted: { type: 'bool', default: false },
+    recordDeletedAt: 'date?',
+    createdAt: 'date',
+  },
+};
+
 export const medTrackerRealmSchemas = [
   PatientUserSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
   MedDailyScheduleHistorySchema,
   MedTrackerDailyHistorySchema,
+  ApptEntrySchema,
+  ApptTrackerHistorySchema,
 ];
 
-export const MED_TRACKER_REALM_SCHEMA_VERSION = 4;
+export const MED_TRACKER_REALM_SCHEMA_VERSION = 5;
 
 export const medTrackerRealmConfig = {
   schema: medTrackerRealmSchemas,
@@ -123,4 +174,6 @@ export {
   MedEntrySchema,
   MedDailyScheduleHistorySchema,
   MedTrackerDailyHistorySchema,
+  ApptEntrySchema,
+  ApptTrackerHistorySchema,
 };

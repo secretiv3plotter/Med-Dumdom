@@ -103,31 +103,45 @@ export default class ApptEntry {
     apptEntryId = '',
     concern,
     address,
-    contactNumber,
+    doctorName = '',
+    contactNumber = '',
     contactNum = contactNumber,
     timeSched,
     dateSched,
     note = '',
     isCompleted = false,
+    isSkipped = false,
     timeCompleted = null,
     dateCompleted = null,
     completedAt = null,
+    skippedAt = null,
+    createdAt = null,
+    updatedAt = null,
   } = {}) {
     this.apptEntryId = apptEntryId === undefined || apptEntryId === null ? '' : String(apptEntryId).trim();
     this.concern = normalizeRequiredString(concern, 'concern');
     this.address = normalizeRequiredString(address, 'address');
-    this.contactNumber = normalizeRequiredString(contactNumber ?? contactNum, 'contactNumber');
+    this.doctorName = normalizeOptionalString(doctorName, 'doctorName');
+    this.contactNumber = normalizeOptionalString(contactNumber ?? contactNum, 'contactNumber');
     this.contactNum = this.contactNumber;
     this.timeSched = normalizeTimeString(timeSched, 'timeSched');
     this.dateSched = normalizeDateString(dateSched, 'dateSched');
     this.note = normalizeOptionalString(note, 'note');
     this.isCompleted = normalizeBoolean(isCompleted, 'isCompleted');
+    this.isSkipped = normalizeBoolean(isSkipped, 'isSkipped');
     this.timeCompleted = normalizeTimeString(timeCompleted, 'timeCompleted');
     this.dateCompleted = normalizeDateString(dateCompleted, 'dateCompleted');
     this.completedAt = completedAt ? toIsoStringOrNull(completedAt) : null;
+    this.skippedAt = skippedAt ? toIsoStringOrNull(skippedAt) : null;
+    this.createdAt = createdAt ? toIsoStringOrNull(createdAt) : null;
+    this.updatedAt = updatedAt ? toIsoStringOrNull(updatedAt) : null;
 
     if (!this.dateSched || !this.timeSched) {
       throw new RangeError('dateSched and timeSched are required.');
+    }
+
+    if (this.isCompleted && this.isSkipped) {
+      throw new RangeError('An appointment cannot be completed and skipped at the same time.');
     }
 
     if (this.isCompleted) {
@@ -136,6 +150,10 @@ export default class ApptEntry {
       }
     } else if (this.completedAt || this.dateCompleted || this.timeCompleted) {
       throw new RangeError('Completed fields must be empty when isCompleted is false.');
+    }
+
+    if (!this.isSkipped && this.skippedAt) {
+      throw new RangeError('skippedAt must be empty when isSkipped is false.');
     }
   }
 
@@ -149,8 +167,13 @@ export default class ApptEntry {
     return this.address;
   }
 
+  updateDoctorName(newDoctorName) {
+    this.doctorName = normalizeOptionalString(newDoctorName, 'doctorName');
+    return this.doctorName;
+  }
+
   updateContactNumber(newContactNumber) {
-    this.contactNumber = normalizeRequiredString(newContactNumber, 'contactNumber');
+    this.contactNumber = normalizeOptionalString(newContactNumber, 'contactNumber');
     this.contactNum = this.contactNumber;
     return this.contactNumber;
   }
@@ -187,9 +210,11 @@ export default class ApptEntry {
     }
 
     this.isCompleted = true;
+    this.isSkipped = false;
     this.timeCompleted = normalizeTimeString(completedDateTime, 'timeCompleted');
     this.dateCompleted = completedDateTime.toISOString().slice(0, 10);
     this.completedAt = toIsoStringOrNull(completedDateTime);
+    this.skippedAt = null;
 
     return this;
   }
@@ -199,6 +224,28 @@ export default class ApptEntry {
     this.timeCompleted = null;
     this.dateCompleted = null;
     this.completedAt = null;
+    return this;
+  }
+
+  markSkipped(skippedAt = new Date()) {
+    const skippedDateTime = skippedAt instanceof Date ? skippedAt : new Date(skippedAt);
+    if (Number.isNaN(skippedDateTime.getTime())) {
+      throw new RangeError('skippedAt must be a valid date or datetime.');
+    }
+
+    this.isCompleted = false;
+    this.isSkipped = true;
+    this.timeCompleted = null;
+    this.dateCompleted = null;
+    this.completedAt = null;
+    this.skippedAt = toIsoStringOrNull(skippedDateTime);
+
+    return this;
+  }
+
+  clearSkippedStatus() {
+    this.isSkipped = false;
+    this.skippedAt = null;
     return this;
   }
 
@@ -218,7 +265,7 @@ export default class ApptEntry {
   }
 
   isDue(currTime, currDate = new Date()) {
-    if (this.isCompleted) {
+    if (this.isCompleted || this.isSkipped) {
       return false;
     }
 
@@ -241,7 +288,7 @@ export default class ApptEntry {
   }
 
   isMissed(currTime, currDate = new Date()) {
-    if (this.isCompleted) {
+    if (this.isCompleted || this.isSkipped) {
       return false;
     }
 
@@ -261,5 +308,40 @@ export default class ApptEntry {
     }
 
     return currentDateTime.getTime() > scheduledDateTime.getTime();
+  }
+
+  getStatus(currTime = new Date(), currDate = new Date()) {
+    if (this.isCompleted) {
+      return 'completed';
+    }
+
+    if (this.isSkipped) {
+      return 'skipped';
+    }
+
+    if (this.isMissed(currTime, currDate)) {
+      return 'missed';
+    }
+
+    if (this.isDue(currTime, currDate)) {
+      return 'due';
+    }
+
+    return 'upcoming';
+  }
+
+  isScheduleActionAvailable(currTime = new Date(), currDate = new Date()) {
+    const scheduledDateTime = this.getScheduledDateTime();
+    if (!scheduledDateTime || this.isCompleted || this.isSkipped) {
+      return false;
+    }
+
+    const currentDateTime =
+      currTime instanceof Date
+        ? currTime
+        : parseDateTime(normalizeDateString(currDate, 'currDate'), normalizeTimeString(currTime, 'currTime')) ??
+          new Date(currDate);
+
+    return !Number.isNaN(currentDateTime.getTime()) && currentDateTime.getTime() >= scheduledDateTime.getTime();
   }
 }

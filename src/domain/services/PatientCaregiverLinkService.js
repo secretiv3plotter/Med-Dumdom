@@ -39,22 +39,7 @@
 // - direct dependencies: PersonalProfileService, PrivacySettingsService
 // - commonly used by: caregiver linking UI, access-control checks, manual reminder flows
 
-const normalizeEntityId = (value, fieldName) => {
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      throw new RangeError(`${fieldName} cannot be empty.`);
-    }
-
-    return trimmedValue;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
-};
+import { normalizeEntityId } from './serviceUtils';
 
 const buildLinkKey = (patientId, caregiverId) => `${patientId}::${caregiverId}`;
 

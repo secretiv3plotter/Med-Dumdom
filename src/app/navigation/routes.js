@@ -6,6 +6,7 @@ export const ROUTES = {
   PATIENT_SPECIFIC_DASHBOARD: 'PatientSpecificDashboard',
   CAREGIVER_HOME: 'MainDashboardCaregiver',
   APPOINTMENT_TRACKER: 'ApptTracker',
+  APPOINTMENT_TRACKER_HISTORY: 'ApptTrackerHistory',
   MED_TRACKER: 'MedTracker',
   MED_TRACKER_HISTORY: 'MedTrackerHistory',
   HELP_AND_SUPPORT: 'HelpAndSupport',

@@ -1,101 +1,5 @@
-// MedTrackerService
-// Role:
-// Own the business logic for medication tracking.
-// This service should decide how medications are created, edited, marked taken,
-// soft-deleted, and included in due calculations.
-//
-// What belongs here:
-// - view medication entries
-// - create and update medication entries
-// - soft delete medication entries
-// - confirm taken medication
-// - clear taken status
-// - compute whether a medication is due
-// - calculate medication status for UI summaries
-// - handle daily schedule logic
-//
-// Use cases covered:
-// - patient manages med tracker
-// - reminder generation based on medication due state
-//
-// What should NOT belong here:
-// - reminder delivery
-// - Realm storage implementation
-// - UI cards, forms, or modals
-// - backend sync details
-//
-// Suggested service methods:
-// - listMedEntries(userId)
-// - addMedEntry(userId, medData)
-// - updateMedEntry(userId, medEntryId, medData)
-// - softDeleteMedEntry(userId, medEntryId)
-// - markMedTaken(userId, medEntryId, takenAt)
-// - undoMedTaken(userId, medEntryId)
-// - markMedScheduleTaken(userId, medEntryId, scheduleIndex, takenAt)
-// - markMedScheduleSkipped(userId, medEntryId, scheduleIndex, skippedAt)
-// - clearMedScheduleStatus(userId, medEntryId, scheduleIndex)
-// - getDueMedEntries(userId, now)
-// - getMissedMedEntries(userId, now)
-// - getMedTrackerSummary(userId, range)
-//
-// Model methods this service should wrap:
-// - updateMedName(newMedName)
-// - updateUnitStrength(newUnitStrength)
-// - updateUnit(newUnit)
-// - updateTotalDailyAmount(newTotalDailyAmount)
-// - updateDailySched(newDailySched)
-// - updateStartDate(newStartDate)
-// - updateEndDate(newEndDate)
-// - updateInstructions(newInstructions)
-// - updatePrescriberContact(newPrescriberContact)
-// - markTaken(takenAt)
-// - clearTakenStatus()
-// - markScheduleTaken(scheduleIndex, takenAt)
-// - markScheduleSkipped(scheduleIndex, skippedAt)
-// - clearScheduleStatus(scheduleIndex)
-// - isActiveOnDate(currDate)
-// - isDue(currTime, currDate)
-// - isMissed(currTime, currDate)
-//
-// Notes:
-// - this service should work with the MedEntryModel
-// - deletions here are soft deletions only
-//
-// Dependencies:
-// - direct dependencies: none
-// - commonly used by: ReminderService, medication tracker UI
-
 import MedEntry from '../models/MedEntryModel';
-
-const normalizeEntityId = (value, fieldName) => {
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      throw new RangeError(`${fieldName} cannot be empty.`);
-    }
-
-    return trimmedValue;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
-};
-
-const normalizeDate = (value, fieldName) => {
-  if (value === undefined || value === null || value === '') {
-    return null;
-  }
-
-  const parsedDate = value instanceof Date ? new Date(value.getTime()) : new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new RangeError(`${fieldName} must be a valid date.`);
-  }
-
-  return parsedDate;
-};
+import { isSameDay, normalizeEntityId, normalizeRange } from './serviceUtils';
 
 const cloneScheduleEntry = (entry) => ({ ...entry });
 
@@ -133,26 +37,6 @@ const buildDemoEntries = () => [
   },
 ];
 
-const normalizeRange = (range) => {
-  if (!range) {
-    return { startDate: null, endDate: null };
-  }
-
-  if (typeof range === 'string') {
-    return { startDate: null, endDate: null, preset: range.trim().toLowerCase() };
-  }
-
-  if (typeof range !== 'object') {
-    throw new TypeError('range must be an object, string, or null.');
-  }
-
-  return {
-    startDate: normalizeDate(range.startDate ?? range.from ?? null, 'startDate'),
-    endDate: normalizeDate(range.endDate ?? range.to ?? null, 'endDate'),
-    preset: typeof range.preset === 'string' ? range.preset.trim().toLowerCase() : '',
-  };
-};
-
 const cloneMedEntry = (entry) =>
   new MedEntry({
     medEntryId: entry.medEntryId,
@@ -183,14 +67,6 @@ const toMedEntryModel = (medData) => {
   }
 
   throw new TypeError('medData must be an object or MedEntry instance.');
-};
-
-const isSameDay = (firstDate, secondDate) => {
-  if (!(firstDate instanceof Date) || !(secondDate instanceof Date)) {
-    return false;
-  }
-
-  return firstDate.toISOString().slice(0, 10) === secondDate.toISOString().slice(0, 10);
 };
 
 const rangesOverlap = (startA, endA, startB, endB) => {

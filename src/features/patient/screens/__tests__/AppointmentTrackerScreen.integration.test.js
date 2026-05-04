@@ -63,4 +63,13 @@ describe('ApptTracker integration', () => {
     expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.HOME);
     expect(navigation.goBack).not.toHaveBeenCalled();
   });
+
+  it('opens previous appointment records from the review bar', () => {
+    const navigation = createNavigation();
+    const { getByLabelText } = render(<ApptTracker navigation={navigation} />);
+
+    fireEvent.press(getByLabelText('Review previous records'));
+
+    expect(navigation.navigate).toHaveBeenCalledWith(ROUTES.APPOINTMENT_TRACKER_HISTORY);
+  });
 });

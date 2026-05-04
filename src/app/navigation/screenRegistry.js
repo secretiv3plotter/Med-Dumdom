@@ -5,6 +5,7 @@ import MainDashboardCaregiverScreen from '../../features/caregiver/screens/MainD
 import LinkRequestsScreen from '../../features/linking/screens/LinkRequestsScreen';
 import LinkToCaregiverScreen from '../../features/linking/screens/LinkToCaregiverScreen';
 import LinkToPatientMainPageScreen from '../../features/linking/screens/LinkToPatientMainPageScreen';
+import AppointmentTrackerHistoryScreen from '../../features/patient/screens/AppointmentTrackerHistoryScreen';
 import AppointmentTrackerScreen from '../../features/patient/screens/AppointmentTrackerScreen';
 import MedTrackerHistoryScreen from '../../features/patient/screens/MedTrackerHistoryScreen';
 import MedTrackerScreen from '../../features/patient/screens/MedTrackerScreen';
@@ -23,6 +24,7 @@ export const SCREEN_REGISTRY = {
   [ROUTES.PATIENT_SPECIFIC_DASHBOARD]: PatientSpecificDashboardScreen,
   [ROUTES.CAREGIVER_HOME]: MainDashboardCaregiverScreen,
   [ROUTES.APPOINTMENT_TRACKER]: AppointmentTrackerScreen,
+  [ROUTES.APPOINTMENT_TRACKER_HISTORY]: AppointmentTrackerHistoryScreen,
   [ROUTES.MED_TRACKER]: MedTrackerScreen,
   [ROUTES.MED_TRACKER_HISTORY]: MedTrackerHistoryScreen,
   [ROUTES.HELP_AND_SUPPORT]: HelpAndSupportScreen,

@@ -44,23 +44,7 @@ import Reminder from '../models/ReminderModel';
 import medTrackerService from './MedTrackerService';
 import apptTrackerService from './ApptTrackerService';
 import privacySettingsService from './PrivacySettingsService';
-
-const normalizeEntityId = (value, fieldName) => {
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      throw new RangeError(`${fieldName} cannot be empty.`);
-    }
-
-    return trimmedValue;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
-};
+import { normalizeEntityId } from './serviceUtils';
 
 const normalizeDate = (value, fieldName) => {
   if (value === undefined || value === null || value === '') {

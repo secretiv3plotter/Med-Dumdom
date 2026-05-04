@@ -44,6 +44,7 @@
 // - commonly used by: PatientCaregiverLinkService, resource access checks in tracker services
 
 import PatientPrivacy from '../models/PatientPrivacyModel';
+import { normalizeEntityId } from './serviceUtils';
 
 const PRIVACY_FIELDS = new Set([
   'medTrackerPermit',
@@ -61,23 +62,6 @@ const clonePrivacySettings = (settings) =>
     modifyApptTracker: settings.modifyApptTracker,
     manualCaregiverReminderPermit: settings.manualCaregiverReminderPermit,
   });
-
-const normalizeEntityId = (value, fieldName) => {
-  if (typeof value === 'string') {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) {
-      throw new RangeError(`${fieldName} cannot be empty.`);
-    }
-
-    return trimmedValue;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  throw new TypeError(`${fieldName} must be a non-empty string or a finite number.`);
-};
 
 const toPrivacyModel = (settings) => {
   if (settings instanceof PatientPrivacy) {
