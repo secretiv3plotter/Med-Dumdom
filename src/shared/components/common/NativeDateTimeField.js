@@ -103,6 +103,17 @@ export default function NativeDateTimeField({
   };
 
   const handlePickerChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      setPickerVisible(false);
+
+      if (event?.type !== 'set' || !date) {
+        return;
+      }
+
+      commitValue(date);
+      return;
+    }
+
     setPickerVisible(false);
 
     if (event?.type === 'dismissed') {
