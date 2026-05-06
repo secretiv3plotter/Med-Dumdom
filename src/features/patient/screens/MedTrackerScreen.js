@@ -112,11 +112,13 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
 
   useEffect(() => {
     const intervalId = setInterval(() => {
+      // Skip updating during form editing to avoid resetting the form
+      if (editorMode) return;
       setObservedNow(new Date());
     }, LIVE_STATUS_REFRESH_MS);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [editorMode]);
 
   const refresh = () => {
     setObservedNow(new Date());

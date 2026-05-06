@@ -95,11 +95,13 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
 
   useEffect(() => {
     const intervalId = setInterval(() => {
+      // Skip updating during form editing to avoid resetting the form
+      if (editorMode || isEditingDetails) return;
       setObservedNow(new Date());
     }, LIVE_STATUS_REFRESH_MS);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [editorMode, isEditingDetails]);
 
   const refresh = () => {
     setObservedNow(new Date());
