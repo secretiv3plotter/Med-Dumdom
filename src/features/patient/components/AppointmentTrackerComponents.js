@@ -37,40 +37,28 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
         <StatusBadge statusStyle={statusStyle} />
       </View>
 
-      <View style={[styles.scheduleCard, { backgroundColor: statusStyle.bgColor }]}>
-        <View style={styles.scheduleCardRow}>
-          <View style={styles.scheduleTextBlock}>
-            <Text style={styles.scheduleCardTitle}>Appointment schedule</Text>
-            <Text style={styles.scheduleMetaText}>
-              {`${formatDate(appointment.dateSched)} at ${formatTime(appointment.timeSched)}`}
-            </Text>
-          </View>
-          <StatusBadge statusStyle={statusStyle} />
+      {canSelectStatus ? (
+        <View style={styles.appointmentFooter}>
+          <ActionButton
+            label="Done"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onStatusChange(appointment, 'completed');
+            }}
+            variant="outline"
+            style={styles.scheduleActionButton}
+          />
+          <ActionButton
+            label="Skip"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onStatusChange(appointment, 'skipped');
+            }}
+            variant="outline"
+            style={styles.scheduleActionButton}
+          />
         </View>
-
-        {canSelectStatus ? (
-          <View style={styles.scheduleActionRow}>
-            <ActionButton
-              label="Done"
-              onPress={(event) => {
-                event?.stopPropagation?.();
-                onStatusChange(appointment, 'completed');
-              }}
-              variant="outline"
-              style={styles.scheduleActionButton}
-            />
-            <ActionButton
-              label="Skip"
-              onPress={(event) => {
-                event?.stopPropagation?.();
-                onStatusChange(appointment, 'skipped');
-              }}
-              variant="outline"
-              style={styles.scheduleActionButton}
-            />
-          </View>
-        ) : null}
-      </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -178,35 +166,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontWeight: '700',
   },
-  scheduleCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  scheduleCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  scheduleTextBlock: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.xxs,
-  },
-  scheduleCardTitle: {
-    ...typography.bodySmall,
-    color: colors.body,
-    fontWeight: '700',
-  },
-  scheduleMetaText: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
-  },
-  scheduleActionRow: {
+  appointmentFooter: {
     flexDirection: 'row',
     gap: spacing.xs,
     flexWrap: 'wrap',

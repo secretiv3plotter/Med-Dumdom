@@ -1,5 +1,11 @@
 import { colors } from '../../../shared/theme';
 
+export const startOfToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
 export const EMPTY_APPT_FORM = {
   concern: '',
   address: '',
@@ -91,6 +97,10 @@ export const getApptStatusStyle = (appointment, now = new Date()) => {
 
   if (status === 'missed') {
     return { status, label: 'Missed', bgColor: '#FECACA', textColor: '#B91C1C' };
+  }
+
+  if (status === 'pending') {
+    return { status, label: 'Pending', bgColor: '#FCD34D', textColor: '#92400E' };
   }
 
   if (status === 'due') {

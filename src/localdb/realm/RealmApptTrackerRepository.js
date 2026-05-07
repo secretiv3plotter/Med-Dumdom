@@ -217,18 +217,36 @@ export default class RealmApptTrackerRepository {
     );
   }
 
-  snapshotMissedEntriesIfNeeded(userId, now = new Date()) {
+  snapshotFinalizedEntriesIfNeeded(userId, now = new Date()) {
     const normalizedUserId = normalizeUserId(userId);
     Array.from(this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
       .forEach((entry) => {
         const model = toApptEntryModel(entry);
+        // Only snapshot if past midnight of next day (appointment is finalized)
         if (!model.isMissed(now, now)) {
           return;
         }
 
-        const historyId = `${normalizedUserId}-${model.apptEntryId}-missed`;
+        // Determine final status: completed > skipped > missed
+        let finalStatus = 'missed';
+        let snapshotTime = scheduledDateTime(model) || now;
+
+        if (model.isCompleted) {
+          finalStatus = 'completed';
+          snapshotTime = model.completedAt || snapshotTime;
+        } else if (model.isSkipped) {
+          finalStatus = 'skipped';
+          snapshotTime = model.skippedAt || snapshotTime;
+        }
+
+        // Check if this status is already snapshotted
+        const historyId = `${normalizedUserId}-${model.apptEntryId}-${finalStatus}`;
         if (!this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId)) {
-          this.snapshotHistory(normalizedUserId, model, 'missed', scheduledDateTime(model) || now);
+          this.snapshotHistory(normalizedUserId, model, finalStatus, snapshotTime);
+          // Mark entry as deleted so it no longer appears in active list
+          entry.isDeleted = true;
+          entry.deletedAt = now;
+          entry.updatedAt = now;
         }
       });
   }
@@ -247,7 +265,7 @@ export default class RealmApptTrackerRepository {
     return this.write(() => {
       this.ensurePatientUser(normalizedUserId);
       this.seedDemoEntriesIfNeeded(normalizedUserId);
-      this.snapshotMissedEntriesIfNeeded(normalizedUserId);
+      this.snapshotFinalizedEntriesIfNeeded(normalizedUserId);
       return Array.from(this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
         .map(toApptEntryModel);
     });
@@ -322,7 +340,6 @@ export default class RealmApptTrackerRepository {
       const model = toApptEntryModel(entry).markCompleted(completedAt);
       this.persistApptEntry(userId, model, entry.createdAt, entry);
       this.removeHistoryStatus(userId, apptEntryId, 'missed');
-      this.snapshotHistory(userId, model, 'completed', completedAt);
       return model;
     });
   }
@@ -342,7 +359,6 @@ export default class RealmApptTrackerRepository {
       const model = toApptEntryModel(entry).markSkipped(skippedAt);
       this.persistApptEntry(userId, model, entry.createdAt, entry);
       this.removeHistoryStatus(userId, apptEntryId, 'missed');
-      this.snapshotHistory(userId, model, 'skipped', skippedAt);
       return model;
     });
   }
@@ -411,7 +427,7 @@ export default class RealmApptTrackerRepository {
     const normalizedUserId = normalizeUserId(userId);
     return this.write(() => {
       this.ensurePatientUser(normalizedUserId);
-      this.snapshotMissedEntriesIfNeeded(normalizedUserId, now);
+      this.snapshotFinalizedEntriesIfNeeded(normalizedUserId, now);
       return Array.from(this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
         .map(toHistoryModel)
         .sort((firstEntry, secondEntry) => {

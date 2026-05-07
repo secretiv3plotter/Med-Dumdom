@@ -284,7 +284,40 @@ export default class ApptEntry {
       return false;
     }
 
-    return currentDateTime.getTime() >= scheduledDateTime.getTime();
+    // Due Now: within 3 minutes after scheduled time
+    const THREE_MINUTES_MS = 3 * 60 * 1000;
+    const dueEndTime = scheduledDateTime.getTime() + THREE_MINUTES_MS;
+    return currentDateTime.getTime() >= scheduledDateTime.getTime() && currentDateTime.getTime() < dueEndTime;
+  }
+
+  isPending(currTime, currDate = new Date()) {
+    if (this.isCompleted || this.isSkipped) {
+      return false;
+    }
+
+    const scheduledDateTime = this.getScheduledDateTime();
+    if (!scheduledDateTime) {
+      return false;
+    }
+
+    const currentDateTime =
+      currTime instanceof Date
+        ? currTime
+        : parseDateTime(normalizeDateString(currDate, 'currDate'), normalizeTimeString(currTime, 'currTime')) ??
+          new Date(currDate);
+
+    if (Number.isNaN(currentDateTime.getTime())) {
+      return false;
+    }
+
+    // Pending: after 3 minutes but before midnight of next day
+    const THREE_MINUTES_MS = 3 * 60 * 1000;
+    const dueEndTime = scheduledDateTime.getTime() + THREE_MINUTES_MS;
+    const nextMidnight = new Date(scheduledDateTime);
+    nextMidnight.setDate(nextMidnight.getDate() + 1);
+    nextMidnight.setHours(0, 0, 0, 0);
+
+    return currentDateTime.getTime() >= dueEndTime && currentDateTime.getTime() < nextMidnight.getTime();
   }
 
   isMissed(currTime, currDate = new Date()) {
@@ -307,7 +340,11 @@ export default class ApptEntry {
       return false;
     }
 
-    return currentDateTime.getTime() > scheduledDateTime.getTime();
+    // Missed: after midnight of next day
+    const nextMidnight = new Date(scheduledDateTime);
+    nextMidnight.setDate(nextMidnight.getDate() + 1);
+    nextMidnight.setHours(0, 0, 0, 0);
+    return currentDateTime.getTime() >= nextMidnight.getTime();
   }
 
   getStatus(currTime = new Date(), currDate = new Date()) {
@@ -323,6 +360,10 @@ export default class ApptEntry {
       return 'missed';
     }
 
+    if (this.isPending(currTime, currDate)) {
+      return 'pending';
+    }
+
     if (this.isDue(currTime, currDate)) {
       return 'due';
     }
@@ -332,7 +373,7 @@ export default class ApptEntry {
 
   isScheduleActionAvailable(currTime = new Date(), currDate = new Date()) {
     const scheduledDateTime = this.getScheduledDateTime();
-    if (!scheduledDateTime || this.isCompleted || this.isSkipped) {
+    if (!scheduledDateTime) {
       return false;
     }
 
@@ -342,6 +383,16 @@ export default class ApptEntry {
         : parseDateTime(normalizeDateString(currDate, 'currDate'), normalizeTimeString(currTime, 'currTime')) ??
           new Date(currDate);
 
-    return !Number.isNaN(currentDateTime.getTime()) && currentDateTime.getTime() >= scheduledDateTime.getTime();
+    if (Number.isNaN(currentDateTime.getTime())) {
+      return false;
+    }
+
+    // Allow actions during "Due Now" and "Pending" states (until midnight of next day)
+    // Buttons remain visible even after marking done/skip, so users can change their choice
+    const nextMidnight = new Date(scheduledDateTime);
+    nextMidnight.setDate(nextMidnight.getDate() + 1);
+    nextMidnight.setHours(0, 0, 0, 0);
+
+    return currentDateTime.getTime() >= scheduledDateTime.getTime() && currentDateTime.getTime() < nextMidnight.getTime();
   }
 }

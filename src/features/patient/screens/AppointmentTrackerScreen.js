@@ -25,6 +25,7 @@ import {
   getSortTime,
   normalizeSearchText,
   parseDateTime,
+  startOfToday,
 } from '../utils/apptTrackerUtils';
 
 const CURRENT_USER_ID = 'current-user';
@@ -329,6 +330,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
               value={isEditingDetails ? draftDetails.dateSched : formatDate(selectedAppointment.dateSched)}
               editable={isEditingDetails}
               mode="date"
+              minimumDate={startOfToday()}
               onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, dateSched: text }))}
             />
             <EditableDetailItem
@@ -410,12 +412,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
             onChangeText={(value) => setFormState((current) => ({ ...current, address: value }))}
           />
           <InputBar
-            placeholder="Doctor name"
+            placeholder="Doctor name (optional)"
             value={formState.doctorName}
             onChangeText={(value) => setFormState((current) => ({ ...current, doctorName: value }))}
           />
           <InputBar
-            placeholder="Contact number"
+            placeholder="Contact number (optional)"
             value={formState.contactNumber}
             onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
           />
@@ -425,6 +427,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
             accessibilityLabel="Date scheduled"
             value={formState.dateSched}
             onChange={(value) => setFormState((current) => ({ ...current, dateSched: value }))}
+            minimumDate={startOfToday()}
           />
           <NativeDateTimeField
             mode="time"
@@ -435,7 +438,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
             onChange={(value) => setFormState((current) => ({ ...current, timeSched: value }))}
           />
           <InputBar
-            placeholder="Note"
+            placeholder="Note (optional)"
             value={formState.note}
             onChangeText={(value) => setFormState((current) => ({ ...current, note: value }))}
           />
@@ -465,7 +468,7 @@ function DetailItem({ label, value }) {
   );
 }
 
-function EditableDetailItem({ label, value, editable, onChangeText, mode = null }) {
+function EditableDetailItem({ label, value, editable, onChangeText, mode = null, minimumDate = null }) {
   if (!editable) {
     return <DetailItem label={label} value={value} />;
   }
@@ -479,6 +482,7 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null 
           mode={mode}
           onChange={onChangeText}
           accessibilityLabel={label}
+          minimumDate={minimumDate}
         />
       </View>
     );

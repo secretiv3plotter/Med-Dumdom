@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ROUTES } from '../../../app/navigation/routes';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import BackButton from '../../../shared/components/common/BackButton';
+import DialogBox from '../../../shared/components/common/DialogBox';
+import { DeleteButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
 
@@ -57,7 +59,6 @@ const normalizeRecord = (record) => {
       finalStatus: record.deleted ? 'deleted' : record.completed ? 'completed' : record.skipped ? 'skipped' : 'missed',
     };
   }
-
   return record;
 };
 
@@ -92,7 +93,9 @@ const buildRecordSearchText = (record) => {
 };
 
 export default function AppointmentTrackerHistoryScreen({ navigation, realm = null }) {
+  const [version, setVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : apptTrackerService),
@@ -100,8 +103,8 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
   );
 
   const records = useMemo(
-    () => activeApptTrackerService.listPreviousApptRecords(CURRENT_USER_ID).map(normalizeRecord),
-    [activeApptTrackerService]
+    () => activeApptTrackerService.listPreviousApptRecords(CURRENT_USER_ID).map(normalizeRecord).filter(Boolean),
+    [activeApptTrackerService, version]
   );
 
   const filteredRecords = useMemo(() => {
@@ -116,6 +119,26 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
       return rightTime - leftTime;
     });
   }, [records, searchQuery]);
+
+  const requestDeleteRecord = (record) => {
+    setPendingDeleteTarget({
+      historyIds: [record.historyId],
+      concern: record.concern,
+    });
+  };
+
+  const confirmDeleteRecord = () => {
+    if (!activeApptTrackerService || !pendingDeleteTarget) {
+      return;
+    }
+
+    activeApptTrackerService.deleteApptTrackerHistoryRecords(
+      CURRENT_USER_ID,
+      pendingDeleteTarget.historyIds
+    );
+    setPendingDeleteTarget(null);
+    setVersion((current) => current + 1);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -138,21 +161,27 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
 
         {filteredRecords.length ? filteredRecords.map((record) => (
           <View key={record.historyId || record.apptEntryId} style={styles.recordCard}>
-            <View style={styles.recordHeader}>
-              <View style={styles.recordHeaderText}>
-                <Text style={styles.recordDate}>
-                  {`${formatDate(record.dateSched)} at ${formatTime(record.timeSched)}`}
-                </Text>
-                <Text style={styles.recordName}>{record.concern}</Text>
-                <Text style={styles.recordMeta}>{record.address}</Text>
+            <View style={styles.recordCardBody}>
+              <View style={styles.recordHeader}>
+                <View style={styles.recordHeaderText}>
+                  <Text style={styles.recordDate}>
+                    {`${formatDate(record.dateSched)} at ${formatTime(record.timeSched)}`}
+                  </Text>
+                  <Text style={styles.recordName}>{record.concern}</Text>
+                  <Text style={styles.recordMeta}>{record.address}</Text>
+                </View>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>{getRecordLabel(record)}</Text>
+                </View>
               </View>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{getRecordLabel(record)}</Text>
-              </View>
+              <Text style={styles.recordMeta}>{`Doctor: ${record.doctorName || '--'}`}</Text>
+              <Text style={styles.recordMeta}>{`Contact: ${record.contactNumber || '--'}`}</Text>
+              {record.note ? <Text style={styles.recordMeta}>{record.note}</Text> : null}
             </View>
-            <Text style={styles.recordMeta}>{`Doctor: ${record.doctorName || '--'}`}</Text>
-            <Text style={styles.recordMeta}>{`Contact: ${record.contactNumber || '--'}`}</Text>
-            {record.note ? <Text style={styles.recordMeta}>{record.note}</Text> : null}
+            <DeleteButton
+              onPress={() => requestDeleteRecord(record)}
+              accessibilityLabel={`Delete appointment for ${record.concern}`}
+            />
           </View>
         )) : (
           <View style={styles.emptyCard}>
@@ -160,6 +189,26 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={Boolean(pendingDeleteTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingDeleteTarget(null)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
+          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+            <DialogBox
+              title="Delete Record"
+              message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? This action cannot be undone.`}
+              actions={[
+                { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
+                { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecord },
+              ]}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -197,6 +246,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
+    gap: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recordCardBody: {
+    flex: 1,
+    minWidth: 0,
     gap: spacing.xs,
   },
   recordHeader: {
@@ -246,5 +303,15 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.title,
     fontWeight: '700',
+  },
+  confirmOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  confirmDialog: {
+    width: '85%',
+    maxWidth: 400,
   },
 });
