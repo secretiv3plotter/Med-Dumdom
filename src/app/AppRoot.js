@@ -114,8 +114,6 @@ function AppContent() {
 
   const handleGlobalTouch = () => {
     if (!hapticEnabled) return;
-    // Temporary debug alert — remove before production
-    alert('Haptic Triggered');
     import('expo-haptics').then((Haptics) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     });
@@ -124,9 +122,16 @@ function AppContent() {
   // Web: attach a global document click listener since onTouchStart doesn't fire in browsers
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const listener = () => {
+    const listener = (e) => {
       if (!hapticEnabled) return;
-      alert('Haptic Triggered');
+      // Only fire if the click landed on something interactive
+      const isClickable = e.target?.closest(
+        'button, a, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [tabindex]'
+      );
+      if (!isClickable) return;
+      import('expo-haptics').then((Haptics) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      });
     };
     document.addEventListener('click', listener, true);
     return () => document.removeEventListener('click', listener, true);
