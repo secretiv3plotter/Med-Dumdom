@@ -21,6 +21,7 @@ export default function ThemedScrollView({
   ...scrollViewProps
 }) {
   const { darkModeEnabled } = useTextScale();
+  const shouldShowScrollIndicator = showsVerticalScrollIndicator === true;
   const [scrollMetrics, setScrollMetrics] = useState({
     contentHeight: 0,
     viewportHeight: 0,
@@ -44,7 +45,7 @@ export default function ThemedScrollView({
     : 0;
   const trackColor = darkModeEnabled ? DARK_TRACK_COLOR : LIGHT_TRACK_COLOR;
   const thumbColor = darkModeEnabled ? colors.brand : colors.brandText;
-  const showCustomScrollbar = showsVerticalScrollIndicator !== false && darkModeEnabled && hasScrollableContent;
+  const showCustomScrollbar = shouldShowScrollIndicator && darkModeEnabled && hasScrollableContent;
 
   return (
     <View style={[styles.shell, style]}>
@@ -52,7 +53,7 @@ export default function ThemedScrollView({
         {...scrollViewProps}
         style={styles.scrollView}
         contentContainerStyle={[styles.content, contentContainerStyle]}
-        showsVerticalScrollIndicator={showCustomScrollbar ? false : (showsVerticalScrollIndicator ?? true)}
+        showsVerticalScrollIndicator={showCustomScrollbar ? false : shouldShowScrollIndicator}
         scrollEventThrottle={scrollEventThrottle}
         onLayout={(event) => {
           const viewportHeight = Math.round(event.nativeEvent.layout.height);

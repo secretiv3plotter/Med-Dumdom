@@ -37,6 +37,42 @@ export const DARK_COLORS = Object.freeze({
   error: '#F87171',
 });
 
+const COLOR_BLIND_COLOR_OVERRIDES = Object.freeze({
+  light: {
+    success: '#0072B2',
+    warning: '#8B5CF6',
+    error: '#D55E00',
+  },
+  dark: {
+    success: '#56B4E9',
+    warning: '#C084FC',
+    error: '#D97706',
+  },
+});
+
+const COLOR_BLIND_VALUE_MAP = Object.freeze({
+  '#064E3B': '#1D4ED8',
+  '#0F2A1B': '#0B1F3A',
+  '#12301B': '#0B1F3A',
+  '#15803D': '#0072B2',
+  '#166534': '#0072B2',
+  '#1B6B4A': '#0072B2',
+  '#4ADE80': '#56B4E9',
+  '#52B788': '#0072B2',
+  '#86EFAC': '#56B4E9',
+  '#B7E4C7': '#BFDBFE',
+  '#D1FAE5': '#DBEAFE',
+  '#D1FAE56C': '#DBEAFE6C',
+
+  '#2A1111': '#2C1E12',
+  '#991B1B': '#D55E00',
+  '#B91C1C': '#C2410C',
+  '#D32F2F': '#D55E00',
+  '#F87171': '#D97706',
+  '#FEE2E2': '#FFEDD5',
+  '#FFEBEE': '#FFEDD5',
+});
+
 export const LIGHT_TO_DARK_COLOR_MAP = Object.freeze({
   '#000000': '#F8FAFC',
   '#0284C7': '#38BDF8',
@@ -82,6 +118,7 @@ export const LIGHT_TO_DARK_COLOR_MAP = Object.freeze({
 });
 
 let currentThemeMode = THEME_MODE_LIGHT;
+let currentColorBlindModeEnabled = false;
 
 const FOREGROUND_COLOR_KEYS = new Set([
   'accentColor',
@@ -210,21 +247,43 @@ export const setThemeMode = (nextMode) => {
 
 export const getThemeMode = () => currentThemeMode;
 
-export const getThemeColors = (mode = currentThemeMode) =>
-  normalizeThemeMode(mode) === THEME_MODE_DARK ? DARK_COLORS : LIGHT_COLORS;
+export const setColorBlindModeEnabled = (enabled) => {
+  currentColorBlindModeEnabled = Boolean(enabled);
+  return currentColorBlindModeEnabled;
+};
 
-export const transformThemeValue = (value, mode = currentThemeMode, key = null) => {
-  if (normalizeThemeMode(mode) !== THEME_MODE_DARK || typeof value !== 'string') {
+export const getColorBlindModeEnabled = () => currentColorBlindModeEnabled;
+
+export const getThemeColors = (mode = currentThemeMode) =>
+  Object.freeze({
+    ...(normalizeThemeMode(mode) === THEME_MODE_DARK ? DARK_COLORS : LIGHT_COLORS),
+    ...(currentColorBlindModeEnabled
+      ? COLOR_BLIND_COLOR_OVERRIDES[normalizeThemeMode(mode) === THEME_MODE_DARK ? 'dark' : 'light']
+      : null),
+  });
+
+const transformColorBlindValue = (value) => {
+  if (!currentColorBlindModeEnabled || typeof value !== 'string') {
     return value;
   }
 
-  if (LIGHT_TO_DARK_COLOR_MAP[value.toUpperCase()]) {
-    return LIGHT_TO_DARK_COLOR_MAP[value.toUpperCase()];
+  return COLOR_BLIND_VALUE_MAP[value.toUpperCase()] || value;
+};
+
+export const transformThemeValue = (value, mode = currentThemeMode, key = null) => {
+  if (typeof value !== 'string') {
+    return value;
   }
 
-  if (isHexColor(value)) {
-    return transformHexForDarkMode(value, key);
+  let transformedValue = transformColorBlindValue(value);
+
+  if (normalizeThemeMode(mode) === THEME_MODE_DARK) {
+    if (LIGHT_TO_DARK_COLOR_MAP[transformedValue.toUpperCase()]) {
+      transformedValue = LIGHT_TO_DARK_COLOR_MAP[transformedValue.toUpperCase()];
+    } else if (isHexColor(transformedValue)) {
+      transformedValue = transformHexForDarkMode(transformedValue, key);
+    }
   }
 
-  return value;
+  return transformColorBlindValue(transformedValue);
 };

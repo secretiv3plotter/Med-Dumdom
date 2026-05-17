@@ -53,7 +53,7 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
         accessibilityRole="button"
         accessibilityLabel={`Delete unit ${label}`}
       >
-        <Ionicons name="close" size={14} color="#D32F2F" />
+        <Ionicons name="close" size={14} color={colors.error} />
       </Pressable>
     </View>
   );
