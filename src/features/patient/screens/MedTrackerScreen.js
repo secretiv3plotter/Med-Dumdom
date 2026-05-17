@@ -157,6 +157,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     });
   }, [medicines, searchQuery]);
 
+  const hasActiveSearch = useMemo(() => normalizeSearchText(searchQuery).length > 0, [searchQuery]);
+
   useEffect(() => {
     const intervalId = setInterval(() => {
       // Skip updating during form editing to avoid resetting the form
@@ -552,6 +554,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       <MedicineListSection
         footerNavHeight={footerNavHeight}
         medicines={sortedMedicines}
+        hasActiveSearch={hasActiveSearch}
         observedNow={observedNow}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}

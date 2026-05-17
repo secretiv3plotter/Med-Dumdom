@@ -35,6 +35,7 @@ export function MedTrackerHeader({ onBack, onCreate }) {
 export function MedicineListSection({
   footerNavHeight,
   medicines,
+  hasActiveSearch,
   observedNow,
   searchQuery,
   onSearchChange,
@@ -62,12 +63,12 @@ export function MedicineListSection({
             onOpen={() => onOpenMedicine(medicine)}
             onScheduleStatusChange={onScheduleStatusChange}
           />
-        )) : (
+        )) : hasActiveSearch ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No medicines found.</Text>
             <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
           </View>
-        )}
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Review previous records"
