@@ -6,22 +6,20 @@ import BackButton from '../../../shared/components/common/BackButton';
 import {
   BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
-  BACK_HEADER_RESERVED_HEIGHT,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
-import SearchBar from '../../../shared/components/common/SearchBar';
+import InputBar from '../../../shared/components/common/InputBar';
 import TextCard from '../../../shared/components/common/TextCard';
 import faqService from '../../../domain/services/FaqService';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, spacing, typography } from '../../../shared/theme';
+import { colors, radius, spacing, typography } from '../../../shared/theme';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
 };
-
 export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
 
@@ -48,18 +46,21 @@ export default function HelpAndSupportScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
         <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
+        <View style={styles.headerBlock}>
+          <Text style={styles.title}>Help and Support</Text>
+          <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerBlock}>
-          <View style={styles.titleRow}>
-            <Ionicons name="help-circle" size={32} color={colors.brandText} />
-            <Text style={styles.title}>Help and Support</Text>
-          </View>
-          <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
-        </View>
-
-        <SearchBar placeholder="Search FAQs" value={searchTerm} onChangeText={setSearchTerm} />
+        <InputBar
+          placeholder="Search FAQs"
+          accessibilityLabel="Search FAQs"
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          showSearchIcon
+          autoComplete="off"
+        />
 
         <View style={styles.categoryRow}>
           {categories.map((category) => (
@@ -101,27 +102,22 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: BACK_HEADER_RESERVED_HEIGHT,
+    paddingTop: spacing.sm,
     paddingBottom: 150,
     gap: spacing.md,
   },
   title: {
     ...typography.title,
     color: colors.title,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   headerBlock: {
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.xs,
   },
   categoryRow: {
@@ -132,7 +128,7 @@ const styles = StyleSheet.create({
   categoryChip: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 999,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     backgroundColor: colors.surface,
@@ -157,7 +153,7 @@ const styles = StyleSheet.create({
   faqCard: {
     borderColor: colors.brand,
     backgroundColor: '#F4FAFF',
-    borderRadius: 24,
+    borderRadius: radius.lg,
     paddingLeft: 52,
     paddingRight: spacing.md,
   },
@@ -178,12 +174,10 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   stickyTop: {
-    position: 'absolute',
-    top: BACK_HEADER_TOP_OFFSET,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
     paddingBottom: BACK_HEADER_BOTTOM_PADDING,
+    gap: spacing.xs,
   },
 });

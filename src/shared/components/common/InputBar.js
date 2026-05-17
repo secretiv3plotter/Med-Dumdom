@@ -94,6 +94,7 @@ export default function InputBar({
   validatePasswordDifference,
   passwordMismatchMessage = 'New password must be different from current password.',
   showErrorIcon = true,
+  showSearchIcon = false,
   reserveRightSlot,
   allowFontScaling = true,
   maxFontSizeMultiplier,
@@ -238,6 +239,14 @@ export default function InputBar({
           hasError && styles.containerError,
         ]}
       >
+        {showSearchIcon ? (
+          <Ionicons
+            name="search"
+            size={moderateScale(18)}
+            color={colors.bodyMuted}
+            style={styles.searchIcon}
+          />
+        ) : null}
         <TextInput
           placeholder={placeholder}
           accessibilityLabel={resolvedAccessibilityLabel}
@@ -324,6 +333,9 @@ const styles = StyleSheet.create({
     color: colors.title,
     paddingRight: spacing.sm,
     paddingVertical: 0,
+  },
+  searchIcon: {
+    marginRight: spacing.xs,
   },
   errorIcon: {
     marginRight: spacing.xs,

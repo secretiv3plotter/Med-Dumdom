@@ -51,6 +51,7 @@ export function MedicineListSection({
           accessibilityLabel="Search medicines"
           value={searchQuery}
           onChangeText={onSearchChange}
+          showSearchIcon
           autoComplete="off"
         />
       </View>
