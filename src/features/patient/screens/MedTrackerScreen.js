@@ -34,7 +34,6 @@ import {
   startOfToday,
   sumDoseSizes,
   combineDateAndTime,
-  getNextHourOClock,
   getMedicineStatusForSorting,
 } from '../utils/medTrackerUtils';
 

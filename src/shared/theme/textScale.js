@@ -4,6 +4,8 @@ import accessibilitySettingsService from '../../domain/services/AccessibilitySet
 import { roundToPixel } from './scaling';
 import {
   getThemeMode,
+  getColorBlindModeEnabled,
+  setColorBlindModeEnabled,
   setThemeMode,
   transformThemeValue,
   THEME_MODE_DARK,
@@ -71,7 +73,7 @@ export const getLayoutScale = () => layoutScaleFromTextScale(currentTextScale);
 export const scaleLayoutValue = (value) => roundToPixel(value * getLayoutScale());
 
 const transformThemeStyle = (style) => {
-  if (getThemeMode() !== THEME_MODE_DARK || !style || typeof style !== 'object') {
+  if ((getThemeMode() !== THEME_MODE_DARK && !getColorBlindModeEnabled()) || !style || typeof style !== 'object') {
     return style;
   }
 
@@ -203,11 +205,16 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
   const initialSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
   const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
+  const initialColorBlindMode = Boolean(initialSettings?.colorBlindModeEnabled);
+  const initialHapticEnabled = initialSettings?.hapticEnabled ?? true;
 
   currentTextScale = initialScale;
   setThemeMode(initialDarkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT);
+  setColorBlindModeEnabled(initialColorBlindMode);
   const [textScale, setTextScaleState] = useState(initialScale);
   const [darkModeEnabled, setDarkModeEnabledState] = useState(initialDarkMode);
+  const [colorBlindModeEnabled, setColorBlindModeEnabledState] = useState(initialColorBlindMode);
+  const [hapticEnabled, setHapticEnabledState] = useState(initialHapticEnabled);
 
   const updateTextScale = useCallback(
     (nextScale) => {
@@ -229,14 +236,45 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
     [userId]
   );
 
+  const updateColorBlindMode = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setColorBlindModeEnabled(nextEnabled);
+      setColorBlindModeEnabledState(nextEnabled);
+
+      const currentSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.colorBlindModeEnabled) !== nextEnabled) {
+        accessibilitySettingsService.toggleColorBlindMode(userId);
+      }
+    },
+    [userId]
+  );
+
+  const updateHapticEnabled = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setHapticEnabledState(nextEnabled);
+
+      const currentSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.hapticEnabled) !== nextEnabled) {
+        accessibilitySettingsService.toggleHaptic(userId);
+      }
+    },
+    [userId]
+  );
+
   const value = useMemo(
     () => ({
       textScale,
       setTextScale: updateTextScale,
       darkModeEnabled,
       setDarkModeEnabled: updateDarkMode,
+      colorBlindModeEnabled,
+      setColorBlindModeEnabled: updateColorBlindMode,
+      hapticEnabled,
+      setHapticEnabled: updateHapticEnabled,
     }),
-    [textScale, updateTextScale, darkModeEnabled, updateDarkMode]
+    [textScale, updateTextScale, darkModeEnabled, updateDarkMode, colorBlindModeEnabled, updateColorBlindMode, hapticEnabled, updateHapticEnabled]
   );
 
   return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;

@@ -1,7 +1,13 @@
 import { colors } from '../../../shared/theme';
-import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+import { getThemeMode, THEME_MODE_DARK, transformThemeValue } from '../../../shared/theme/palette';
 
 const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+const themeColor = (value, key) => transformThemeValue(value, undefined, key);
+const statusStyle = (style) => ({
+  ...style,
+  bgColor: themeColor(style.bgColor, 'backgroundColor'),
+  textColor: themeColor(style.textColor, 'color'),
+});
 
 export const capitalize = (value) => String(value || '')
   .trim()
@@ -209,25 +215,25 @@ export const buildHistoryRecordSearchText = (record) => {
 export const getStatusStyle = (status) => {
   if (isDarkMode()) {
     if (status === 'taken') {
-      return { label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+      return statusStyle({ label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText });
     }
 
     if (status === 'skipped') {
-      return { label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+      return statusStyle({ label: 'Skipped', bgColor: colors.surface, textColor: colors.body });
     }
 
-    return { label: 'Missed', bgColor: '#2C1E12', textColor: colors.warning };
+    return statusStyle({ label: 'Missed', bgColor: '#2C1E12', textColor: colors.warning });
   }
 
   if (status === 'taken') {
-    return { label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
+    return statusStyle({ label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' });
   }
 
   if (status === 'skipped') {
-    return { label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' };
+    return statusStyle({ label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' });
   }
 
-  return { label: 'Missed', bgColor: '#FED7AA', textColor: '#9A3412' };
+  return statusStyle({ label: 'Missed', bgColor: '#FED7AA', textColor: '#9A3412' });
 };
 
 export const buildMedGroups = (records) =>

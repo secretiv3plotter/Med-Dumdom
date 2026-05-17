@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import {
   formatDate,
@@ -14,6 +15,23 @@ import {
 } from '../utils/medTrackerHistoryUtils';
 
 const PILL_RADIUS = moderateScale(999);
+
+function HistoryDeleteButton({ onPress, accessibilityLabel = 'Delete record' }) {
+  return (
+    <View style={styles.iconActionCol}>
+      <Pressable
+        onPress={onPress}
+        unstable_pressDelay={0}
+        style={({ pressed }) => [styles.iconActionBtn, pressed && styles.iconActionPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
+      </Pressable>
+      <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
+    </View>
+  );
+}
 
 export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
   return (

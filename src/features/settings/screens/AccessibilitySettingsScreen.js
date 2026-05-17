@@ -45,7 +45,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   const [settings, setSettings] = useState(() =>
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
-  const { setTextScale, setDarkModeEnabled } = useTextScale();
+  const { setTextScale, setDarkModeEnabled, setColorBlindModeEnabled, setHapticEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
   const footerNav = useScrollAwareFooterNav();
 
@@ -59,7 +59,19 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     setInputValue(nextScale.toFixed(1));
     setTextScale(nextScale);
     setDarkModeEnabled(Boolean(settings.darkModeEnabled));
-  }, [settings.textScale, settings.textSizeLevel, settings.darkModeEnabled, setTextScale, setDarkModeEnabled]);
+    setColorBlindModeEnabled(Boolean(settings.colorBlindModeEnabled));
+    setHapticEnabled(Boolean(settings.hapticEnabled ?? true));
+  }, [
+    settings.textScale,
+    settings.textSizeLevel,
+    settings.darkModeEnabled,
+    settings.colorBlindModeEnabled,
+    settings.hapticEnabled,
+    setTextScale,
+    setDarkModeEnabled,
+    setColorBlindModeEnabled,
+    setHapticEnabled,
+  ]);
 
   const commitTextScale = (value) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -97,6 +109,14 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
     if (toggleMethod === 'toggleDarkMode') {
       setDarkModeEnabled(updatedSettings.darkModeEnabled);
+    }
+
+    if (toggleMethod === 'toggleColorBlindMode') {
+      setColorBlindModeEnabled(updatedSettings.colorBlindModeEnabled);
+    }
+
+    if (toggleMethod === 'toggleHaptic') {
+      setHapticEnabled(updatedSettings.hapticEnabled ?? true);
     }
   };
 

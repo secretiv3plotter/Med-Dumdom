@@ -1,7 +1,13 @@
 import { colors } from '../../../shared/theme';
-import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+import { getThemeMode, THEME_MODE_DARK, transformThemeValue } from '../../../shared/theme/palette';
 
 const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+const themeColor = (value, key) => transformThemeValue(value, undefined, key);
+const statusStyle = (style) => ({
+  ...style,
+  bgColor: themeColor(style.bgColor, 'backgroundColor'),
+  textColor: themeColor(style.textColor, 'color'),
+});
 
 export const startOfToday = () => {
   const today = new Date();
@@ -92,46 +98,46 @@ export const getApptStatusStyle = (appointment, now = new Date()) => {
 
   if (isDarkMode()) {
     if (status === 'completed' || status === 'due') {
-      return { status, label: status === 'due' ? 'Due now' : 'Completed', bgColor: '#0F2A1B', textColor: '#86EFAC' };
+      return statusStyle({ status, label: status === 'due' ? 'Due now' : 'Completed', bgColor: '#0F2A1B', textColor: '#86EFAC' });
     }
 
     if (status === 'skipped') {
-      return { status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+      return statusStyle({ status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body });
     }
 
     if (status === 'missed') {
-      return { status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error };
+      return statusStyle({ status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error });
     }
 
     if (status === 'pending') {
-      return { status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning };
+      return statusStyle({ status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning });
     }
 
-    return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body };
+    return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body });
   }
 
   // Accessible color palette conforming to WCAG AA contrast ratio requirements
   if (status === 'completed') {
-    return { status, label: 'Completed', bgColor: '#D1FAE5', textColor: '#064E3B' }; // Soft green background on deep green text
+    return statusStyle({ status, label: 'Completed', bgColor: '#D1FAE5', textColor: '#064E3B' }); // Soft green background on deep green text
   }
 
   if (status === 'skipped') {
-    return { status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }; // Soft neutral gray on charcoal text
+    return statusStyle({ status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }); // Soft neutral gray on charcoal text
   }
 
   if (status === 'missed') {
-    return { status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }; // Softer red on dark burgundy text
+    return statusStyle({ status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }); // Softer red on dark burgundy text
   }
 
   if (status === 'pending') {
-    return { status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }; // Soft amber on deep warm amber text
+    return statusStyle({ status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }); // Soft amber on deep warm amber text
   }
 
   if (status === 'due') {
-    return { status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }; // Mint green on dark forest green text
+    return statusStyle({ status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }); // Mint green on dark forest green text
   }
 
-  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' };
+  return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' });
 };
 
 export const buildApptSearchText = (appointment) => [

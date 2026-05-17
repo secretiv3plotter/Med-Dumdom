@@ -368,12 +368,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ThemedScrollView
-        contentContainerStyle={styles.content}
-        onLayout={footerNav.onLayout}
-        onContentSizeChange={footerNav.onContentSizeChange}
-        onScroll={footerNav.onScroll}
-      >
+      <ThemedScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {!pinHeader ? headerBlock : null}
         {historyRecords.length ? (
           <>

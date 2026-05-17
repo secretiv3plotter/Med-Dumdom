@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { scaleFontSize } from '../../../shared/theme/textScale';
+import { useHapticFeedback } from '../../../shared/hooks/useHapticFeedback';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import {
   completedScheduleStyle,
@@ -141,6 +142,7 @@ function SchedulePreviewCard({
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
   const scheduleDayLabel = getScheduleDayLabel(entry);
   const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
+  const { triggerImpact, triggerSuccess } = useHapticFeedback();
 
   const isHourly = !!entry.intervalMinutes;
   const lastActionMessage = isHourly ? getLastActionMessage(medicine) : null;
@@ -191,6 +193,7 @@ function SchedulePreviewCard({
           <ActionButton
             label="Revert Status"
             onPress={(event) => {
+              triggerImpact();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'clear');
             }}
@@ -207,6 +210,7 @@ function SchedulePreviewCard({
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={(event) => {
+              triggerImpact();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'skipped');
             }}
@@ -215,6 +219,7 @@ function SchedulePreviewCard({
           <ActionButton
             label="Taken"
             onPress={(event) => {
+              triggerSuccess();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'taken');
             }}

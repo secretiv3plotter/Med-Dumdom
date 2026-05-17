@@ -1,7 +1,14 @@
 import { colors } from '../../../shared/theme';
-import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+import { getThemeMode, THEME_MODE_DARK, transformThemeValue } from '../../../shared/theme/palette';
 
 const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+const themeColor = (value, key) => transformThemeValue(value, undefined, key);
+const statusStyle = (style) => ({
+  ...style,
+  bgColor: themeColor(style.bgColor, 'backgroundColor'),
+  badgeBgColor: style.badgeBgColor ? themeColor(style.badgeBgColor, 'backgroundColor') : style.badgeBgColor,
+  textColor: themeColor(style.textColor, 'color'),
+});
 
 export const capitalize = (value) => String(value || '')
   .trim()
@@ -451,50 +458,50 @@ export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()
 
   if (isDarkMode()) {
     if (status === 'taken') {
-      return { status, label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+      return statusStyle({ status, label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText });
     }
 
     if (status === 'missed') {
-      return { status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error };
+      return statusStyle({ status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error });
     }
 
     if (status === 'skipped') {
-      return { status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+      return statusStyle({ status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body });
     }
 
     if (status === 'due') {
-      return { status, label: 'Due now', bgColor: '#0F2A1B', textColor: colors.success };
+      return statusStyle({ status, label: 'Due now', bgColor: '#0F2A1B', textColor: colors.success });
     }
 
     if (status === 'pending') {
-      return { status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning };
+      return statusStyle({ status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning });
     }
 
-    return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body };
+    return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body });
   }
 
   // Accessible color palette conforming to standard WCAG AA contrast ratio requirements
   if (status === 'taken') {
-    return { status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }; // Sky Blue on Navy (contrast 6.3+)
+    return statusStyle({ status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }); // Sky Blue on Navy (contrast 6.3+)
   }
 
   if (status === 'missed') {
-    return { status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }; // Soft Red on Dark Crimson (contrast 6.5+)
+    return statusStyle({ status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }); // Soft Red on Dark Crimson (contrast 6.5+)
   }
 
   if (status === 'skipped') {
-    return { status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }; // Light Gray on Charcoal (neutral, contrast 6.0+)
+    return statusStyle({ status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }); // Light Gray on Charcoal (neutral, contrast 6.0+)
   }
 
   if (status === 'due') {
-    return { status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }; // Mint Green on Forest Green (contrast 7.1+)
+    return statusStyle({ status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }); // Mint Green on Forest Green (contrast 7.1+)
   }
 
   if (status === 'pending') {
-    return { status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }; // Soft Amber on Deep Brown (contrast 6.1+)
+    return statusStyle({ status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }); // Soft Amber on Deep Brown (contrast 6.1+)
   }
 
-  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' };
+  return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' });
 };
 
 export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = new Date()) => {
@@ -531,13 +538,13 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
 export const completedScheduleStyle = {
   status: 'completed',
   label: 'Completed',
-  bgColor: '#d1fae56c',
-  textColor: '#064E3B',
+  get bgColor() { return themeColor('#d1fae56c', 'backgroundColor'); },
+  get textColor() { return themeColor('#064E3B', 'color'); },
 };
 
 export const missedPreviewStyle = {
-  bgColor: '#FEE2E2',
-  textColor: '#991B1B',
+  get bgColor() { return themeColor('#FEE2E2', 'backgroundColor'); },
+  get textColor() { return themeColor('#991B1B', 'color'); },
 };
 
 export const formatRelativeDateLabel = (value, now = new Date()) => {
@@ -940,4 +947,3 @@ export const getMedicineStatusForSorting = (medicine, now = new Date()) => {
 
   return 'upcoming';
 };
-
