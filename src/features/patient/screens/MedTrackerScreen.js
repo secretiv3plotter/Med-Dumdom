@@ -32,6 +32,9 @@ import {
   parsePositiveInteger,
   startOfToday,
   sumDoseSizes,
+  combineDateAndTime,
+  getNextHourOClock,
+  getMedicineStatusForSorting,
 } from '../utils/medTrackerUtils';
 
 const DEFAULT_UNITS = [
@@ -55,6 +58,7 @@ const EMPTY_FORM = {
   unit: '',
   totalDailyAmount: '',
   startDate: '',
+  startTime: '',
   endDate: '',
   instructions: '',
   prescriberContact: '',
@@ -74,6 +78,16 @@ const getDaysForMonth = (monthOfYear) => {
   return monthIndex === -1 ? 31 : new Date(new Date().getFullYear(), monthIndex + 1, 0).getDate();
 };
 
+const getInitialScheduleDraft = (scheduleType) => ({
+  doseSize: '',
+  scheduledTime: '',
+  intervalHours: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 1 : '',
+  intervalMinutes: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 0 : '',
+  dayOfWeek: '',
+  monthOfYear: '',
+  dayOfMonth: '',
+});
+
 const EMPTY_SCHEDULE_DRAFT = {
   doseSize: '',
   scheduledTime: '',
@@ -92,15 +106,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [editorStep, setEditorStep] = useState(MEDICINE_EDITOR_STEPS.DETAILS);
   const [selectedScheduleType, setSelectedScheduleType] = useState(MEDICINE_SCHEDULE_TYPES.DAILY);
   const [formState, setFormState] = useState(EMPTY_FORM);
-  const [scheduleDraft, setScheduleDraft] = useState(() => ({
-    doseSize: '',
-    scheduledTime: '',
-    intervalHours: '',
-    intervalMinutes: '',
-    dayOfWeek: '',
-    monthOfYear: '',
-    dayOfMonth: '',
-  }));
+  const [scheduleDraft, setScheduleDraft] = useState(() => getInitialScheduleDraft(MEDICINE_SCHEDULE_TYPES.DAILY));
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const [formError, setFormError] = useState('');
@@ -174,19 +180,28 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ? medicines.filter((medicine) => buildMedicineSearchText(medicine).includes(normalizedQuery))
       : medicines;
 
-    return [...visibleMedicines].sort((left, right) => {
-      const createdTimeDifference = getSortTime(right.createdAt) - getSortTime(left.createdAt);
-      if (createdTimeDifference !== 0) {
-        return createdTimeDifference;
-      }
+    const STATUS_RANKS = {
+      due: 1,
+      pending: 2,
+      upcoming: 3,
+      missed: 4,
+      completed: 5,
+    };
 
-      if (left.isTaken !== right.isTaken) {
-        return left.isTaken ? 1 : -1;
+    return [...visibleMedicines].sort((left, right) => {
+      const leftStatus = getMedicineStatusForSorting(left, observedNow);
+      const rightStatus = getMedicineStatusForSorting(right, observedNow);
+
+      const leftRank = STATUS_RANKS[leftStatus] || 99;
+      const rightRank = STATUS_RANKS[rightStatus] || 99;
+
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
       }
 
       return left.medName.localeCompare(right.medName);
     });
-  }, [medicines, searchQuery]);
+  }, [medicines, searchQuery, observedNow]);
 
   const hasActiveSearch = useMemo(() => normalizeSearchText(searchQuery).length > 0, [searchQuery]);
 
@@ -211,15 +226,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
     setFormError('');
     setFormState(EMPTY_FORM);
-    setScheduleDraft({
-      doseSize: '',
-      scheduledTime: '',
-      intervalHours: '',
-      intervalMinutes: '',
-      dayOfWeek: '',
-      monthOfYear: '',
-      dayOfMonth: '',
-    });
+    setScheduleDraft(getInitialScheduleDraft(MEDICINE_SCHEDULE_TYPES.DAILY));
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -228,15 +235,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const openCreateEditor = () => {
     setFormError('');
     setFormState(EMPTY_FORM);
-    setScheduleDraft({
-      doseSize: '',
-      scheduledTime: '',
-      intervalHours: '',
-      intervalMinutes: '',
-      dayOfWeek: '',
-      monthOfYear: '',
-      dayOfMonth: '',
-    });
+    setScheduleDraft(getInitialScheduleDraft(MEDICINE_SCHEDULE_TYPES.DAILY));
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -254,32 +253,25 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setFormError('');
     setFormState(buildFormStateFromMedicine(selectedMedicine));
     setScheduleEntries(buildScheduleEntriesFromMedicine(selectedMedicine));
-    setScheduleDraft({
-      doseSize: '',
-      scheduledTime: '',
-      intervalHours: '',
-      intervalMinutes: '',
-      dayOfWeek: '',
-      monthOfYear: '',
-      dayOfMonth: '',
-    });
+
+    const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
+    const hasMonthlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.monthOfYear);
+    const hasHourlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.intervalMinutes);
+    const targetScheduleType = hasHourlyItem
+      ? MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
+      : hasMonthlyItem
+      ? MEDICINE_SCHEDULE_TYPES.MONTHLY
+      : hasWeeklyItem
+        ? MEDICINE_SCHEDULE_TYPES.WEEKLY
+        : MEDICINE_SCHEDULE_TYPES.DAILY;
+
+    setScheduleDraft(getInitialScheduleDraft(targetScheduleType));
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('edit');
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
-    const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
-    const hasMonthlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.monthOfYear);
-    const hasHourlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.intervalMinutes);
-    setSelectedScheduleType(
-      hasHourlyItem
-        ? MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
-        : hasMonthlyItem
-        ? MEDICINE_SCHEDULE_TYPES.MONTHLY
-        : hasWeeklyItem
-          ? MEDICINE_SCHEDULE_TYPES.WEEKLY
-          : MEDICINE_SCHEDULE_TYPES.DAILY
-    );
+    setSelectedScheduleType(targetScheduleType);
   };
 
   const onTabNavigate = (tabKey) => {
@@ -444,9 +436,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+    const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00') || new Date();
     const activatedAt = isHourly
-      ? new Date(Date.now() - intervalTotalMinutes * 60000).toISOString()
-      : new Date().toISOString();
+      ? new Date(combinedStart.getTime() - intervalTotalMinutes * 60000).toISOString()
+      : combinedStart.toISOString();
     const scheduleStatusDefaults = {
       status: 'pending',
       takenAt: null,
@@ -504,15 +497,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     setScheduleEntries((current) => [...current, ...nextEntries]);
     setFormError('');
-    setScheduleDraft({
-      doseSize: '',
-      scheduledTime: '',
-      intervalHours: '',
-      intervalMinutes: '',
-      dayOfWeek: '',
-      monthOfYear: '',
-      dayOfMonth: '',
-    });
+    setScheduleDraft(getInitialScheduleDraft(selectedScheduleType));
   };
 
   const saveInlineScheduleEntry = (indexToUpdate, updatedFields) => {
@@ -604,7 +589,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       }
 
       if (current === indexToRemove) {
-        setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+        setScheduleDraft(getInitialScheduleDraft(selectedScheduleType));
         return null;
       }
 
@@ -657,12 +642,12 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const medName = formState.medName.trim();
     const unitStrength = formState.unitStrength.trim();
     const unit = formState.unit.trim();
-    const startDate = parseDateInput(formState.startDate);
+    const isHourly = scheduleEntries.some((entry) => entry.intervalMinutes);
+    const startDate = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00');
     const endDateText = formState.endDate.trim();
     const endDate = endDateText ? parseDateInput(endDateText) : null;
     const instructions = formState.instructions.trim();
     const prescriberContact = formState.prescriberContact.trim();
-
     if (!medName || !unit || !startDate) {
       setFormError('Complete the required medication fields.');
       return;
@@ -710,12 +695,23 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     const totalDailyAmount = sumDoseSizes(scheduleEntries);
 
+    // Recalculate/normalize activatedAt for hourly schedule entries based on final combined startDate
+    const updatedScheduleEntries = scheduleEntries.map((entry) => {
+      if (entry.intervalMinutes && !entry.activatedAt) {
+        return {
+          ...entry,
+          activatedAt: new Date(startDate.getTime() - entry.intervalMinutes * 60000).toISOString(),
+        };
+      }
+      return entry;
+    });
+
     const payload = {
       medName,
       unitStrength,
       unit,
       totalDailyAmount,
-      dailySched: scheduleEntries,
+      dailySched: updatedScheduleEntries,
       startDate,
       endDate,
       instructions,

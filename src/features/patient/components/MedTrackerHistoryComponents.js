@@ -10,6 +10,7 @@ import {
   formatTakenAmount,
   getStatusStyle,
   getTakenAmountForRecords,
+  getCalculatedDailyAmountForRecord,
 } from '../utils/medTrackerHistoryUtils';
 
 const PILL_RADIUS = moderateScale(999);
@@ -62,12 +63,14 @@ function DetailRow({ label, value }) {
 
 export function MedicineDetailsCard({ medicine }) {
   const totalTaken = formatDoseWithUnit(getTakenAmountForRecords(medicine.records), medicine.unit);
+  const firstRecord = medicine.records?.[0] || medicine;
+  const calculatedDailyAmount = getCalculatedDailyAmountForRecord(firstRecord);
 
   return (
     <View style={styles.detailsCard}>
       <Text style={styles.detailsTitle}>{medicine.medName}</Text>
       <DetailRow label="Unit strength" value={medicine.unitStrength || '--'} />
-      <DetailRow label="Total daily amount" value={`${medicine.totalDailyAmount} ${medicine.unit} per day`} />
+      <DetailRow label="Total daily amount" value={`${calculatedDailyAmount} ${medicine.unit} per day`} />
       <DetailRow label="Start date" value={formatDate(medicine.startDate)} />
       <DetailRow label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
       <DetailRow label="Instructions" value={medicine.instructions || '--'} />

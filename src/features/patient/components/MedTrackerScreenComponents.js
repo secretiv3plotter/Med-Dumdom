@@ -20,6 +20,11 @@ import {
   formatIntervalMinutes,
   isUpcomingScheduleTomorrow,
   missedPreviewStyle,
+  getLastActionMessage,
+  getIntervalScheduleTime,
+  formatDoseWithUnit,
+  getCalculatedDailyAmount,
+  formatTime,
 } from '../utils/medTrackerUtils';
 
 const PILL_RADIUS = moderateScale(999);
@@ -44,17 +49,17 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
   const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${medicine.medName} details`}
-      unstable_pressDelay={0}
-      onPress={onOpen}
-      style={({ pressed }) => [
-        styles.medicineListItem,
-        pressed && styles.pressedCard,
-      ]}
-    >
-      <View style={styles.medicineListHeader}>
+    <View style={styles.medicineListItem}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${medicine.medName} details`}
+        unstable_pressDelay={0}
+        onPress={onOpen}
+        style={({ pressed }) => [
+          styles.medicineListHeader,
+          pressed && styles.pressedHeader,
+        ]}
+      >
         <View style={styles.cardHeaderBlock}>
           <Text 
             style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
@@ -68,7 +73,7 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
             {formatMedicineMeta(medicine)}
           </Text>
         </View>
-      </View>
+      </Pressable>
 
       <View style={styles.schedulePreviewList}>
         {previewState.type === 'completed' ? <CompletedPreviewCard /> : null}
@@ -88,7 +93,7 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
           ))
         ) : null}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -143,6 +148,9 @@ function SchedulePreviewCard({
   const scheduleDayLabel = getScheduleDayLabel(entry);
   const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
 
+  const isHourly = !!entry.intervalMinutes;
+  const lastActionMessage = isHourly ? getLastActionMessage(medicine) : null;
+
   return (
     <View
       style={[
@@ -152,23 +160,53 @@ function SchedulePreviewCard({
       ]}
     >
       <View style={styles.scheduleCardRow}>
-        <ScheduleEntryText entry={entry} unit={medicine.unit} dayLabel={dayLabel} />
+        <Text style={styles.scheduleCardTitle}>
+          Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, medicine.unit)}</Text>
+        </Text>
         <StatusBadge statusStyle={statusStyle} />
       </View>
 
-      {isTaken ? (
-        <Text style={styles.scheduleMetaText}>
-          Taken {formatDateTime(entry.takenAt)}
-        </Text>
+      <Text style={styles.scheduleMetaText}>
+        At {isHourly ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+      </Text>
+
+      {!isHourly ? (
+        <>
+          {isTaken ? (
+            <Text style={styles.scheduleMetaText}>
+              Taken {formatDateTime(entry.takenAt)}
+            </Text>
+          ) : null}
+
+          {entry.status === 'skipped' ? (
+            <Text style={styles.scheduleMetaText}>
+              Skipped {formatDateTime(entry.skippedAt)}
+            </Text>
+          ) : null}
+
+          {statusStyle.status === 'upcoming' && latestTakenAt ? (
+            <Text style={styles.scheduleMetaText}>
+              {formatLastTakenMessage(latestTakenAt)}
+            </Text>
+          ) : null}
+        </>
       ) : null}
 
-      {statusStyle.status === 'upcoming' && latestTakenAt ? (
-        <Text style={styles.scheduleMetaText}>
-          {formatLastTakenMessage(latestTakenAt)}
-        </Text>
-      ) : null}
-
-      {canSelectStatus ? (
+      {!isHourly && (entry.status === 'taken' || entry.status === 'skipped') ? (
+        <View style={styles.scheduleActionRow}>
+          <ActionButton
+            label="Revert Status"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onScheduleStatusChange(medicine, index, 'clear');
+            }}
+            variant="outline"
+            style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            textStyle={styles.revertStatusButtonText}
+            preserveFontSize
+          />
+        </View>
+      ) : canSelectStatus ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
@@ -195,11 +233,20 @@ function SchedulePreviewCard({
 }
 
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
+  const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
+  const sectionLabelText = intervalEntry
+    ? `Hourly interval schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
+    : (medicine.dailySched || []).some(e => e.monthOfYear)
+    ? 'Monthly schedule'
+    : (medicine.dailySched || []).some(e => e.dayOfWeek)
+    ? 'Weekly schedule'
+    : 'Daily schedule';
+
   return (
     <>
       <DetailItem label="Medication name" value={medicine.medName} />
       <DetailItem label="Unit strength" value={medicine.unitStrength || '--'} />
-      <DetailItem label="Total daily amount" value={`${medicine.totalDailyAmount} ${medicine.unit}`} />
+      <DetailItem label="Total daily amount" value={`${getCalculatedDailyAmount(medicine)} ${medicine.unit}`} />
       <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
       <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
       <DetailItem label="Instructions" value={medicine.instructions || '--'} />
@@ -207,7 +254,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
 
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>
-          {(medicine.dailySched || []).some(e => e.intervalMinutes) ? 'Hourly interval schedule' : ((medicine.dailySched || []).some(e => e.monthOfYear) ? 'Monthly schedule' : ((medicine.dailySched || []).some(e => e.dayOfWeek) ? 'Weekly schedule' : 'Daily schedule'))}
+          {sectionLabelText}
         </Text>
         {getSchedulesEarliestToLatest(medicine.dailySched).map(({ entry, index }) => (
           <View key={`${medicine.medEntryId}-schedule-${index}`} style={styles.scheduleCardWrapper}>
@@ -218,11 +265,6 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
               observedNow={observedNow}
               onScheduleStatusChange={onScheduleStatusChange}
             />
-            {isIntervalScheduleEntry(entry) ? (
-              <Text style={styles.scheduleIntervalNote}>
-                Every {formatIntervalMinutes(entry.intervalMinutes)}
-              </Text>
-            ) : null}
           </View>
         ))}
       </View>
@@ -249,9 +291,15 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
       isResolved ? styles.resolvedScheduleCard : { backgroundColor: scheduleStatus.bgColor },
     ]}>
       <View style={styles.scheduleCardRow}>
-        <ScheduleEntryText entry={entry} unit={medicine.unit} dayLabel={dayLabel} />
+        <Text style={styles.scheduleCardTitle}>
+          Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, medicine.unit)}</Text>
+        </Text>
         <StatusBadge statusStyle={scheduleStatus} />
       </View>
+
+      <Text style={styles.scheduleMetaText}>
+        At {isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+      </Text>
 
       {isTaken ? (
         <Text style={styles.scheduleMetaText}>
@@ -397,11 +445,14 @@ const styles = StyleSheet.create({
     borderColor: colors.brand,
     borderRadius: radius.xl,
     padding: spacing.md,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   pressedCard: {
     backgroundColor: '#C7DBFF',
     borderColor: colors.brandText,
+  },
+  pressedHeader: {
+    opacity: 0.7,
   },
   medicineListHeader: {
     flexDirection: 'row',
@@ -467,7 +518,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.xxs,
   },
   scheduleCardWrapper: {
     gap: spacing.xs,
@@ -478,7 +529,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm,
   },
   scheduleCardInList: {
-    padding: spacing.sm,
+    padding: spacing.xs,
   },
   resolvedScheduleCard: {
     backgroundColor: colors.surface,
@@ -552,5 +603,8 @@ const styles = StyleSheet.create({
   },
   segmentButtonTextSelected: {
     color: colors.brandText,
+  },
+  scheduleTextStrong: {
+    fontWeight: '700',
   },
 });

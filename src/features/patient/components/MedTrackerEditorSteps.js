@@ -9,7 +9,7 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import { SegmentButton } from './MedTrackerScreenComponents';
 import { MEDICINE_SCHEDULE_TYPE_OPTIONS, MEDICINE_SUB_INTERVAL_OPTIONS } from '../constants/medTrackerEditorSteps';
-import { capitalize, getScheduleDayLabel, startOfToday } from '../utils/medTrackerUtils';
+import { capitalize, getScheduleDayLabel, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -404,6 +404,10 @@ export function MedicineScheduleStep({
     (!isHourly || !hasHourlySchedule)
   );
 
+  const calculatedDailyAmount = isHourly && scheduleDraft.doseSize && intervalTotalMinutes > 0
+    ? Math.floor(1440 / intervalTotalMinutes) * Number(scheduleDraft.doseSize)
+    : null;
+
   return (
     <>
       <View style={styles.formColumn}>
@@ -412,9 +416,25 @@ export function MedicineScheduleStep({
           placeholder="Select start date"
           accessibilityLabel="Start date"
           value={formState.startDate}
-          onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
+          onChange={(value) => setFormState((current) => {
+            const nextState = { ...current, startDate: value };
+            if (value && !nextState.startTime) {
+              nextState.startTime = getNextHourOClock();
+            }
+            return nextState;
+          })}
           minimumDate={startOfToday()}
         />
+        {isHourly && formState.startDate ? (
+          <NativeDateTimeField
+            mode="time"
+            label="Start time"
+            placeholder="Select start time"
+            accessibilityLabel="Start time"
+            value={formState.startTime}
+            onChange={(value) => setFormState((current) => ({ ...current, startTime: value }))}
+          />
+        ) : null}
         <NativeDateTimeField
           label="End date"
           placeholder="Select end date (optional)"
@@ -478,21 +498,28 @@ export function MedicineScheduleStep({
           )}
 
           {isHourly ? (
-            <NativeDateTimeField
-              mode="duration"
-              label="Time Period"
-              placeholder="Select time period"
-              accessibilityLabel="Time Period"
-              value={hasSelectedInterval ? formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes) : ''}
-              onChange={(value) => {
-                const nextInterval = parseIntervalValue(value);
-                setScheduleDraft((current) => ({
-                  ...current,
-                  intervalHours: nextInterval.hours,
-                  intervalMinutes: nextInterval.minutes,
-                }));
-              }}
-            />
+            <>
+              <NativeDateTimeField
+                mode="duration"
+                label="Time Period"
+                placeholder="Select time period"
+                accessibilityLabel="Time Period"
+                value={hasSelectedInterval ? formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes) : ''}
+                onChange={(value) => {
+                  const nextInterval = parseIntervalValue(value);
+                  setScheduleDraft((current) => ({
+                    ...current,
+                    intervalHours: nextInterval.hours,
+                    intervalMinutes: nextInterval.minutes,
+                  }));
+                }}
+              />
+              {calculatedDailyAmount !== null && !Number.isNaN(calculatedDailyAmount) ? (
+                <Text style={[styles.fieldSubcaption, { color: colors.brand, fontWeight: '700', marginTop: spacing.xxs || 4 }]}>
+                  Calculated daily dosage: {calculatedDailyAmount} {formState.unit || 'units'} per day
+                </Text>
+              ) : null}
+            </>
           ) : (
             <NativeDateTimeField
               mode="time"
@@ -536,20 +563,22 @@ export function MedicineScheduleStep({
                   />
                   {editingScheduleIndex === null ? (
                     <View style={styles.scheduleEditActions}>
-                      <View style={styles.iconActionCol}>
-                        <Pressable
-                          onPress={() => onEditScheduleEntry(index)}
-                          style={({ pressed }) => [
-                            styles.iconActionBtn,
-                            pressed && styles.iconActionPressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Edit schedule item ${index + 1}`}
-                        >
-                          <Ionicons name="create-outline" size={18} color={colors.brand} />
-                        </Pressable>
-                        <Text style={styles.iconActionLabel}>Edit</Text>
-                      </View>
+                      {!isHourly ? (
+                        <View style={styles.iconActionCol}>
+                          <Pressable
+                            onPress={() => onEditScheduleEntry(index)}
+                            style={({ pressed }) => [
+                              styles.iconActionBtn,
+                              pressed && styles.iconActionPressed,
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Edit schedule item ${index + 1}`}
+                          >
+                            <Ionicons name="create-outline" size={18} color={colors.brand} />
+                          </Pressable>
+                          <Text style={styles.iconActionLabel}>Edit</Text>
+                        </View>
+                      ) : null}
                       <View style={styles.iconActionCol}>
                         <Pressable
                           onPress={() => onDeleteScheduleEntry(index)}

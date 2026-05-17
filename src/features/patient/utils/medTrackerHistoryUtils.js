@@ -95,8 +95,20 @@ export const getTakenAmountForRecords = (records) =>
 export const formatTakenAmount = (records, unit, label = 'Taken') =>
   `${label}: ${formatDoseWithUnit(getTakenAmountForRecords(records), unit)}`;
 
+export const getCalculatedDailyAmountForRecord = (record) => {
+  const firstEntry = record.dailySchedFinalStatuses?.[0];
+  if (firstEntry && isIntervalScheduleEntry(firstEntry)) {
+    const doseSize = Number(firstEntry.doseSize || 0);
+    const interval = Number(firstEntry.intervalMinutes || 0);
+    if (interval > 0) {
+      return Math.floor(1440 / interval) * doseSize;
+    }
+  }
+  return record.totalDailyAmount;
+};
+
 export const formatMedicineMeta = (record) => {
-  const dailyAmountText = `${record.totalDailyAmount} ${record.unit} per day`;
+  const dailyAmountText = `${getCalculatedDailyAmountForRecord(record)} ${record.unit} per day`;
   return record.unitStrength ? `${record.unitStrength} - ${dailyAmountText}` : dailyAmountText;
 };
 
