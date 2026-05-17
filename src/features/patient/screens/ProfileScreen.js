@@ -140,13 +140,7 @@ export default function ProfileScreen({ navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.stickyTop}>
-          <View style={styles.topBar}>
-            <View style={styles.sideControl}>
-              <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
-            </View>
-            <Text style={styles.headerTitle}>My Profile</Text>
-            <View style={styles.sideControl} />
-          </View>
+          <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
         </View>
 
         <ScrollView
@@ -157,6 +151,12 @@ export default function ProfileScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>My Profile</Text>
+            <Text style={styles.subtitle}>
+              View and manage your personal information.
+            </Text>
+          </View>
           <TextCard cardStyle={styles.profileCardTop}>
             <View style={styles.avatarShell}>
               {displayPicture ? (
@@ -319,16 +319,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    minHeight: 48,
-  },
-  sideControl: {
-    width: 84,
-    alignItems: 'center',
-  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
@@ -339,13 +329,6 @@ const styles = StyleSheet.create({
   },
   contentWithKeyboard: {
     paddingBottom: spacing.xl,
-  },
-  headerTitle: {
-    ...typography.title,
-    textAlign: 'center',
-    alignSelf: 'center',
-    flex: 1,
-    color: colors.brand,
   },
   profileCardTop: {
     backgroundColor: colors.surface,
@@ -495,5 +478,20 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     color: colors.brandText,
+  },
+  title: {
+    ...typography.title,
+    color: colors.title,
+  },
+  headerBlock: {
+  alignItems: 'flex-start',
+  gap: spacing.xs,
+  marginBottom: spacing.sm,
+  },
+
+  subtitle: {
+    ...typography.body,
+    color: colors.bodyMuted,
+    textAlign: 'left',
   },
 });
