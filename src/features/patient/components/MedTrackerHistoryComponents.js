@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { DeleteButton } from '../../../shared/components/common/CrudButton';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import {
   formatDate,
@@ -15,6 +15,23 @@ import {
 
 const PILL_RADIUS = moderateScale(999);
 
+function HistoryDeleteButton({ onPress, accessibilityLabel = 'Delete record' }) {
+  return (
+    <View style={styles.iconActionCol}>
+      <Pressable
+        onPress={onPress}
+        unstable_pressDelay={0}
+        style={({ pressed }) => [styles.iconActionBtn, pressed && styles.iconActionPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
+      </Pressable>
+      <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
+    </View>
+  );
+}
+
 export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
   return (
     <Pressable
@@ -28,7 +45,8 @@ export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
         {subtitle ? <Text style={styles.optionSubtitle}>{subtitle}</Text> : null}
       </View>
       {onDelete ? (
-        <DeleteButton
+        <HistoryDeleteButton
+          accessibilityLabel={`Delete ${title}`}
           onPress={(event) => {
             event?.stopPropagation?.();
             onDelete();
@@ -118,7 +136,12 @@ export function DayRecordCard({ record, onDelete = null }) {
             {formatTakenAmount([record], record.unit, 'Taken this day')}
           </Text>
         </View>
-        {onDelete ? <DeleteButton onPress={() => onDelete(record)} /> : null}
+        {onDelete ? (
+          <HistoryDeleteButton
+            accessibilityLabel={`Delete record for ${record.medName}`}
+            onPress={() => onDelete(record)}
+          />
+        ) : null}
       </View>
 
       <View style={styles.scheduleList}>
@@ -206,6 +229,29 @@ const styles = StyleSheet.create({
   optionSubtitle: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  iconActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  iconActionCol: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxs || 2,
+  },
+  iconActionLabel: {
+    ...typography.bodySmall,
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.brand,
+    textAlign: 'center',
   },
   recordCard: {
     backgroundColor: colors.surface,

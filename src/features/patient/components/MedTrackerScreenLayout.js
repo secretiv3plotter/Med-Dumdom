@@ -132,8 +132,8 @@ export function MedicineDetailsPopup({
         ) : null
       }
       contentContainerStyle={styles.modalContent}
-      sheetStyle={[styles.medModalSheet, { backgroundColor: colors.surface }]}
-      headerStyle={[styles.medModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+      sheetStyle={styles.medModalSheet}
+      headerStyle={styles.medModalHeader}
     >
       {medicine ? (
         <>
@@ -190,8 +190,8 @@ export function MedicineEditorPopup({
         </View>
       }
       contentContainerStyle={styles.modalContent}
-      sheetStyle={[styles.medModalSheet, { backgroundColor: colors.surface }]}
-      headerStyle={[styles.medModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+      sheetStyle={styles.medModalSheet}
+      headerStyle={styles.medModalHeader}
     >
       <MedTrackerEditorContent
         editorMode={editorMode}
@@ -347,14 +347,15 @@ const styles = StyleSheet.create({
     borderColor: colors.brandText,
   },
   modalContent: {
+    backgroundColor: colors.surface,
     paddingBottom: spacing.xl + spacing.sm,
   },
   medModalSheet: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
   },
   medModalHeader: {
-    backgroundColor: '#E5E7EB',
-    borderBottomColor: '#9CA3AF',
+    backgroundColor: colors.surface,
+    borderBottomColor: colors.border,
   },
   detailsTitle: {
     ...typography.titleSmall,

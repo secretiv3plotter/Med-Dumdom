@@ -246,7 +246,6 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
   return (
     <>
       <DetailItem label="Medication name" value={medicine.medName} />
-      <DetailItem label="Unit strength" value={medicine.unitStrength || '--'} />
       <DetailItem label="Total daily amount" value={`${getCalculatedDailyAmount(medicine)} ${medicine.unit}`} />
       <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
       <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />

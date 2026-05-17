@@ -229,16 +229,17 @@ export default function NativeDateTimeField({
   focusBorderColor,
   focusBackgroundColor,
   focusTextColor,
+  pickerDefaultValue = '',
 }) {
   const [isPickerVisible, setPickerVisible] = useState(false);
   const usesCustomPicker = Platform.OS === 'web' || mode === 'day' || mode === 'month' || mode === 'monthDay' || mode === 'duration';
   const selectedDate = useMemo(() => {
-    const parsedValue = parseValue(value, mode) ?? new Date();
+    const parsedValue = parseValue(value, mode) ?? parseValue(pickerDefaultValue, mode) ?? new Date();
     if (mode !== 'date' || !(minimumDate instanceof Date) || parsedValue >= minimumDate) {
       return parsedValue;
     }
     return minimumDate;
-  }, [minimumDate, mode, value]);
+  }, [minimumDate, mode, pickerDefaultValue, value]);
 
   const displayValue = formatDisplayValue(value, mode);
   const resolvedPlaceholder = placeholder || (mode === 'day' ? 'Select day' : (mode === 'month' ? 'Select month' : (mode === 'monthDay' ? 'Select day' : (mode === 'duration' ? 'Select time period' : (mode === 'time' ? 'Select time' : 'Select date')))));
@@ -311,7 +312,7 @@ export default function NativeDateTimeField({
         setTypedTimeHour(pad2(currentVal.hours));
         setTypedTimeMinute(pad2(currentVal.minutes));
       } else if (Platform.OS === 'web') {
-        const currentVal = parseValue(value, mode) ?? new Date();
+        const currentVal = parseValue(value, mode) ?? parseValue(pickerDefaultValue, mode) ?? new Date();
         if (mode === 'date') {
           setTempYear(currentVal.getFullYear());
           setTempMonth(currentVal.getMonth());
@@ -335,7 +336,7 @@ export default function NativeDateTimeField({
       }
       setTypedPickerError('');
     }
-  }, [isPickerVisible, value, mode, monthValue, usesCustomPicker]);
+  }, [isPickerVisible, value, mode, monthValue, pickerDefaultValue, usesCustomPicker]);
 
   const commitValue = (date) => {
     onChange(mode === 'time' ? formatPickerTime(date) : formatPickerDate(date));

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import { DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
@@ -398,6 +397,7 @@ export function MedicineScheduleStep({
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
+    (!isHourly || String(formState.startTime || '').trim()) &&
     (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : String(scheduleDraft.scheduledTime || '').trim()) &&
     (!isWeekly || scheduleDraft.dayOfWeek) &&
     (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth)) &&
@@ -406,6 +406,12 @@ export function MedicineScheduleStep({
 
   const calculatedDailyAmount = isHourly && scheduleDraft.doseSize && intervalTotalMinutes > 0
     ? Math.floor(1440 / intervalTotalMinutes) * Number(scheduleDraft.doseSize)
+    : null;
+  const hourlyScheduleSummary = isHourly && String(scheduleDraft.doseSize || '').trim() && intervalTotalMinutes > 0
+    ? {
+        dose: `${String(scheduleDraft.doseSize).trim()} ${getDoseUnitLabel(formState.unit)}`,
+        interval: formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes),
+      }
     : null;
 
   return (
@@ -416,13 +422,7 @@ export function MedicineScheduleStep({
           placeholder="Select start date"
           accessibilityLabel="Start date"
           value={formState.startDate}
-          onChange={(value) => setFormState((current) => {
-            const nextState = { ...current, startDate: value };
-            if (value && !nextState.startTime) {
-              nextState.startTime = getNextHourOClock();
-            }
-            return nextState;
-          })}
+          onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
           minimumDate={startOfToday()}
         />
         {isHourly && formState.startDate ? (
@@ -433,6 +433,7 @@ export function MedicineScheduleStep({
             accessibilityLabel="Start time"
             value={formState.startTime}
             onChange={(value) => setFormState((current) => ({ ...current, startTime: value }))}
+            pickerDefaultValue={getNextHourOClock()}
           />
         ) : null}
         <NativeDateTimeField
@@ -453,7 +454,7 @@ export function MedicineScheduleStep({
           </Text>
 
           <Text style={styles.fieldSubcaption}>
-            How many {getDoseUnitLabel(formState.unit)} will you take for this dose?
+            How many {getDoseUnitLabel(formState.unit)} will you take for {isHourly ? 'every dose' : 'this dose'}?
           </Text>
           <InputBar
             placeholder="Dose"
@@ -528,6 +529,13 @@ export function MedicineScheduleStep({
             />
           )}
 
+          {hourlyScheduleSummary ? (
+            <Text style={styles.hourlyScheduleSummary}>
+              I will take <Text style={styles.hourlyScheduleSummaryStrong}>{hourlyScheduleSummary.dose}</Text> every{' '}
+              <Text style={styles.hourlyScheduleSummaryStrong}>{hourlyScheduleSummary.interval}</Text> hours
+            </Text>
+          ) : null}
+
           <View style={styles.footerActionsRow}>
             <ActionButton
               label={isHourly && scheduleEntries.length > 0 ? "Update schedule item" : "Add schedule item"}
@@ -571,9 +579,9 @@ export function MedicineScheduleStep({
                             accessibilityRole="button"
                             accessibilityLabel={`Edit schedule item ${index + 1}`}
                           >
-                            <Ionicons name="create-outline" size={18} color={colors.brand} />
+                            <Ionicons name="create-outline" size={18} color={colors.success} />
                           </Pressable>
-                          <Text style={styles.iconActionLabel}>Edit</Text>
+                          <Text style={[styles.iconActionLabel, { color: colors.success }]}>Edit</Text>
                         </View>
                       ) : null}
                       <View style={styles.iconActionCol}>
@@ -621,7 +629,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   footerActionsRow: {
-    marginTop: spacing.sm,
+    marginTop: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
@@ -650,6 +658,15 @@ const styles = StyleSheet.create({
   fieldSubcaption: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
+  },
+  hourlyScheduleSummary: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    textAlign: 'center',
+  },
+  hourlyScheduleSummaryStrong: {
+    fontWeight: '700',
+    color: colors.brandText,
   },
   scheduleCard: {
     backgroundColor: colors.surface,

@@ -9,6 +9,9 @@ const CIRCLE_SIZE = accessibility.minTouchTarget + spacing.xs;
 const DEFAULT_ICON_SIZE = spacing.lg;
 const EDIT_ICON_SIZE = moderateScale(40);
 const LABEL_LIFT = moderateScale(10);
+const HEADER_ACTION_SIZE = moderateScale(36);
+const HEADER_ACTION_ICON_SIZE = moderateScale(18);
+const HEADER_ACTION_LABEL_SIZE = 10;
 
 export default function CrudButton({
   label,
@@ -151,6 +154,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#C7DBFF',
     borderRadius: spacing.xs,
   },
+  headerActionContainer: {
+    minWidth: HEADER_ACTION_SIZE,
+    gap: spacing.xxs || 2,
+  },
+  headerActionCircle: {
+    width: HEADER_ACTION_SIZE,
+    height: HEADER_ACTION_SIZE,
+    backgroundColor: '#F1F5F9',
+  },
+  headerActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  headerEditText: {
+    color: colors.success,
+    fontSize: HEADER_ACTION_LABEL_SIZE,
+    fontWeight: '600',
+  },
+  headerDeleteText: {
+    color: colors.error,
+    fontSize: HEADER_ACTION_LABEL_SIZE,
+    fontWeight: '600',
+  },
 });
 
 export function AddButton(props) {
@@ -164,9 +189,12 @@ export function EditButton(props) {
       label="Edit"
       icon="create-outline"
       variant="outline"
-      iconSize={EDIT_ICON_SIZE}
-      circleStyle={[{ paddingLeft: scaleLayoutValue(moderateScale(4)) }, props.circleStyle]}
-      textStyle={[{ marginTop: -scaleLayoutValue(LABEL_LIFT) }, props.textStyle]}
+      iconSize={HEADER_ACTION_ICON_SIZE}
+      iconColorOverride={colors.success}
+      style={[styles.headerActionContainer, props.style]}
+      circleStyle={[styles.headerActionCircle, props.circleStyle]}
+      pressedStyle={styles.headerActionPressed}
+      textStyle={[styles.headerEditText, props.textStyle]}
     />
   );
 }
@@ -185,5 +213,18 @@ export function CancelButton(props) {
 }
 
 export function DeleteButton(props) {
-  return <CrudButton label="Delete" icon="trash" variant="redSolid" {...props} />;
+  return (
+    <CrudButton
+      {...props}
+      label="Delete"
+      icon="trash-outline"
+      variant="outline"
+      iconSize={HEADER_ACTION_ICON_SIZE}
+      iconColorOverride={colors.error}
+      style={[styles.headerActionContainer, props.style]}
+      circleStyle={[styles.headerActionCircle, props.circleStyle]}
+      pressedStyle={styles.headerActionPressed}
+      textStyle={[styles.headerDeleteText, props.textStyle]}
+    />
+  );
 }

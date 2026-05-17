@@ -44,7 +44,7 @@ export default function ThemedScrollView({
     : 0;
   const trackColor = darkModeEnabled ? DARK_TRACK_COLOR : LIGHT_TRACK_COLOR;
   const thumbColor = darkModeEnabled ? colors.brand : colors.brandText;
-  const showCustomScrollbar = darkModeEnabled && hasScrollableContent;
+  const showCustomScrollbar = showsVerticalScrollIndicator !== false && darkModeEnabled && hasScrollableContent;
 
   return (
     <View style={[styles.shell, style]}>

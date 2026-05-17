@@ -33,7 +33,6 @@ import {
   startOfToday,
   sumDoseSizes,
   combineDateAndTime,
-  getNextHourOClock,
   getMedicineStatusForSorting,
 } from '../utils/medTrackerUtils';
 
@@ -446,6 +445,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
 
     const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+    if (isHourly && !formState.startTime) {
+      setFormError('Select a start time.');
+      return;
+    }
+
     const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00') || new Date();
     const activatedAt = isHourly
       ? new Date(combinedStart.getTime() - intervalTotalMinutes * 60000).toISOString()
