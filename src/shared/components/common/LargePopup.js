@@ -86,6 +86,7 @@ export default function LargePopup({
             pointerEvents="auto"
             contentContainerStyle={[styles.content, { flexGrow: 1 }, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
+            showCustomScrollbar={false}
             keyboardShouldPersistTaps="always"
             nestedScrollEnabled
           >
