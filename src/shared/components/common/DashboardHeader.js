@@ -37,6 +37,7 @@ export default function DashboardHeader({
       <View style={styles.rightGroup}>
         <HelpButton
           label="Settings"
+          truncateLabel
           icon="settings"
           iconSize={HEADER_ACTION_ICON_SIZE}
           iconColor={headerActionColor}
@@ -47,6 +48,7 @@ export default function DashboardHeader({
           disabled={settingsDisabled}
         />
         <HelpButton
+          truncateLabel
           onPress={onHelpPress}
           disabled={helpDisabled}
           icon="help-circle"
