@@ -401,7 +401,7 @@ export function MedicineScheduleStep({
     (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : String(scheduleDraft.scheduledTime || '').trim()) &&
     (!isWeekly || scheduleDraft.dayOfWeek) &&
     (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth)) &&
-    (!isHourly || !hasHourlySchedule)
+    (!isHourly || !hasHourlySchedule || scheduleEntries.length > 0)
   );
 
   const calculatedDailyAmount = isHourly && scheduleDraft.doseSize && intervalTotalMinutes > 0
@@ -446,9 +446,11 @@ export function MedicineScheduleStep({
         />
       </View>
 
-      {(scheduleEntries.length === 0 || !isHourly) ? (
+      {true ? (
         <View style={styles.scheduleBuilder}>
-          <Text style={styles.sectionLabel}>Create a schedule</Text>
+          <Text style={styles.sectionLabel}>
+            {isHourly && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule'}
+          </Text>
 
           <Text style={styles.fieldSubcaption}>
             How many {getDoseUnitLabel(formState.unit)} will you take for this dose?
@@ -514,11 +516,6 @@ export function MedicineScheduleStep({
                   }));
                 }}
               />
-              {calculatedDailyAmount !== null && !Number.isNaN(calculatedDailyAmount) ? (
-                <Text style={[styles.fieldSubcaption, { color: colors.brand, fontWeight: '700', marginTop: spacing.xxs || 4 }]}>
-                  Calculated daily dosage: {calculatedDailyAmount} {formState.unit || 'units'} per day
-                </Text>
-              ) : null}
             </>
           ) : (
             <NativeDateTimeField
@@ -533,7 +530,7 @@ export function MedicineScheduleStep({
 
           <View style={styles.footerActionsRow}>
             <ActionButton
-              label="Add schedule item"
+              label={isHourly && scheduleEntries.length > 0 ? "Update schedule item" : "Add schedule item"}
               variant="solid"
               onPress={onSaveScheduleEntry}
               disabled={!isScheduleDraftComplete}

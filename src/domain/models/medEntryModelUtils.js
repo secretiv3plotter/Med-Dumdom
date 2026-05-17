@@ -193,9 +193,6 @@ export const getIntervalOccurrenceDateTime = (entry, dateValue = new Date()) => 
   const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
   const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
   if (currentDate.getTime() < firstDueAt.getTime()) {
-    if (currentDate.getTime() >= activatedAt.getTime()) {
-      return activatedAt;
-    }
     return null;
   }
 
