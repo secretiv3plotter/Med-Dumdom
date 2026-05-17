@@ -3,7 +3,9 @@ import HelpButton from '../header/HelpButton';
 import ProfileButton from '../header/ProfileButton';
 import { colors, moderateScale, spacing } from '../../theme';
 
-const SETTINGS_ICON_SIZE = moderateScale(48);
+const HEADER_ACTION_ICON_SIZE = moderateScale(30);
+const HELP_ICON_SIZE = moderateScale(34);
+const HEADER_ACTION_ICON_BASE_OFFSET = { marginBottom: moderateScale(-6) };
 
 export default function DashboardHeader({
   onHelpPress,
@@ -26,11 +28,17 @@ export default function DashboardHeader({
       </View>
 
       <View style={styles.rightGroup}>
-        <HelpButton onPress={onHelpPress} disabled={helpDisabled} />
+        <HelpButton
+          onPress={onHelpPress}
+          disabled={helpDisabled}
+          iconSize={HELP_ICON_SIZE}
+          iconWrapStyle={HEADER_ACTION_ICON_BASE_OFFSET}
+        />
         <HelpButton
           label="Settings"
           icon="settings-outline"
-          iconSize={SETTINGS_ICON_SIZE}
+          iconSize={HEADER_ACTION_ICON_SIZE}
+          iconWrapStyle={HEADER_ACTION_ICON_BASE_OFFSET}
           onPress={onSettingsPress}
           disabled={settingsDisabled}
         />
@@ -53,6 +61,6 @@ const styles = StyleSheet.create({
   rightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
 });
