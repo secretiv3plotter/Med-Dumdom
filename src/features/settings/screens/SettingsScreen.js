@@ -170,17 +170,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   stickyTop: {
-    position: 'absolute',
-    top: BACK_HEADER_TOP_OFFSET,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
-    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
   },
   content: {
     padding: spacing.lg,
-    paddingTop: BACK_HEADER_RESERVED_HEIGHT,
     paddingBottom: 40,
     gap: spacing.md,
   },

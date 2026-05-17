@@ -26,12 +26,10 @@ import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import TextCard from '../../../shared/components/common/TextCard';
-import SettingsButton from '../components/SettingsButton';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
-const SETTINGS_ICON_SIZE = moderateScale(48);
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -147,12 +145,7 @@ export default function ProfileScreen({ navigation }) {
               <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
             </View>
             <Text style={styles.headerTitle}>My Profile</Text>
-            <View style={styles.settingsControl}>
-              <SettingsButton
-                iconSize={SETTINGS_ICON_SIZE}
-                onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: returnRoute })}
-              />
-            </View>
+            <View style={styles.sideControl} />
           </View>
         </View>
 
@@ -335,13 +328,6 @@ const styles = StyleSheet.create({
   sideControl: {
     width: 84,
     alignItems: 'center',
-  },
-  settingsControl: {
-    width: 100,
-    alignItems: 'flex-end',
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-
   },
   content: {
     paddingHorizontal: spacing.lg,
