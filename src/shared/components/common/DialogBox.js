@@ -69,22 +69,22 @@ export default function DialogBox({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#E8EFF1',
-    borderRadius: moderateScale(22),
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
+    borderRadius: moderateScale(16),
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
   },
   title: {
-    ...typography.title,
+    ...typography.titleSmall,
     color: colors.title,
     textAlign: 'center',
   },
   message: {
-    ...typography.titleSmall,
+    ...typography.body,
     fontWeight: '400',
     color: colors.body,
     textAlign: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xxs,
   },
   fieldsContainer: {
     gap: spacing.sm,
@@ -108,15 +108,15 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   actionSlot: {
     flex: 1,
   },
   actionButton: {
     flex: 0,
-    borderRadius: moderateScale(26),
-    paddingVertical: spacing.sm,
+    borderRadius: moderateScale(18),
+    paddingVertical: spacing.xs,
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 5,
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   actionButtonText: {
-    ...typography.button,
+    ...typography.body,
     fontWeight: '600',
   },
   outlineActionButtonText: {

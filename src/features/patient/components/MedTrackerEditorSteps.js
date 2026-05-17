@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import { DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
@@ -29,8 +30,88 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
         accessibilityRole="button"
         accessibilityLabel={`Delete unit ${label}`}
       >
-        <Text style={styles.unitDeleteBadgeText}>×</Text>
+        <Ionicons name="close" size={14} color="#D32F2F" />
       </Pressable>
+    </View>
+  );
+}
+
+function InlineScheduleEditor({ entry, index, isWeekly, onSave, onCancel }) {
+  const [doseSize, setDoseSize] = useState(String(entry.doseSize));
+  const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
+  const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || 'Monday');
+  const [error, setError] = useState('');
+
+  const handleSave = () => {
+    const trimmed = doseSize.trim();
+    if (!trimmed) {
+      setError('Enter a valid dose size.');
+      return;
+    }
+    setError('');
+    const errMsg = onSave(index, { doseSize: trimmed, scheduledTime, dayOfWeek });
+    if (errMsg) {
+      setError(errMsg);
+    }
+  };
+
+  return (
+    <View style={styles.inlineEditorContainer}>
+      <View style={styles.inlineInputsRow}>
+        <View style={styles.inlineDoseCol}>
+          <InputBar
+            placeholder="Dose"
+            keyboardType="number-pad"
+            value={doseSize}
+            onChangeText={(val) => {
+              setDoseSize(val);
+              setError('');
+            }}
+          />
+        </View>
+        <View style={styles.inlineTimeCol}>
+          <NativeDateTimeField
+            mode="time"
+            placeholder="Select time"
+            accessibilityLabel="Time"
+            value={scheduledTime}
+            onChange={(val) => {
+              setScheduledTime(val);
+              setError('');
+            }}
+          />
+        </View>
+      </View>
+      {isWeekly && (
+        <View style={{ marginBottom: spacing.sm }}>
+          <NativeDateTimeField
+            mode="day"
+            label="Day of week"
+            placeholder="Select day"
+            accessibilityLabel="Day of week"
+            value={dayOfWeek}
+            onChange={(val) => {
+              setDayOfWeek(val);
+              setError('');
+            }}
+          />
+        </View>
+      )}
+      {error ? <Text style={styles.inlineErrorText}>{error}</Text> : null}
+      <View style={styles.inlineActionsRow}>
+        <ActionButton
+          label="Cancel"
+          variant="outline"
+          onPress={onCancel}
+          style={styles.inlineBtn}
+        />
+        <ActionButton
+          label="Save"
+          variant="solid"
+          onPress={handleSave}
+          style={styles.inlineBtn}
+        />
+      </View>
     </View>
   );
 }
@@ -192,6 +273,7 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
 
 export function MedicineScheduleStep({
   editorMode,
+  selectedScheduleType,
   formState,
   scheduleDraft,
   scheduleEntries,
@@ -200,6 +282,7 @@ export function MedicineScheduleStep({
   setScheduleDraft,
   onCancelScheduleEdit,
   onSaveScheduleEntry,
+  onSaveInlineScheduleEntry,
   onEditScheduleEntry,
   onDeleteScheduleEntry,
 }) {
@@ -235,6 +318,17 @@ export function MedicineScheduleStep({
           onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
         />
 
+        {Boolean(selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly') && (
+          <NativeDateTimeField
+            mode="day"
+            label="Day of week"
+            placeholder="Select day"
+            accessibilityLabel="Day of week"
+            value={scheduleDraft.dayOfWeek}
+            onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
+          />
+        )}
+
         <NativeDateTimeField
           mode="time"
           label="Time"
@@ -245,11 +339,8 @@ export function MedicineScheduleStep({
         />
 
         <View style={styles.footerActionsRow}>
-          {editingScheduleIndex !== null ? (
-            <ActionButton label="Cancel edit" variant="outline" onPress={onCancelScheduleEdit} />
-          ) : null}
           <ActionButton
-            label={editingScheduleIndex === null ? 'Add schedule item' : 'Update schedule item'}
+            label="Add schedule item"
             variant="solid"
             onPress={onSaveScheduleEntry}
           />
@@ -259,17 +350,67 @@ export function MedicineScheduleStep({
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>Added schedule items</Text>
         {scheduleEntries.length ? (
-          scheduleEntries.map((entry, index) => (
-            <View key={`${editorMode || 'create'}-schedule-${index}`} style={styles.scheduleCard}>
-              <View style={styles.scheduleCardRow}>
-                <ScheduleEntryText entry={entry} unit={formState.unit} />
-                <View style={styles.scheduleEditActions}>
-                  <EditButton onPress={() => onEditScheduleEntry(index)} />
-                  <DeleteButton onPress={() => onDeleteScheduleEntry(index)} />
+          scheduleEntries.map((entry, index) => {
+            const isEditing = editingScheduleIndex === index;
+            return (
+              <View
+                key={`${editorMode || 'create'}-schedule-${index}`}
+                style={[
+                  styles.scheduleCard,
+                  isEditing && styles.scheduleCardEditing,
+                ]}
+              >
+                <View style={styles.scheduleCardRow}>
+                  <ScheduleEntryText
+                    entry={entry}
+                    unit={formState.unit}
+                    dayLabel={entry.dayOfWeek ? `on ${entry.dayOfWeek}` : ''}
+                  />
+                  {editingScheduleIndex === null ? (
+                    <View style={styles.scheduleEditActions}>
+                      <View style={styles.iconActionCol}>
+                        <Pressable
+                          onPress={() => onEditScheduleEntry(index)}
+                          style={({ pressed }) => [
+                            styles.iconActionBtn,
+                            pressed && styles.iconActionPressed,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit schedule item ${index + 1}`}
+                        >
+                          <Ionicons name="create-outline" size={18} color={colors.brand} />
+                        </Pressable>
+                        <Text style={styles.iconActionLabel}>Edit</Text>
+                      </View>
+                      <View style={styles.iconActionCol}>
+                        <Pressable
+                          onPress={() => onDeleteScheduleEntry(index)}
+                          style={({ pressed }) => [
+                            styles.iconActionBtn,
+                            pressed && styles.iconActionPressed,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete schedule item ${index + 1}`}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
+                        </Pressable>
+                        <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
+                {isEditing ? (
+                  <InlineScheduleEditor
+                    entry={entry}
+                    index={index}
+                    isWeekly={selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly'}
+                    onSave={onSaveInlineScheduleEntry}
+                    onCancel={onCancelScheduleEdit}
+                  />
+                ) : null}
               </View>
-            </View>
-          ))
+            );
+          })
         ) : (
           <Text style={styles.emptyScheduleText}>No schedule items added yet.</Text>
         )}
@@ -314,6 +455,16 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
+  scheduleCardEditing: {
+    borderColor: colors.brand,
+    borderWidth: 2,
+    backgroundColor: colors.brandSoft,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   scheduleCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -323,7 +474,29 @@ const styles = StyleSheet.create({
   scheduleEditActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  iconActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  iconActionCol: {
+    alignItems: 'center',
+    gap: spacing.xxs || 2,
+  },
+  iconActionLabel: {
+    ...typography.bodySmall,
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.brand,
+    textAlign: 'center',
   },
   emptyScheduleText: {
     ...typography.bodySmall,
@@ -400,13 +573,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: spacing.xxs,
   },
-  unitDeleteBadgeText: {
-    color: '#D32F2F',
-    fontSize: 14,
-    fontWeight: 'bold',
-    lineHeight: 18,
-    textAlign: 'center',
-  },
   customUnitAdderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -470,5 +636,35 @@ const styles = StyleSheet.create({
   },
   nestedTypeCaptionSelected: {
     color: '#0055B3',
+  },
+  inlineEditorContainer: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  inlineInputsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  inlineDoseCol: {
+    flex: 1,
+  },
+  inlineTimeCol: {
+    flex: 2,
+  },
+  inlineActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  inlineBtn: {
+    minWidth: 80,
+  },
+  inlineErrorText: {
+    ...typography.bodySmall,
+    color: colors.error,
+    fontWeight: '700',
   },
 });

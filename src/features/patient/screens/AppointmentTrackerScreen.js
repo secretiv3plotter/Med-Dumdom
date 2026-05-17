@@ -93,6 +93,8 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     });
   }, [appointments, searchQuery]);
 
+  const hasActiveSearch = useMemo(() => normalizeSearchText(searchQuery).length > 0, [searchQuery]);
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -265,12 +267,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                 }}
                 onStatusChange={handleScheduleStatusChange}
               />
-          )) : (
+          )) : hasActiveSearch ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No appointments found.</Text>
               <Text style={styles.emptyText}>Try another concern, doctor, date, place, or status.</Text>
             </View>
-          )}
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Review previous records"

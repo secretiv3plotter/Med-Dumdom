@@ -319,6 +319,6 @@ const styles = StyleSheet.create({
   },
   confirmDialog: {
     width: '85%',
-    maxWidth: 400,
+    maxWidth: 360,
   },
 });

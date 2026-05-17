@@ -35,6 +35,7 @@ export function MedTrackerHeader({ onBack, onCreate }) {
 export function MedicineListSection({
   footerNavHeight,
   medicines,
+  hasActiveSearch,
   observedNow,
   searchQuery,
   onSearchChange,
@@ -62,12 +63,12 @@ export function MedicineListSection({
             onOpen={() => onOpenMedicine(medicine)}
             onScheduleStatusChange={onScheduleStatusChange}
           />
-        )) : (
+        )) : hasActiveSearch ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No medicines found.</Text>
             <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
           </View>
-        )}
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Review previous records"
@@ -146,6 +147,7 @@ export function MedicineEditorPopup({
   onSelectScheduleType,
   onCancelScheduleEdit,
   onSaveScheduleEntry,
+  onSaveInlineScheduleEntry,
   onEditScheduleEntry,
   onDeleteScheduleEntry,
   onCancel,
@@ -183,6 +185,7 @@ export function MedicineEditorPopup({
         onSelectScheduleType={onSelectScheduleType}
         onCancelScheduleEdit={onCancelScheduleEdit}
         onSaveScheduleEntry={onSaveScheduleEntry}
+        onSaveInlineScheduleEntry={onSaveInlineScheduleEntry}
         onEditScheduleEntry={onEditScheduleEntry}
         onDeleteScheduleEntry={onDeleteScheduleEntry}
         onCancel={onCancel}
@@ -343,7 +346,7 @@ const styles = StyleSheet.create({
   },
   confirmDialog: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 360,
   },
   topHeader: {
     backgroundColor: colors.pageBg,
