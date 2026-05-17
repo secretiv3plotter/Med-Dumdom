@@ -9,6 +9,7 @@ import {
   MedicineListSection,
   MedTrackerHeader,
 } from '../components/MedTrackerScreenLayout';
+import { MEDICINE_EDITOR_STEPS, MEDICINE_SCHEDULE_TYPES } from '../constants/medTrackerEditorSteps';
 import medTrackerService from '../../../domain/services/MedTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
@@ -53,19 +54,17 @@ const EMPTY_FORM = {
 };
 
 const EMPTY_SCHEDULE_DRAFT = {
-  scheduleType: 'time',
   doseSize: '',
   scheduledTime: '',
-  mealContext: 'before',
-  associatedMeal: 'breakfast',
-  mealTime: '',
 };
 
-export default function MedTrackerScreen({ navigation, realm = null }) {
+export default function MedTrackerScreen({ navigation, realm = null, trackerService = medTrackerService }) {
   const [version, setVersion] = useState(0);
   const [selectedMedicineId, setSelectedMedicineId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [editorMode, setEditorMode] = useState(null);
+  const [editorStep, setEditorStep] = useState(MEDICINE_EDITOR_STEPS.DETAILS);
+  const [selectedScheduleType, setSelectedScheduleType] = useState(MEDICINE_SCHEDULE_TYPES.DAILY);
   const [formState, setFormState] = useState(EMPTY_FORM);
   const [scheduleDraft, setScheduleDraft] = useState(EMPTY_SCHEDULE_DRAFT);
   const [scheduleEntries, setScheduleEntries] = useState([]);
@@ -79,8 +78,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
   const [observedNow, setObservedNow] = useState(() => new Date());
 
   const activeMedTrackerService = useMemo(
-    () => (realm ? new RealmMedTrackerRepository(realm) : medTrackerService),
-    [realm],
+    () => (realm ? new RealmMedTrackerRepository(realm) : trackerService),
+    [realm, trackerService],
   );
 
   const medicines = useMemo(() => activeMedTrackerService.listMedEntries(CURRENT_USER_ID), [activeMedTrackerService, version]);
@@ -127,6 +126,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
 
   const resetEditor = () => {
     setEditorMode(null);
+    setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
+    setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
     setFormError('');
     setFormState(EMPTY_FORM);
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
@@ -144,6 +145,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('create');
+    setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
+    setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
   };
 
   const openEditEditor = () => {
@@ -159,6 +162,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
     setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('edit');
+    setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
+    setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
   };
 
   const onTabNavigate = (tabKey) => {
@@ -184,7 +189,7 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       return;
     }
 
-    activeMedTrackerService.softDeleteMedEntry(CURRENT_USER_ID, pendingDeleteMedicine.medEntryId);
+    activeMedTrackerService.deleteMedEntry(CURRENT_USER_ID, pendingDeleteMedicine.medEntryId);
     setPendingDeleteMedicine(null);
     setIsDetailsVisible(false);
     setSelectedMedicineId(null);
@@ -254,36 +259,17 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       skippedAt: null,
       activatedAt,
     };
-    let nextEntry;
-    if (scheduleDraft.scheduleType === 'meal') {
-      const mealTime = normalizeTimeInput(scheduleDraft.mealTime);
-      if (!mealTime || !scheduleDraft.mealContext || !scheduleDraft.associatedMeal) {
-        setFormError('Fill in meal context, associated meal, and meal time.');
-        return;
-      }
-
-      nextEntry = {
-        scheduleType: 'meal',
-        doseSize,
-        mealContext: scheduleDraft.mealContext,
-        associatedMeal: scheduleDraft.associatedMeal,
-        mealTime,
-        ...scheduleStatusDefaults,
-      };
-    } else {
-      const scheduledTime = normalizeTimeInput(scheduleDraft.scheduledTime);
-      if (!scheduledTime) {
-        setFormError('Enter a valid scheduled time.');
-        return;
-      }
-
-      nextEntry = {
-        scheduleType: 'time',
-        doseSize,
-        scheduledTime,
-        ...scheduleStatusDefaults,
-      };
+    const scheduledTime = normalizeTimeInput(scheduleDraft.scheduledTime);
+    if (!scheduledTime) {
+      setFormError('Enter a valid scheduled time.');
+      return;
     }
+
+    const nextEntry = {
+      doseSize,
+      scheduledTime,
+      ...scheduleStatusDefaults,
+    };
 
     if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, editingScheduleIndex)) {
       setFormError('This schedule item already exists.');
@@ -337,6 +323,38 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       return current > indexToRemove ? current - 1 : current;
     });
     setPendingDeleteScheduleIndex(null);
+  };
+
+  const goToScheduleTypeStep = () => {
+    const medName = formState.medName.trim();
+    const unit = formState.unit.trim();
+
+    if (!medName || !unit) {
+      setFormError('Complete the required medicine details.');
+      return;
+    }
+
+    setFormError('');
+    setEditorStep(MEDICINE_EDITOR_STEPS.SCHEDULE_TYPE);
+  };
+
+  const goToScheduleStep = () => {
+    if (selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY) {
+      setFormError('Only daily schedules are available right now.');
+      return;
+    }
+
+    setFormError('');
+    setEditorStep(MEDICINE_EDITOR_STEPS.SCHEDULE);
+  };
+
+  const goToPreviousEditorStep = () => {
+    setFormError('');
+    setEditorStep((currentStep) => (
+      currentStep === MEDICINE_EDITOR_STEPS.SCHEDULE
+        ? MEDICINE_EDITOR_STEPS.SCHEDULE_TYPE
+        : MEDICINE_EDITOR_STEPS.DETAILS
+    ));
   };
 
   const saveMedicine = () => {
@@ -447,6 +465,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
       <MedicineEditorPopup
         visible={editorMode === 'create' || editorMode === 'edit'}
         editorMode={editorMode}
+        editorStep={editorStep}
+        selectedScheduleType={selectedScheduleType}
         formState={formState}
         scheduleDraft={scheduleDraft}
         scheduleEntries={scheduleEntries}
@@ -454,6 +474,10 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         formError={formError}
         setFormState={setFormState}
         setScheduleDraft={setScheduleDraft}
+        onSelectScheduleType={(value) => {
+          setSelectedScheduleType(value);
+          setFormError('');
+        }}
         onCancelScheduleEdit={() => {
           setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
           setEditingScheduleIndex(null);
@@ -462,6 +486,8 @@ export default function MedTrackerScreen({ navigation, realm = null }) {
         onEditScheduleEntry={editScheduleEntry}
         onDeleteScheduleEntry={requestDeleteScheduleEntry}
         onCancel={resetEditor}
+        onPreviousStep={goToPreviousEditorStep}
+        onNextStep={editorStep === MEDICINE_EDITOR_STEPS.DETAILS ? goToScheduleTypeStep : goToScheduleStep}
         onSaveMedicine={saveMedicine}
       />
 

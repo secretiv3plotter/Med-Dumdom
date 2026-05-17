@@ -177,5 +177,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingVertical: 0,
     includeFontPadding: false,
+    outlineStyle: 'none',
   },
 });

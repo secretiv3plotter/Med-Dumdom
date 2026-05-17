@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import {
   formatDate,
   formatIsoDateTime,
@@ -15,6 +15,21 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
   const statusStyle = getApptStatusStyle(appointment, observedNow);
   const canSelectStatus = appointment.isScheduleActionAvailable?.(observedNow, observedNow);
 
+  const concern = appointment.concern || '';
+  const baseFontSize = typography.body?.fontSize || 16;
+  let numericBaseFontSize = 16;
+
+  if (typeof baseFontSize === 'string') {
+    const parsedRem = parseFloat(baseFontSize);
+    numericBaseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 16;
+  } else {
+    numericBaseFontSize = baseFontSize;
+  }
+
+  // Dynamic scale down for long appointment concerns so they never wrap/crop on narrow viewports
+  const dynamicFontSize = concern.length > 14 ? Math.max(11, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = getFontSize(dynamicFontSize);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -28,11 +43,18 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
     >
       <View style={styles.appointmentListHeader}>
         <View style={styles.cardHeaderBlock}>
-          <Text style={styles.cardHeaderName}>{appointment.concern}</Text>
-          <Text style={styles.cardHeaderMeta}>
+          <Text 
+            style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {appointment.concern}
+          </Text>
+          <Text style={styles.cardHeaderMeta} numberOfLines={1}>
             {`${formatDate(appointment.dateSched)} at ${formatTime(appointment.timeSched)}`}
           </Text>
-          <Text style={styles.cardHeaderMeta}>{appointment.address}</Text>
+          <Text style={styles.cardHeaderMeta} numberOfLines={1}>{appointment.address}</Text>
         </View>
         <StatusBadge statusStyle={statusStyle} />
       </View>
@@ -114,10 +136,33 @@ export function AppointmentDetailsContent({ appointment, observedNow, onStatusCh
 }
 
 function StatusBadge({ statusStyle }) {
+  const label = statusStyle.label || '';
+  const baseFontSize = typography.bodySmall?.fontSize || 12;
+  let numericBaseFontSize = 12;
+
+  if (typeof baseFontSize === 'string') {
+    const parsedRem = parseFloat(baseFontSize);
+    numericBaseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 12;
+  } else {
+    numericBaseFontSize = baseFontSize;
+  }
+
+  // Dynamic scale down for long status badge labels inside appointment preview cards
+  const dynamicFontSize = label.length > 7 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = getFontSize(dynamicFontSize);
+
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>
-      <Text style={[styles.statusText, { color: statusStyle.textColor }]}>
-        {statusStyle.label}
+      <Text 
+        style={[
+          styles.statusText, 
+          { color: statusStyle.textColor, fontSize: finalFontSize }
+        ]} 
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {label}
       </Text>
     </View>
   );
@@ -138,6 +183,7 @@ const styles = StyleSheet.create({
   },
   appointmentListHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
@@ -174,5 +220,6 @@ const styles = StyleSheet.create({
   scheduleActionButton: {
     minWidth: moderateScale(82),
     flexGrow: 1,
+    flexShrink: 1,
   },
 });

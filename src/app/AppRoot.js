@@ -1,122 +1,115 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Font from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
-import {
-  SHOULD_CLEAR_SEED_MED_DATA,
-  SHOULD_SEED_MED_TRACKER_DATA,
-  clearMedTrackerSeedData,
-  seedMedTrackerTestData,
-} from '../localdb/realm/seedMedTrackerTestData';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
+
+// Keep the native splash screen visible while loading resources
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function applyStyleOverrides(element, overrides) {
+  if (!element) {
+    return () => {};
+  }
+
+  const previousValues = {};
+  Object.keys(overrides).forEach((key) => {
+    previousValues[key] = element.style[key];
+    element.style[key] = overrides[key];
+  });
+
+  return () => {
+    Object.keys(previousValues).forEach((key) => {
+      element.style[key] = previousValues[key];
+    });
+  };
+}
+
+function useWebViewportLock() {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const viewportStyles = {
+      width: '100%',
+      height: '100%',
+      margin: '0',
+      overflow: 'hidden',
+    };
+    const rootStyles = {
+      width: '100%',
+      height: '100dvh',
+      overflow: 'hidden',
+    };
+
+    const cleanupHtml = applyStyleOverrides(document.documentElement, viewportStyles);
+    const cleanupBody = applyStyleOverrides(document.body, viewportStyles);
+    const cleanupRoot = applyStyleOverrides(document.getElementById('root'), rootStyles);
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      input:focus, textarea:focus, select:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+
+    return () => {
+      cleanupRoot();
+      cleanupBody();
+      cleanupHtml();
+      if (styleEl && styleEl.parentNode) {
+        styleEl.parentNode.removeChild(styleEl);
+      }
+    };
+  }, []);
+}
 
 function AppContent() {
   const realm = useRealm();
   const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
   const currentEntry = history[history.length - 1];
-  const currentRoute = currentEntry?.routeName;
-  const currentParams = currentEntry?.params ?? {};
-
-  const navigateTo = (routeName, params = {}) => {
-    setHistory((previousHistory) => {
-      const activeEntry = previousHistory[previousHistory.length - 1];
-      const sameRoute = activeEntry?.routeName === routeName;
-      const sameParams = JSON.stringify(activeEntry?.params ?? {}) === JSON.stringify(params);
-
-      if (sameRoute && sameParams) {
-        return previousHistory;
-      }
-
-      if (sameRoute) {
-        return [...previousHistory.slice(0, -1), { routeName, params }];
-      }
-
-      return [...previousHistory, { routeName, params }];
-    });
-  };
-
-  const goBack = () => {
-    setHistory((previousHistory) => {
-      if (previousHistory.length <= 1) {
-        return previousHistory;
-      }
-
-      return previousHistory.slice(0, -1);
-    });
-  };
-
-  const goToHardwareBackTarget = () => {
-    if (currentRoute === ROUTES.HOME || currentRoute === ROUTES.CAREGIVER_HOME) {
-      return true;
-    }
-
-    if (currentRoute === ROUTES.MED_TRACKER || currentRoute === ROUTES.APPOINTMENT_TRACKER) {
-      navigateTo(ROUTES.HOME);
-      return true;
-    }
-
-    if (currentRoute === ROUTES.MED_TRACKER_HISTORY) {
-      navigateTo(ROUTES.MED_TRACKER);
-      return true;
-    }
-
-    if (currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY) {
-      navigateTo(ROUTES.APPOINTMENT_TRACKER);
-      return true;
-    }
-
-    if (currentRoute === ROUTES.HELP_AND_SUPPORT || currentRoute === ROUTES.PROFILE) {
-      navigateTo(currentParams.returnTo || ROUTES.HOME);
-      return true;
-    }
-
-    if (currentRoute === ROUTES.SETTINGS) {
-      if (currentParams.returnTo) {
-        navigateTo(ROUTES.PROFILE, { returnTo: currentParams.returnTo });
-      } else {
-        navigateTo(ROUTES.PROFILE);
-      }
-      return true;
-    }
-
-    if (history.length > 1) {
-      goBack();
-      return true;
-    }
-
-    return true;
-  };
+  const currentRoute = currentEntry.routeName;
 
   const navigation = useMemo(
     () => ({
-      navigate: navigateTo,
-      goBack,
-      canGoBack: history.length > 1,
       currentRoute,
-      currentParams,
+      currentParams: currentEntry.params,
+      navigate: (routeName, params = {}) => {
+        setHistory((prev) => [...prev, { routeName, params }]);
+      },
+      goBack: () => {
+        setHistory((prev) => {
+          if (prev.length <= 1) {
+            return prev;
+          }
+          return prev.slice(0, -1);
+        });
+      },
     }),
-    [history, currentRoute, currentParams],
+    [currentRoute, currentEntry.params]
   );
 
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', goToHardwareBackTarget);
+    const onBackPress = () => {
+      if (history.length > 1) {
+        navigation.goBack();
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [currentRoute, currentParams, history.length]);
+  }, [history, navigation]);
 
-  useEffect(() => {
-    if (SHOULD_CLEAR_SEED_MED_DATA) {
-      clearMedTrackerSeedData(realm);
-      return;
-    }
-
-    if (SHOULD_SEED_MED_TRACKER_DATA) {
-      seedMedTrackerTestData(realm);
-    }
-  }, [realm]);
-
-  const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.CAREGIVER_HOME];
+  const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
   const screenProps =
     currentRoute === ROUTES.MED_TRACKER ||
     currentRoute === ROUTES.MED_TRACKER_HISTORY ||
@@ -126,17 +119,94 @@ function AppContent() {
       : { navigation };
 
   return (
-    <SafeAreaProvider>
+    <>
       <CurrentScreen {...screenProps} />
       <StatusBar style="dark" />
-    </SafeAreaProvider>
+    </>
   );
 }
 
 export default function AppRoot() {
+  useWebViewportLock();
+  const { width: windowWidth } = useWindowDimensions();
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadResources() {
+      try {
+        // Load local Helvetica custom font dynamically (cross-platform compliant)
+        await Font.loadAsync({
+          'Helvetica': require('../assets/font/Helvetica.ttf'),
+        });
+      } catch (e) {
+        console.warn('Font loading failed:', e);
+      } finally {
+        setFontsLoaded(true);
+        await SplashScreen.hideAsync().catch(() => {});
+      }
+    }
+    loadResources();
+  }, []);
+
+  const isWebDesktop = Platform.OS === 'web' && windowWidth > 1025;
+
+  const content = (
+    <SafeAreaProvider style={styles.appShell}>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+
+  if (!fontsLoaded) {
+    return null; // Hold splash screen until font resources are ready
+  }
+
+  if (isWebDesktop) {
+    return (
+      <RealmProvider>
+        <View style={styles.webDesktopBackground}>
+          <View style={styles.phoneFrame}>
+            {content}
+          </View>
+        </View>
+      </RealmProvider>
+    );
+  }
+
   return (
     <RealmProvider>
-      <AppContent />
+      {content}
     </RealmProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  appShell: {
+    flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
+  },
+  webDesktopBackground: {
+    flex: 1,
+    backgroundColor: '#0F172A', // Sleek dark slate
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  phoneFrame: {
+    width: 420,
+    height: 860,
+    maxHeight: '95%', // Prevent overflow on short screens
+    borderRadius: 36,
+    borderWidth: 10,
+    borderColor: '#1E293B', // Border bezel matching phone body
+    overflow: 'hidden',
+    backgroundColor: '#ECEFF4',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+});

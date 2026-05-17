@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../theme';
 
 function isBoldStyle(style) {
   const flattened = StyleSheet.flatten(style);
@@ -45,23 +45,23 @@ function forceBoldTextStyle(node, boldStyle) {
       return child;
     }
 
-    const isText = child.type === Text;
-    const nextChildren =
-      child.props && child.props.children
-        ? forceBoldTextStyle(child.props.children, boldStyle)
-        : child.props?.children;
+  const isText = child.type === Text;
+  const nextChildren =
+    child.props && child.props.children
+      ? forceBoldTextStyle(child.props.children, boldStyle)
+      : child.props?.children;
 
-    const nextProps = {};
+  const nextProps = {};
 
-    if (isText && isBoldStyle(child.props?.style) && shouldApplyBoldStyle(child.props?.style, boldStyle.fontSize)) {
-      nextProps.style = child.props?.style ? [child.props.style, boldStyle] : boldStyle;
-    }
+  if (isText && isBoldStyle(child.props?.style) && shouldApplyBoldStyle(child.props?.style, boldStyle.fontSize)) {
+    nextProps.style = child.props?.style ? [child.props.style, boldStyle] : boldStyle;
+  }
 
-    if (nextChildren !== child.props?.children) {
-      nextProps.children = nextChildren;
-    }
+  if (nextChildren !== child.props?.children) {
+    nextProps.children = nextChildren;
+  }
 
-    return React.cloneElement(child, nextProps);
+  return React.cloneElement(child, nextProps);
   });
 }
 
@@ -95,6 +95,37 @@ export default function ClickableCard({
   const titleIsBold = isBoldStyle([styles.title, titleStyle]);
   const shouldLockTitleSize = shouldApplyBoldStyle([styles.title, titleStyle], styles.boldText.fontSize);
 
+  // Dynamic font sizing & line-height calculation to prevent long words from breaking/cropping
+  const baseTitleStyle = StyleSheet.flatten([styles.title, titleStyle]);
+  
+  // Extract fontSize safely, converting relative rem to numeric if parsed as a string on Web
+  let baseFontSize = 16;
+  if (baseTitleStyle?.fontSize) {
+    if (typeof baseTitleStyle.fontSize === 'string') {
+      const parsedRem = parseFloat(baseTitleStyle.fontSize);
+      baseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 16;
+    } else {
+      baseFontSize = baseTitleStyle.fontSize;
+    }
+  }
+
+  let dynamicFontSize = baseFontSize;
+
+  if (title && title.length > 10) {
+    if (size === 'portrait') {
+      // For narrow grid cards, scale down long titles/words dynamically to keep them clean
+      dynamicFontSize = Math.max(13, baseFontSize * 0.72); 
+    }
+  }
+
+  // Format final styles using relative rem on Web or raw pixels on Mobile
+  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalLineHeight = getLineHeight(
+    baseTitleStyle?.lineHeight 
+      ? Math.round(baseTitleStyle.lineHeight * (dynamicFontSize / baseFontSize)) 
+      : Math.round(dynamicFontSize * 1.25)
+  );
+
   const content = (
     <View
       style={[
@@ -125,7 +156,11 @@ export default function ClickableCard({
               titleStyle,
               titleIsBold && styles.titleLock,
               titleIsBold && shouldLockTitleSize && styles.boldText,
+              { fontSize: finalFontSize, lineHeight: finalLineHeight }
             ]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
           >
             {title}
           </Text>
@@ -225,8 +260,8 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   icon: {
-    fontSize: moderateScale(32),
-    lineHeight: moderateScale(34),
+    fontSize: getFontSize(32),
+    lineHeight: getLineHeight(34),
     color: colors.brandText,
   },
   iconLock: {
@@ -243,8 +278,8 @@ const styles = StyleSheet.create({
   },
   boldText: {
     color: colors.brandText,
-    fontSize: moderateScale(18),
-    lineHeight: moderateScale(24),
+    fontSize: getFontSize(18),
+    lineHeight: getLineHeight(24),
   },
   subtitle: {
     ...typography.bodySmall,

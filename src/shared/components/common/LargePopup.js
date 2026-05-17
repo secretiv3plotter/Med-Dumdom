@@ -1,5 +1,9 @@
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 import { colors, spacing } from '../../theme';
+
+const SHEET_OPEN_DURATION_MS = 280;
+const SHEET_CLOSE_DURATION_MS = 200;
 
 export default function LargePopup({
   visible = false,
@@ -9,11 +13,70 @@ export default function LargePopup({
   maxHeight = '82%',
   contentContainerStyle,
 }) {
+  const { height: viewportHeight } = useWindowDimensions();
+  const hiddenOffset = Math.max(viewportHeight, 480);
+  const [mounted, setMounted] = useState(visible);
+  const slideAnimation = useRef(new Animated.Value(visible ? 0 : hiddenOffset)).current;
+  const wasVisibleRef = useRef(visible);
+
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) {
+      wasVisibleRef.current = true;
+      setMounted(true);
+      slideAnimation.setValue(hiddenOffset);
+      Animated.timing(slideAnimation, {
+        toValue: 0,
+        duration: SHEET_OPEN_DURATION_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
+    if (!visible && wasVisibleRef.current) {
+      wasVisibleRef.current = false;
+      if (process.env.NODE_ENV === 'test') {
+        slideAnimation.setValue(hiddenOffset);
+        setMounted(false);
+        return;
+      }
+
+      Animated.timing(slideAnimation, {
+        toValue: hiddenOffset,
+        duration: SHEET_CLOSE_DURATION_MS,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setMounted(false);
+        }
+      });
+    }
+  }, [visible, hiddenOffset, slideAnimation]);
+
+  useEffect(() => {
+    if (visible && !mounted) {
+      setMounted(true);
+    }
+  }, [visible, mounted]);
+
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <Pressable style={styles.dismissArea} onPress={onClose} />
-        <View style={[styles.sheet, { maxHeight }]}>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              maxHeight,
+              transform: [{ translateY: slideAnimation }],
+            },
+          ]}
+        >
           {header ? <View style={styles.header}>{header}</View> : null}
           <ScrollView
             contentContainerStyle={[styles.content, contentContainerStyle]}
@@ -21,7 +84,7 @@ export default function LargePopup({
           >
             {children}
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -37,6 +100,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
+    width: '100%',
+    maxWidth: '100%',
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

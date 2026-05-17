@@ -56,5 +56,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.xs,
     flexDirection: 'row',
+    // Elegant upward-facing brand shadow/aura
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
   },
 });

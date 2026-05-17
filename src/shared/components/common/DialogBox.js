@@ -97,6 +97,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     color: colors.body,
+    outlineStyle: 'none',
   },
   errorText: {
     color: colors.error,

@@ -1,9 +1,9 @@
 import { createRealmContext } from '@realm/react';
-import { medTrackerRealmConfig } from './medTrackerSchemas';
+import { realmConfig } from './realmSchemas';
 
 export const {
   RealmProvider,
   useRealm,
   useObject,
   useQuery,
-} = createRealmContext(medTrackerRealmConfig);
+} = createRealmContext(realmConfig);

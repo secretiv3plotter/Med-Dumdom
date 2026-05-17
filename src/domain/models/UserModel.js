@@ -1,4 +1,4 @@
-// Write User as the base UserModel that only contains data and behavior shared by both Patient and Caregiver.
+// Write User as the base UserModel for the patient app.
 
 // In UserModel.js, put:
 
@@ -17,7 +17,6 @@
 // updateEmail(email)
 // getRole()
 // isPatient()
-// isCaregiver()
 
 // Do not put these in User as these are services that will be implemented in the future:
 
@@ -47,8 +46,8 @@ const normalizeRole = (value) => {
     return '';
   }
 
-  if (!['patient', 'caregiver'].includes(role)) {
-    throw new RangeError('role must be either patient or caregiver.');
+  if (role !== 'patient') {
+    throw new RangeError('role must be patient.');
   }
 
   return role;
@@ -94,9 +93,5 @@ export default class User {
 
   isPatient() {
     return this.role === 'patient';
-  }
-
-  isCaregiver() {
-    return this.role === 'caregiver';
   }
 }

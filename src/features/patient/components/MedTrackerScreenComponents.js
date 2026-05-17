@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText, StatusTimesSummary } from './MedTrackerDisplayComponents';
 import {
   completedScheduleStyle,
@@ -25,6 +25,21 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
   const latestTakenAt = getLatestTakenAt(medicine);
   const statusTimesSummary = getStatusTimesSummary(medicine, observedNow);
 
+  const medName = medicine.medName || '';
+  const baseFontSize = typography.body?.fontSize || 16;
+  let numericBaseFontSize = 16;
+
+  if (typeof baseFontSize === 'string') {
+    const parsedRem = parseFloat(baseFontSize);
+    numericBaseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 16;
+  } else {
+    numericBaseFontSize = baseFontSize;
+  }
+
+  // Dynamic font sizing: scale down long medicine names so they fit on narrower screen viewports
+  const dynamicFontSize = medName.length > 14 ? Math.max(11, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = getFontSize(dynamicFontSize);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -38,8 +53,15 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
     >
       <View style={styles.medicineListHeader}>
         <View style={styles.cardHeaderBlock}>
-          <Text style={styles.cardHeaderName}>{medicine.medName}</Text>
-          <Text style={styles.cardHeaderMeta}>
+          <Text 
+            style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {medicine.medName}
+          </Text>
+          <Text style={styles.cardHeaderMeta} numberOfLines={1}>
             {formatMedicineMeta(medicine)}
           </Text>
         </View>
@@ -247,10 +269,33 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
 }
 
 function StatusBadge({ statusStyle }) {
+  const label = statusStyle.label || '';
+  const baseFontSize = typography.bodySmall?.fontSize || 12;
+  let numericBaseFontSize = 12;
+
+  if (typeof baseFontSize === 'string') {
+    const parsedRem = parseFloat(baseFontSize);
+    numericBaseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 12;
+  } else {
+    numericBaseFontSize = baseFontSize;
+  }
+
+  // Dynamic scale down for long status badge pills (e.g. "Completed", "Skipped")
+  const dynamicFontSize = label.length > 7 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = getFontSize(dynamicFontSize);
+
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>
-      <Text style={[styles.statusText, { color: statusStyle.textColor }]}>
-        {statusStyle.label}
+      <Text 
+        style={[
+          styles.statusText, 
+          { color: statusStyle.textColor, fontSize: finalFontSize }
+        ]} 
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {label}
       </Text>
     </View>
   );
@@ -265,7 +310,21 @@ function DetailItem({ label, value }) {
   );
 }
 
-export function SegmentButton({ label, selected, onPress }) {
+export function SegmentButton({ label = '', selected, onPress }) {
+  const baseFontSize = typography.bodySmall?.fontSize || 12;
+  let numericBaseFontSize = 12;
+
+  if (typeof baseFontSize === 'string') {
+    const parsedRem = parseFloat(baseFontSize);
+    numericBaseFontSize = Number.isFinite(parsedRem) ? parsedRem * 16 : 12;
+  } else {
+    numericBaseFontSize = baseFontSize;
+  }
+
+  // Dynamic scale down for segmented button text labels
+  const dynamicFontSize = label.length > 8 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = getFontSize(dynamicFontSize);
+
   return (
     <Pressable
       onPress={onPress}
@@ -278,7 +337,18 @@ export function SegmentButton({ label, selected, onPress }) {
         pressed && styles.pressedControl,
       ]}
     >
-      <Text style={[styles.segmentButtonText, selected && styles.segmentButtonTextSelected]}>{label}</Text>
+      <Text 
+        style={[
+          styles.segmentButtonText, 
+          selected && styles.segmentButtonTextSelected,
+          { fontSize: finalFontSize }
+        ]} 
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -367,6 +437,7 @@ const styles = StyleSheet.create({
   },
   scheduleCardRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
@@ -391,6 +462,8 @@ const styles = StyleSheet.create({
   },
   segmentButton: {
     minHeight: moderateScale(44),
+    minWidth: 0,
+    flexShrink: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
@@ -408,6 +481,8 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.body,
     fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   segmentButtonTextSelected: {
     color: colors.brandText,

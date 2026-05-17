@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, moderateScale, radius, spacing } from '../../theme';
+import { colors, getFontSize, moderateScale, radius, spacing } from '../../theme';
 
 export default function SearchBar({
   placeholder = 'Search',
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     paddingHorizontal: spacing.sm,
-    borderWidth: 1,
+    borderWidth: 1.5, // Crisp 1.5px border for highly defined input boundaries
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
   },
   containerFocused: {
     borderColor: colors.focusRing,
+    borderWidth: 2,
     shadowColor: colors.focusRing,
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -53,6 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     color: colors.title,
     paddingVertical: spacing.sm,
-    fontSize: moderateScale(16),
+    fontSize: getFontSize(16),
+    outlineStyle: 'none',
   },
 });

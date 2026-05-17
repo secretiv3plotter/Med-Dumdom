@@ -3,34 +3,36 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import TabBar from '../../../shared/components/common/TabBar';
+import { useRealm } from '../../../localdb/realm/RealmContext';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, spacing } from '../../../shared/theme';
+import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 
 export default function SignUpScreen({ navigation }) {
-  const [activeRole, setActiveRole] = useState(-1);
+  const realm = useRealm();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const isFormComplete = activeRole !== -1 && email.trim().length > 0 && password.trim().length > 0;
+  const [isLoading, setIsLoading] = useState(false);
+  const isFormComplete = email.trim().length > 0 && password.trim().length > 0;
 
-  const handleRoleSelect = (index) => {
-    setActiveRole(index);
-  };
-
-  const handleSignUpPress = () => {
+  const handleSignUpPress = async () => {
     if (!isFormComplete) {
-      Alert.alert('Incomplete details', 'Please choose a role and complete email and password.');
+      Alert.alert('Incomplete details', 'Please complete email and password.');
       return;
     }
 
-    if (activeRole === 0) {
-      navigation?.navigate?.(ROUTES.HOME);
-      return;
+    if (realm && typeof realm.unlock === 'function') {
+      setIsLoading(true);
+      try {
+        await realm.unlock(password);
+      } catch (err) {
+        Alert.alert('Authentication Error', 'Failed to initialize the local encrypted database.');
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(false);
     }
 
-    if (activeRole === 1) {
-      navigation?.navigate?.(ROUTES.CAREGIVER_HOME);
-    }
+    navigation?.navigate?.(ROUTES.HOME);
   };
 
   return (
@@ -42,20 +44,6 @@ export default function SignUpScreen({ navigation }) {
         <View style={styles.header}>
           <Text style={styles.title}>Welcome!</Text>
           <Text style={styles.subtitle}>Let's get started.</Text>
-        </View>
-        <View style={styles.roleSection}>
-          <Text style={styles.rolePrompt}>Are you?</Text>
-          <TabBar
-            tabs={['Patient']}
-            activeTab={activeRole === 0 ? 0 : -1}
-            onTabPress={() => handleRoleSelect(0)}
-          />
-          <Text style={styles.orText}>or</Text>
-          <TabBar
-            tabs={['Caregiver']}
-            activeTab={activeRole === 1 ? 0 : -1}
-            onTabPress={() => handleRoleSelect(1)}
-          />
         </View>
         <View style={styles.formSection}>
           <Text style={styles.fieldLabel}>Email:</Text>
@@ -75,9 +63,9 @@ export default function SignUpScreen({ navigation }) {
             secureTextEntry
           />
           <ActionButton
-            label="Sign Up"
+            label={isLoading ? "Creating Account..." : "Sign Up"}
             onPress={handleSignUpPress}
-            disabled={!isFormComplete}
+            disabled={!isFormComplete || isLoading}
             style={styles.signUpButton}
           />
           <Text style={styles.loginPrompt}>Already have an account?</Text>
@@ -111,12 +99,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  roleSection: {
-    width: '100%',
-    maxWidth: 520,
-    alignItems: 'center',
-    gap: spacing.xxs,
-  },
   formSection: {
     width: '100%',
     maxWidth: 520,
@@ -129,13 +111,13 @@ const styles = StyleSheet.create({
   },
   loginPrompt: {
     marginTop: spacing.md,
-    fontSize: 13,
+    fontSize: getFontSize(13),
     color: colors.bodyMuted,
     textAlign: 'center',
   },
   loginLink: {
     marginTop: spacing.xs,
-    fontSize: 15,
+    fontSize: getFontSize(15),
     fontWeight: '600',
     color: colors.brand,
     textAlign: 'center',
@@ -145,30 +127,18 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
   },
   fieldLabel: {
-    fontSize: 16,
+    fontSize: getFontSize(16),
     fontWeight: '500',
     color: colors.body,
-  },
-  rolePrompt: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: colors.body,
-    textAlign: 'center',
-  },
-  orText: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.body,
-    textAlign: 'center',
   },
   title: {
-    fontSize: 36,
+    fontSize: getFontSize(36),
     fontWeight: '700',
     color: colors.title,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: getFontSize(20),
     fontWeight: '500',
     color: colors.body,
     textAlign: 'center',

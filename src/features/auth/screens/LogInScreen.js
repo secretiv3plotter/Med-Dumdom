@@ -4,18 +4,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import InputBar from '../../../shared/components/common/InputBar';
+import {
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, spacing } from '../../../shared/theme';
+import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
+import { useRealm } from '../../../localdb/realm/RealmContext';
 
 export default function LogInScreen({ navigation }) {
+  const realm = useRealm();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const isFormComplete = email.trim().length > 0 && password.trim().length > 0;
 
-  const handleLogInPress = () => {
+  const handleLogInPress = async () => {
     if (!isFormComplete) {
       Alert.alert('Incomplete details', 'Please complete email and password.');
       return;
+    }
+
+    if (realm && typeof realm.unlock === 'function') {
+      setIsLoading(true);
+      try {
+        await realm.unlock(password);
+      } catch (err) {
+        Alert.alert('Authentication Error', 'Invalid password for the local encrypted database.');
+        setIsLoading(false);
+        return;
+      }
+      setIsLoading(false);
     }
 
     navigation?.navigate?.(ROUTES.HOME);
@@ -49,9 +68,9 @@ export default function LogInScreen({ navigation }) {
             secureTextEntry
           />
           <ActionButton
-            label="Log In"
+            label={isLoading ? "Unlocking..." : "Log In"}
             onPress={handleLogInPress}
-            disabled={!isFormComplete}
+            disabled={!isFormComplete || isLoading}
             style={styles.logInButton}
           />
           <Text style={styles.signupPrompt}>Don't have an account?</Text>
@@ -75,8 +94,8 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.lg,
+    top: BACK_HEADER_TOP_OFFSET,
+    left: BACK_HEADER_HORIZONTAL_PADDING,
     zIndex: 20,
   },
   container: {
@@ -102,19 +121,19 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   fieldLabel: {
-    fontSize: 16,
+    fontSize: getFontSize(16),
     fontWeight: '500',
     color: colors.body,
   },
   signupPrompt: {
     marginTop: spacing.md,
-    fontSize: 13,
+    fontSize: getFontSize(13),
     color: colors.bodyMuted,
     textAlign: 'center',
   },
   signupLink: {
     marginTop: spacing.xs,
-    fontSize: 15,
+    fontSize: getFontSize(15),
     fontWeight: '600',
     color: colors.brand,
     textAlign: 'center',
@@ -124,13 +143,13 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
   },
   title: {
-    fontSize: 36,
+    fontSize: getFontSize(36),
     fontWeight: '700',
     color: colors.title,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: getFontSize(20),
     fontWeight: '500',
     color: colors.body,
     textAlign: 'center',

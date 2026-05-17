@@ -1,22 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, moderateScale, typography, spacing } from '../../../shared/theme';
-import { capitalize, formatDoseWithUnit, formatTime } from '../utils/medTrackerUtils';
+import { formatDoseWithUnit, formatTime } from '../utils/medTrackerUtils';
 
 export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
   const scheduleDayLabel = dayLabel ? ` ${dayLabel}` : '';
-
-  if (entry.scheduleType === 'meal') {
-    return (
-      <Text style={styles.scheduleCardTitle}>
-        Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
-        {'\n'}
-        <Text style={styles.scheduleTextStrong}>
-          {capitalize(entry.mealContext)} {capitalize(entry.associatedMeal)}
-        </Text>{' '}
-        at <Text style={styles.scheduleTextStrong}>{formatTime(entry.mealTime)}</Text>{scheduleDayLabel}
-      </Text>
-    );
-  }
 
   return (
     <Text style={styles.scheduleCardTitle}>

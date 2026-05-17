@@ -6,40 +6,6 @@ import {
 
 const normalizeRange = (range) => normalizeServiceRange(range, { emptyPreset: '' });
 
-const buildDemoEntries = () => [
-  {
-    concern: 'Primary Care Follow-up',
-    address: 'St. Luke\'s Medical Center, BGC',
-    doctorName: 'Dr. Santos',
-    contactNumber: '09171234567',
-    dateSched: '2026-04-22',
-    timeSched: '09:30',
-    note: 'Bring latest blood pressure log and lab results.',
-    isCompleted: false,
-  },
-  {
-    concern: 'Diabetes check-up',
-    address: 'Makati Medical Center Outpatient Clinic',
-    doctorName: 'Dr. Reyes',
-    contactNumber: '09179876543',
-    dateSched: '2026-04-24',
-    timeSched: '14:00',
-    note: 'Fasting sugar results needed before consult.',
-    isCompleted: false,
-  },
-  {
-    concern: 'Physical therapy session',
-    address: 'Active Motion Rehab Center',
-    doctorName: '',
-    contactNumber: '09225551234',
-    dateSched: '2026-04-18',
-    timeSched: '11:00',
-    note: 'Completed home exercise review.',
-    isCompleted: true,
-    completedAt: new Date('2026-04-18T12:05:00'),
-  },
-];
-
 const cloneApptEntry = (entry) =>
   new ApptEntry({
     apptEntryId: entry.apptEntryId,
@@ -79,7 +45,6 @@ const getUserStore = (storesByUserId, userId) => {
   if (!store) {
     store = {
       entries: new Map(),
-      deletedIds: new Set(),
       counter: 0,
     };
     storesByUserId.set(normalizedUserId, store);
@@ -94,10 +59,6 @@ const ensureEntryActive = (store, apptEntryId) => {
     throw new Error(`Appointment entry not found: ${apptEntryId}`);
   }
 
-  if (store.deletedIds.has(apptEntryId)) {
-    throw new Error(`Appointment entry has been deleted: ${apptEntryId}`);
-  }
-
   return entry;
 };
 
@@ -106,17 +67,6 @@ export class ApptTrackerService {
     this.entriesByUserId = new Map();
 
     if (!initialEntriesByUserId) {
-      const { normalizedUserId, store } = getUserStore(this.entriesByUserId, 'current-user');
-      const demoEntries = buildDemoEntries();
-      const demoCreatedAtBase = Date.now() - demoEntries.length * 1000;
-      demoEntries.forEach((entry, index) => {
-        const apptEntry = toApptEntryModel(entry);
-        const entryId = apptEntry.apptEntryId || `${normalizedUserId}-appt-${++store.counter}`;
-        apptEntry.apptEntryId = entryId;
-        apptEntry.createdAt = new Date(demoCreatedAtBase + index * 1000).toISOString();
-        apptEntry.updatedAt = apptEntry.createdAt;
-        store.entries.set(entryId, apptEntry);
-      });
       return;
     }
 
@@ -148,9 +98,7 @@ export class ApptTrackerService {
 
   listApptEntries(userId) {
     const { store } = getUserStore(this.entriesByUserId, userId);
-    return [...store.entries.values()]
-      .filter((entry) => !store.deletedIds.has(entry.apptEntryId))
-      .map(cloneApptEntry);
+    return [...store.entries.values()].map(cloneApptEntry);
   }
 
   addApptEntry(userId, apptData) {
@@ -160,7 +108,6 @@ export class ApptTrackerService {
     apptEntry.createdAt = apptEntry.createdAt || new Date().toISOString();
     apptEntry.updatedAt = new Date().toISOString();
     store.entries.set(apptEntry.apptEntryId, apptEntry);
-    store.deletedIds.delete(apptEntry.apptEntryId);
     return cloneApptEntry(apptEntry);
   }
 
@@ -197,16 +144,16 @@ export class ApptTrackerService {
     return cloneApptEntry(nextEntry);
   }
 
-  softDeleteApptEntry(userId, apptEntryId) {
+  deleteApptEntry(userId, apptEntryId) {
     const { store } = getUserStore(this.entriesByUserId, userId);
     const normalizedEntryId = normalizeEntityId(apptEntryId, 'apptEntryId');
     ensureEntryActive(store, normalizedEntryId);
-    store.deletedIds.add(normalizedEntryId);
+    store.entries.delete(normalizedEntryId);
     return true;
   }
 
   cancelApptEntry(userId, apptEntryId) {
-    return this.softDeleteApptEntry(userId, apptEntryId);
+    return this.deleteApptEntry(userId, apptEntryId);
   }
 
   markApptCompleted(userId, apptEntryId, completedAt = new Date()) {
@@ -254,14 +201,13 @@ export class ApptTrackerService {
 
     return [...store.entries.values()]
       .filter((entry) => (
-        store.deletedIds.has(entry.apptEntryId) ||
         entry.isCompleted ||
         entry.isSkipped ||
         entry.isMissed(currentDateTime, currentDateTime)
       ))
       .map((entry) => ({
         entry: cloneApptEntry(entry),
-        deleted: store.deletedIds.has(entry.apptEntryId),
+        deleted: false,
         completed: entry.isCompleted,
         skipped: entry.isSkipped,
         missed: !entry.isCompleted && !entry.isSkipped && entry.isMissed(currentDateTime, currentDateTime),
@@ -289,7 +235,6 @@ export class ApptTrackerService {
   }
 
   getApptTrackerSummary(userId, range = null) {
-    const { store } = getUserStore(this.entriesByUserId, userId);
     const resolvedRange = normalizeRange(range);
     const entries = this.listApptEntries(userId);
     const filteredEntries = entries.filter((entry) => {
@@ -331,7 +276,7 @@ export class ApptTrackerService {
       skippedEntries,
       dueEntries,
       missedEntries,
-      deletedEntries: store.deletedIds.size,
+      deletedEntries: 0,
       entries: filteredEntries.map(cloneApptEntry),
     };
   }

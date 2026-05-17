@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
@@ -466,9 +471,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
     gap: spacing.sm,
     backgroundColor: colors.pageBg,
   },

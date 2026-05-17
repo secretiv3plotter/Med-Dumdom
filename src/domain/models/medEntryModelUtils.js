@@ -129,25 +129,7 @@ export const normalizeRequiredTime = (value, fieldName) => {
   return normalizedTime;
 };
 
-export const normalizeMealContext = (value) => {
-  const normalized = normalizeRequiredString(value, 'mealContext').toLowerCase();
-  if (!['before', 'during', 'after'].includes(normalized)) {
-    throw new RangeError('mealContext must be before, during, or after.');
-  }
-
-  return normalized;
-};
-
-export const normalizeAssociatedMeal = (value) => {
-  const normalized = normalizeRequiredString(value, 'associatedMeal').toLowerCase();
-  if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(normalized)) {
-    throw new RangeError('associatedMeal must be breakfast, lunch, dinner, or snack.');
-  }
-
-  return normalized;
-};
-
-export const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
+export const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
 
 export const toMinutes = (timeValue) => {
   const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
@@ -224,7 +206,6 @@ export const isSameDay = (firstValue, secondValue) => {
 export const normalizeScheduleEntry = (entry, index) => {
   if (typeof entry === 'string' || entry instanceof Date) {
     return {
-      scheduleType: 'time',
       doseSize: 1,
       scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
       instructions: '',
@@ -239,14 +220,6 @@ export const normalizeScheduleEntry = (entry, index) => {
     throw new TypeError(`dailySched[${index}] must be an object, string, or Date.`);
   }
 
-  const normalizedType = normalizeOptionalString(entry.scheduleType ?? entry.type ?? entry.mode, `dailySched[${index}].scheduleType`).toLowerCase();
-  const isMealBased =
-    normalizedType === 'meal' ||
-    normalizedType === 'meal-based' ||
-    entry.mealContext !== undefined ||
-    entry.associatedMeal !== undefined ||
-    entry.mealTime !== undefined;
-
   const doseSize = normalizeInteger(entry.doseSize ?? entry.amount ?? 1, `dailySched[${index}].doseSize`, {
     allowZero: false,
   });
@@ -256,23 +229,7 @@ export const normalizeScheduleEntry = (entry, index) => {
   const skippedAt = normalizeOptionalDateTime(entry.skippedAt, `dailySched[${index}].skippedAt`);
   const activatedAt = normalizeOptionalDateTime(entry.activatedAt ?? entry.createdAt, `dailySched[${index}].activatedAt`);
 
-  if (isMealBased) {
-    return {
-      scheduleType: 'meal',
-      doseSize,
-      mealContext: normalizeMealContext(entry.mealContext),
-      associatedMeal: normalizeAssociatedMeal(entry.associatedMeal),
-      mealTime: normalizeRequiredTime(entry.mealTime ?? entry.scheduledTime, `dailySched[${index}].mealTime`),
-      instructions,
-      status,
-      takenAt,
-      skippedAt,
-      activatedAt,
-    };
-  }
-
   return {
-    scheduleType: 'time',
     doseSize,
     scheduledTime: normalizeRequiredTime(
       entry.scheduledTime ?? entry.time ?? entry.mealTime,

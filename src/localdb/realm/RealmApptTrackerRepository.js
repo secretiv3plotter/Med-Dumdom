@@ -2,27 +2,6 @@ import ApptEntry from '../../domain/models/ApptEntryModel';
 
 const DEFAULT_PATIENT_EMAIL = 'current-user@local.invalid';
 
-const demoEntries = [
-  {
-    concern: 'Primary Care Follow-up',
-    address: 'St. Luke\'s Medical Center, BGC',
-    doctorName: 'Dr. Santos',
-    contactNumber: '09171234567',
-    dateSched: '2026-04-22',
-    timeSched: '09:30',
-    note: 'Bring latest blood pressure log and lab results.',
-  },
-  {
-    concern: 'Diabetes check-up',
-    address: 'Makati Medical Center Outpatient Clinic',
-    doctorName: 'Dr. Reyes',
-    contactNumber: '',
-    dateSched: '2026-04-24',
-    timeSched: '14:00',
-    note: 'Fasting sugar results needed before consult.',
-  },
-];
-
 const normalizeUserId = (userId) => {
   const normalizedUserId = String(userId || '').trim();
   if (!normalizedUserId) {
@@ -141,21 +120,6 @@ export default class RealmApptTrackerRepository {
     });
   }
 
-  seedDemoEntriesIfNeeded(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    const hasEntries = this.realm.objects('ApptEntry').filtered('patientUserId == $0', normalizedUserId).length > 0;
-    if (hasEntries) {
-      return;
-    }
-
-    demoEntries.forEach((entry, index) => {
-      this.createApptEntry(normalizedUserId, {
-        ...entry,
-        apptEntryId: `${normalizedUserId}-appt-${index + 1}`,
-      });
-    });
-  }
-
   persistApptEntry(userId, apptEntry, existingCreatedAt = null, existingDeleted = {}) {
     const normalizedUserId = normalizeUserId(userId);
     const now = new Date();
@@ -243,10 +207,7 @@ export default class RealmApptTrackerRepository {
         const historyId = `${normalizedUserId}-${model.apptEntryId}-${finalStatus}`;
         if (!this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId)) {
           this.snapshotHistory(normalizedUserId, model, finalStatus, snapshotTime);
-          // Mark entry as deleted so it no longer appears in active list
-          entry.isDeleted = true;
-          entry.deletedAt = now;
-          entry.updatedAt = now;
+          this.realm.delete(entry);
         }
       });
   }
@@ -254,9 +215,8 @@ export default class RealmApptTrackerRepository {
   removeHistoryStatus(userId, apptEntryId, status) {
     const historyId = `${normalizeUserId(userId)}-${normalizeApptEntryId(apptEntryId)}-${status}`;
     const history = this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId);
-    if (history && !history.isDeleted) {
-      history.isDeleted = true;
-      history.recordDeletedAt = new Date();
+    if (history) {
+      this.realm.delete(history);
     }
   }
 
@@ -264,7 +224,7 @@ export default class RealmApptTrackerRepository {
     const normalizedUserId = normalizeUserId(userId);
     return this.write(() => {
       this.ensurePatientUser(normalizedUserId);
-      this.seedDemoEntriesIfNeeded(normalizedUserId);
+      this.deleteSoftDeletedRecords(normalizedUserId);
       this.snapshotFinalizedEntriesIfNeeded(normalizedUserId);
       return Array.from(this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
         .map(toApptEntryModel);
@@ -318,20 +278,16 @@ export default class RealmApptTrackerRepository {
     });
   }
 
-  softDeleteApptEntry(userId, apptEntryId) {
+  deleteApptEntry(userId, apptEntryId) {
     return this.write(() => {
       const entry = this.getActiveEntry(userId, apptEntryId);
-      const deletedAt = new Date();
-      this.snapshotHistory(userId, entry, 'deleted', deletedAt);
-      entry.isDeleted = true;
-      entry.deletedAt = deletedAt;
-      entry.updatedAt = deletedAt;
+      this.realm.delete(entry);
       return true;
     });
   }
 
   cancelApptEntry(userId, apptEntryId) {
-    return this.softDeleteApptEntry(userId, apptEntryId);
+    return this.deleteApptEntry(userId, apptEntryId);
   }
 
   markApptCompleted(userId, apptEntryId, completedAt = new Date()) {
@@ -418,7 +374,7 @@ export default class RealmApptTrackerRepository {
       skippedEntries: filteredEntries.filter((entry) => entry.isSkipped).length,
       dueEntries: filteredEntries.filter((entry) => entry.isDue(now, now) && !entry.isMissed(now, now)).length,
       missedEntries: filteredEntries.filter((entry) => entry.isMissed(now, now)).length,
-      deletedEntries: this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizeUserId(userId)).length,
+      deletedEntries: 0,
       entries: filteredEntries,
     };
   }
@@ -427,6 +383,7 @@ export default class RealmApptTrackerRepository {
     const normalizedUserId = normalizeUserId(userId);
     return this.write(() => {
       this.ensurePatientUser(normalizedUserId);
+      this.deleteSoftDeletedRecords(normalizedUserId);
       this.snapshotFinalizedEntriesIfNeeded(normalizedUserId, now);
       return Array.from(this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
         .map(toHistoryModel)
@@ -452,14 +409,30 @@ export default class RealmApptTrackerRepository {
       let deletedCount = 0;
       normalizedHistoryIds.forEach((historyId) => {
         const entry = this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId);
-        if (entry && entry.patientUserId === normalizedUserId && !entry.isDeleted) {
-          entry.isDeleted = true;
-          entry.recordDeletedAt = new Date();
+        if (entry && entry.patientUserId === normalizedUserId) {
+          this.realm.delete(entry);
           deletedCount += 1;
         }
       });
 
       return deletedCount;
     });
+  }
+
+  deleteSoftDeletedRecords(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const deletedEntries = this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
+    const deletedHistory = this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
+    const deletedCount = deletedEntries.length + deletedHistory.length;
+
+    if (deletedEntries.length) {
+      this.realm.delete(deletedEntries);
+    }
+
+    if (deletedHistory.length) {
+      this.realm.delete(deletedHistory);
+    }
+
+    return deletedCount;
   }
 }

@@ -81,6 +81,8 @@ export default function CrudButton({
 const styles = StyleSheet.create({
   container: {
     minWidth: CIRCLE_SIZE,
+    maxWidth: '100%',
+    flexShrink: 1,
     alignItems: 'center',
     gap: spacing.xxs,
   },
@@ -109,6 +111,8 @@ const styles = StyleSheet.create({
   label: {
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   solidText: {
     color: colors.brand,
@@ -139,8 +143,8 @@ export function EditButton(props) {
       label="Edit"
       icon="create-outline"
       variant="outline"
-      iconSize={40}
-      circleStyle={[{ paddingLeft: 4 }, props.circleStyle]}
+      iconSize={EDIT_ICON_SIZE}
+      circleStyle={[{ paddingLeft: moderateScale(4) }, props.circleStyle]}
       textStyle={[{ marginTop: -LABEL_LIFT }, props.textStyle]}
     />
   );

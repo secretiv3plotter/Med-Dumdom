@@ -4,19 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_RESERVED_HEIGHT,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
 
 const SETTINGS_ITEMS = [
-  {
-    key: 'privacy',
-    title: 'Privacy Settings',
-    subtitle: 'Control data visibility and permissions.',
-    icon: 'shield-checkmark-outline',
-    route: ROUTES.PRIVACY_SETTINGS,
-  },
   {
     key: 'accessibility',
     title: 'Accessibility',
@@ -172,15 +171,16 @@ const styles = StyleSheet.create({
   },
   stickyTop: {
     position: 'absolute',
-    top: spacing.md + spacing.sm,
+    top: BACK_HEADER_TOP_OFFSET,
     left: 0,
     right: 0,
     zIndex: 20,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
   },
   content: {
     padding: spacing.lg,
-    paddingTop: 84,
+    paddingTop: BACK_HEADER_RESERVED_HEIGHT,
     paddingBottom: 40,
     gap: spacing.md,
   },
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: getFontSize(18),
     fontWeight: '700',
     color: colors.title,
   },
@@ -255,12 +255,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   optionTitle: {
-    fontSize: 20,
+    fontSize: getFontSize(20),
     fontWeight: '700',
     color: colors.brandText,
   },
   optionSubtitle: {
-    fontSize: 17,
+    fontSize: getFontSize(17),
     color: colors.title,
   },
   dialogOverlay: {

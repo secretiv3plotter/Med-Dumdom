@@ -1,58 +1,11 @@
 // PersonalProfileService
 // Role:
-// Own the business logic for a patient's or caregiver's personal profile.
+// Own the business logic for a patient's personal profile.
 // This service should sit between the UI and the PersonalProfileModel.
-//
-// What belongs here:
-// - loading a profile for display
-// - updating profile fields from user actions
-// - coordinating validation rules that are broader than the model itself
-// - orchestrating soft delete or restore behavior later through storage/repository logic
-//
-// Use cases covered:
-// - patient manages personal profile: view, add, edit, delete
-// - caregiver views patient personal profile when permitted
-//
-// What should NOT belong here:
-// - Realm queries and persistence details
-// - screen rendering or form state
-// - authentication/session logic
-// - hard deletion rules
-//
-// Model methods this service should wrap:
-// - updateName(newName)
-// - updateProfilePicture(newPictureUrl)
-// - updateBirthDate(newBirthDate)
-// - calculateAge(birthDate)
-// - updateAddress(newAddress)
-//
-// Suggested service methods:
-// - getProfile(userId)
-// - updateProfileName(userId, newName)
-// - updateProfilePicture(userId, newPictureUrl)
-// - updateProfileBirthDate(userId, newBirthDate)
-// - updateProfileAddress(userId, newAddress)
-// - canViewerAccessProfile(viewerRole, viewerId, ownerId)
-//
-// Notes:
-// - keep the service focused on business rules, not storage
-// - soft delete can be exposed here later, but it is not a model concern
-//
-// Dependencies:
-// - direct dependencies: none
-// - commonly used by: PrivacySettingsService, PatientCaregiverLinkService
 
 import PersonalProfile from '../models/PersonalProfileModel';
 import PatientProfile from '../models/PatientProfileModel';
 import { normalizeEntityId } from './serviceUtils';
-
-const normalizeRole = (value) => {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  return value.trim().toLowerCase();
-};
 
 const normalizeOptionalString = (value, fieldName) => {
   if (value === undefined || value === null || value === '') {
@@ -71,7 +24,23 @@ const normalizeBirthDate = (value) => {
     return null;
   }
 
-  const parsedDate = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+
+  // Parse safe string splits (safari/iOS compatible)
+  const parts = String(value).split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) {
+      return d;
+    }
+  }
+
+  const parsedDate = new Date(value);
   if (Number.isNaN(parsedDate.getTime())) {
     throw new RangeError('birthDate must be a valid date.');
   }
@@ -116,18 +85,20 @@ const toProfileModel = (profileData) => {
   return new PersonalProfile();
 };
 
-const normalizeAccessChecker = (value) => (typeof value === 'function' ? value : null);
-
 class PersonalProfileService {
-  constructor(initialProfilesByUserId = null, options = {}) {
+  constructor(initialProfilesByUserId = null) {
     this.profilesByUserId = new Map();
     this.deletedProfileIds = new Set();
-    this.caregiverAccessChecker = normalizeAccessChecker(options.canCaregiverAccessPatient);
 
+    // 1. First, load existing persisted data on Web if present
+    this._loadFromStorage();
+
+    // 2. Overlay initial values passed via constructor
     if (initialProfilesByUserId instanceof Map) {
       initialProfilesByUserId.forEach((profileData, userId) => {
         this.profilesByUserId.set(normalizeEntityId(userId, 'userId'), toProfileModel(profileData));
       });
+      this._saveToStorage();
       return;
     }
 
@@ -135,6 +106,56 @@ class PersonalProfileService {
       Object.entries(initialProfilesByUserId).forEach(([userId, profileData]) => {
         this.profilesByUserId.set(normalizeEntityId(userId, 'userId'), toProfileModel(profileData));
       });
+      this._saveToStorage();
+    }
+  }
+
+  _loadFromStorage() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      const stored = localStorage.getItem('_med_dumdom_profiles_');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        Object.entries(parsed).forEach(([userId, profileData]) => {
+          if (profileData && profileData.birthDate) {
+            profileData.birthDate = new Date(profileData.birthDate);
+          }
+          this.profilesByUserId.set(userId, toProfileModel(profileData));
+        });
+      }
+      
+      const storedDeleted = localStorage.getItem('_med_dumdom_deleted_profiles_');
+      if (storedDeleted) {
+        const parsedDeleted = JSON.parse(storedDeleted);
+        parsedDeleted.forEach(id => this.deletedProfileIds.add(id));
+      }
+    } catch (err) {
+      console.error("Failed to load profiles from localStorage:", err);
+    }
+  }
+
+  _saveToStorage() {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
+    try {
+      const obj = {};
+      this.profilesByUserId.forEach((profile, userId) => {
+        obj[userId] = {
+          fullName: profile.fullName,
+          profilePicture: profile.profilePicture,
+          birthDate: profile.birthDate ? profile.birthDate.toISOString() : null,
+          address: profile.address,
+        };
+      });
+      localStorage.setItem('_med_dumdom_profiles_', JSON.stringify(obj));
+      
+      const deletedArr = Array.from(this.deletedProfileIds);
+      localStorage.setItem('_med_dumdom_deleted_profiles_', JSON.stringify(deletedArr));
+    } catch (err) {
+      console.error("Failed to save profiles to localStorage:", err);
     }
   }
 
@@ -152,18 +173,21 @@ class PersonalProfileService {
     const profile = toProfileModel(profileData);
     this.profilesByUserId.set(profileId, profile);
     this.deletedProfileIds.delete(profileId);
+    this._saveToStorage();
     return cloneProfile(profile);
   }
 
   deleteProfile(userId) {
     const profileId = normalizeEntityId(userId, 'userId');
     this.deletedProfileIds.add(profileId);
+    this._saveToStorage();
     return true;
   }
 
   restoreProfile(userId) {
     const profileId = normalizeEntityId(userId, 'userId');
     this.deletedProfileIds.delete(profileId);
+    this._saveToStorage();
     return cloneProfile(this._getStoredProfile(profileId));
   }
 
@@ -179,7 +203,9 @@ class PersonalProfileService {
       throw new Error('Name must not exceed 100 characters');
     }
 
-    return profile.updateName(trimmedName);
+    const res = profile.updateName(trimmedName);
+    this._saveToStorage();
+    return res;
   }
 
   updateProfilePicture(userId, newPictureUrl) {
@@ -189,7 +215,9 @@ class PersonalProfileService {
 
     const normalizedPicture = normalizeOptionalString(newPictureUrl, 'newPictureUrl');
     const profile = this._getWritableProfile(userId);
-    return profile.updateProfilePicture(normalizedPicture);
+    const res = profile.updateProfilePicture(normalizedPicture);
+    this._saveToStorage();
+    return res;
   }
 
   updateProfileBirthDate(userId, newBirthDate) {
@@ -210,7 +238,9 @@ class PersonalProfileService {
     }
 
     const profile = this._getWritableProfile(userId);
-    return profile.updateBirthDate(birthDate);
+    const res = profile.updateBirthDate(birthDate);
+    this._saveToStorage();
+    return res;
   }
 
   updateProfileAddress(userId, newAddress) {
@@ -220,7 +250,9 @@ class PersonalProfileService {
 
     const normalizedAddress = normalizeOptionalString(newAddress, 'newAddress');
     const profile = this._getWritableProfile(userId);
-    return profile.updateAddress(normalizedAddress);
+    const res = profile.updateAddress(normalizedAddress);
+    this._saveToStorage();
+    return res;
   }
 
   calculateAge(birthDate) {
@@ -234,31 +266,14 @@ class PersonalProfileService {
   }
 
   canViewerAccessProfile(viewerRole, viewerId, ownerId) {
-    if (!viewerRole || viewerId === undefined || viewerId === null || ownerId === undefined || ownerId === null) {
-      return false;
-    }
-
-    const normalizedViewerRole = normalizeRole(viewerRole);
-    if (!normalizedViewerRole) {
+    if (viewerRole !== 'patient' || viewerId === undefined || viewerId === null || ownerId === undefined || ownerId === null) {
       return false;
     }
 
     const normalizedViewerId = normalizeEntityId(viewerId, 'viewerId');
     const normalizedOwnerId = normalizeEntityId(ownerId, 'ownerId');
 
-    if (normalizedViewerId === normalizedOwnerId) {
-      return true;
-    }
-
-    if (normalizedViewerRole === 'admin') {
-      return true;
-    }
-
-    if (normalizedViewerRole === 'caregiver') {
-      return this._hasActiveCaregiverRelationship(normalizedViewerId, normalizedOwnerId);
-    }
-
-    return false;
+    return normalizedViewerId === normalizedOwnerId;
   }
 
   _getStoredProfile(userId) {
@@ -271,6 +286,7 @@ class PersonalProfileService {
 
     const defaultProfile = new PersonalProfile();
     this.profilesByUserId.set(profileId, defaultProfile);
+    this._saveToStorage();
     return defaultProfile;
   }
 
@@ -281,18 +297,6 @@ class PersonalProfileService {
     }
 
     return this._getStoredProfile(profileId);
-  }
-
-  _hasActiveCaregiverRelationship(caregiverId, patientId) {
-    if (!this.caregiverAccessChecker) {
-      return false;
-    }
-
-    try {
-      return Boolean(this.caregiverAccessChecker(patientId, caregiverId));
-    } catch {
-      return false;
-    }
   }
 }
 

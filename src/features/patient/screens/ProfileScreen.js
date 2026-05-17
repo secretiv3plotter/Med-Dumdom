@@ -92,10 +92,24 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const confirmSaveChanges = () => {
+    let parsedBirthDate = null;
+    if (draft.birthDate) {
+      const parts = String(draft.birthDate).split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) {
+          parsedBirthDate = d;
+        }
+      }
+    }
+
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
       profilePicture: draft.profilePicture.trim(),
-      birthDate: draft.birthDate ? new Date(`${draft.birthDate}T00:00:00`) : null,
+      birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
 
@@ -290,7 +304,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ECEFF4',
+    backgroundColor: colors.pageBg,
   },
   keyboardWrap: {
     flex: 1,

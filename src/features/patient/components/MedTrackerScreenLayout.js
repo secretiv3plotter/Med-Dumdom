@@ -1,15 +1,18 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
-import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { MedTrackerEditorContent } from './MedTrackerEditorContent';
 import { MedicineDetailsContent, MedicinePreviewCard } from './MedTrackerScreenComponents';
-
-const DETAILS_ACTIONS_RESERVED_WIDTH = moderateScale(140);
 
 export function MedTrackerHeader({ onBack, onCreate }) {
   return (
@@ -128,6 +131,8 @@ export function MedicineDetailsPopup({
 export function MedicineEditorPopup({
   visible,
   editorMode,
+  editorStep,
+  selectedScheduleType,
   formState,
   scheduleDraft,
   scheduleEntries,
@@ -135,11 +140,14 @@ export function MedicineEditorPopup({
   formError,
   setFormState,
   setScheduleDraft,
+  onSelectScheduleType,
   onCancelScheduleEdit,
   onSaveScheduleEntry,
   onEditScheduleEntry,
   onDeleteScheduleEntry,
   onCancel,
+  onPreviousStep,
+  onNextStep,
   onSaveMedicine,
 }) {
   return (
@@ -157,6 +165,8 @@ export function MedicineEditorPopup({
     >
       <MedTrackerEditorContent
         editorMode={editorMode}
+        editorStep={editorStep}
+        selectedScheduleType={selectedScheduleType}
         formState={formState}
         scheduleDraft={scheduleDraft}
         scheduleEntries={scheduleEntries}
@@ -164,11 +174,14 @@ export function MedicineEditorPopup({
         formError={formError}
         setFormState={setFormState}
         setScheduleDraft={setScheduleDraft}
+        onSelectScheduleType={onSelectScheduleType}
         onCancelScheduleEdit={onCancelScheduleEdit}
         onSaveScheduleEntry={onSaveScheduleEntry}
         onEditScheduleEntry={onEditScheduleEntry}
         onDeleteScheduleEntry={onDeleteScheduleEntry}
         onCancel={onCancel}
+        onPreviousStep={onPreviousStep}
+        onNextStep={onNextStep}
         onSaveMedicine={onSaveMedicine}
       />
     </LargePopup>
@@ -210,6 +223,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
@@ -220,6 +234,7 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
     gap: spacing.xs,
   },
   title: {
@@ -255,7 +270,7 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   historyBar: {
-    minHeight: moderateScale(48),
+    minHeight: 48,
     borderWidth: 1,
     borderColor: colors.brand,
     borderRadius: radius.lg,
@@ -283,15 +298,16 @@ const styles = StyleSheet.create({
     color: colors.title,
   },
   detailsHeaderRow: {
-    position: 'relative',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: spacing.sm,
-    minHeight: moderateScale(72),
-    paddingRight: DETAILS_ACTIONS_RESERVED_WIDTH,
+    minHeight: 72,
   },
   detailsHeaderTextBlock: {
+    flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
     alignItems: 'flex-start',
     gap: spacing.xxs,
@@ -302,15 +318,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   detailActionsTop: {
-    position: 'absolute',
-    right: 0,
     flexDirection: 'row',
+    flexShrink: 0,
     alignItems: 'center',
     gap: spacing.md,
   },
   footerActionsRow: {
     marginTop: spacing.sm,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   confirmOverlay: {
@@ -322,13 +338,13 @@ const styles = StyleSheet.create({
   },
   confirmDialog: {
     width: '100%',
-    maxWidth: moderateScale(420),
+    maxWidth: 420,
   },
   topHeader: {
     backgroundColor: colors.pageBg,
-    paddingHorizontal: spacing.lg,
-    paddingTop: 0,
-    paddingBottom: spacing.xs,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
     gap: spacing.xxs,
   },
 });

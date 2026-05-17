@@ -3,6 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
@@ -38,7 +43,7 @@ const TAB_KEY_TO_ROUTE = {
   med: ROUTES.MED_TRACKER,
 };
 
-export default function AppointmentTrackerScreen({ navigation, realm = null }) {
+export default function AppointmentTrackerScreen({ navigation, realm = null, trackerService = apptTrackerService }) {
   const [version, setVersion] = useState(0);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
@@ -51,8 +56,8 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
   const [observedNow, setObservedNow] = useState(() => new Date());
 
   const activeApptTrackerService = useMemo(
-    () => (realm ? new RealmApptTrackerRepository(realm) : apptTrackerService),
-    [realm],
+    () => (realm ? new RealmApptTrackerRepository(realm) : trackerService),
+    [realm, trackerService],
   );
 
   const appointments = useMemo(
@@ -129,7 +134,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null }) {
       return;
     }
 
-    activeApptTrackerService.softDeleteApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId);
+    activeApptTrackerService.deleteApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId);
     setIsEditingDetails(false);
     setIsDetailsVisible(false);
     setSelectedAppointmentId(null);
@@ -509,12 +514,14 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
   },
   headerTextWrap: {
     flex: 1,
+    minWidth: 0,
     gap: spacing.xs,
   },
   title: {
@@ -594,15 +601,16 @@ const styles = StyleSheet.create({
     color: colors.title,
   },
   detailsHeaderRow: {
-    position: 'relative',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: spacing.sm,
     minHeight: 64,
-    paddingRight: 140,
   },
   detailsHeaderTextBlock: {
+    flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
     alignItems: 'flex-start',
     gap: spacing.xxs,
@@ -626,19 +634,21 @@ const styles = StyleSheet.create({
   toggleRow: {
     marginTop: spacing.xs,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   detailActionsTop: {
-    position: 'absolute',
-    right: 0,
     flexDirection: 'row',
+    flexShrink: 0,
     alignItems: 'center',
     gap: spacing.md,
   },
   footerActionsRow: {
     marginTop: spacing.sm,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   formColumn: {
@@ -658,14 +668,14 @@ const styles = StyleSheet.create({
   },
   stickyTop: {
     position: 'absolute',
-    top: 0,
+    top: BACK_HEADER_TOP_OFFSET,
     left: 0,
     right: 0,
     zIndex: 20,
     backgroundColor: colors.pageBg,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md + spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: 0,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
     minHeight: TOP_OVERLAY_HEIGHT,
   },
 });

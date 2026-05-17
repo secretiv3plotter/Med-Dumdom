@@ -14,7 +14,7 @@
 // Use cases covered:
 // - patient goes to help and support and searches or scrolls FAQs
 // - patient enters a question and gets suggested FAQs
-// - caregiver goes to help and support and searches or scrolls FAQs
+// - patient goes to help and support and searches or scrolls FAQs
 //
 // What should NOT belong here:
 // - FAQ screen rendering

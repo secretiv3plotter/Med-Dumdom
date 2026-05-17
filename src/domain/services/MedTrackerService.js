@@ -3,40 +3,6 @@ import { isSameDay, normalizeEntityId, normalizeRange } from './serviceUtils';
 
 const cloneScheduleEntry = (entry) => ({ ...entry });
 
-const buildDemoEntries = () => [
-  {
-    medName: 'Metformin',
-    unitStrength: '500 mg',
-    unit: 'tablet',
-    totalDailyAmount: 2,
-    dailySched: [
-      { scheduleType: 'time', scheduledTime: '08:00', doseSize: 1 },
-      { scheduleType: 'time', scheduledTime: '20:00', doseSize: 1 },
-    ],
-    startDate: new Date('2026-01-01'),
-    endDate: null,
-    instructions: 'Take with food.',
-    prescriberContact: 'Dr. Santos',
-    isTaken: false,
-    timeTaken: null,
-    dateTaken: null,
-  },
-  {
-    medName: 'Losartan',
-    unitStrength: '50 mg',
-    unit: 'tablet',
-    totalDailyAmount: 1,
-    dailySched: [{ scheduleType: 'meal', doseSize: 1, mealContext: 'after', associatedMeal: 'breakfast', mealTime: '08:30' }],
-    startDate: new Date('2026-01-15'),
-    endDate: null,
-    instructions: '',
-    prescriberContact: 'Dr. Reyes',
-    isTaken: false,
-    timeTaken: null,
-    dateTaken: null,
-  },
-];
-
 const cloneMedEntry = (entry) =>
   new MedEntry({
     medEntryId: entry.medEntryId,
@@ -94,7 +60,6 @@ const getUserStore = (storesByUserId, userId) => {
   if (!store) {
     store = {
       entries: new Map(),
-      deletedIds: new Set(),
       counter: 0,
     };
     storesByUserId.set(normalizedUserId, store);
@@ -114,10 +79,6 @@ const ensureEntryActive = (store, medEntryId) => {
     throw new Error(`Medication entry not found: ${medEntryId}`);
   }
 
-  if (store.deletedIds.has(medEntryId)) {
-    throw new Error(`Medication entry has been deleted: ${medEntryId}`);
-  }
-
   return entry;
 };
 
@@ -126,17 +87,6 @@ export class MedTrackerService {
     this.entriesByUserId = new Map();
 
     if (!initialEntriesByUserId) {
-      const { normalizedUserId, store } = getUserStore(this.entriesByUserId, 'current-user');
-      const demoEntries = buildDemoEntries();
-      const demoCreatedAtBase = Date.now() - demoEntries.length * 1000;
-      demoEntries.forEach((entry, index) => {
-        const medEntry = toMedEntryModel(entry);
-        const entryId = medEntry.medEntryId || `${normalizedUserId}-med-${++store.counter}`;
-        medEntry.medEntryId = entryId;
-        medEntry.createdAt = new Date(demoCreatedAtBase + index * 1000);
-        medEntry.updatedAt = medEntry.createdAt;
-        store.entries.set(entryId, medEntry);
-      });
       return;
     }
 
@@ -170,7 +120,6 @@ export class MedTrackerService {
     const { store } = getUserStore(this.entriesByUserId, userId);
     const currentDateTime = new Date();
     return [...store.entries.values()]
-      .filter((entry) => !store.deletedIds.has(entry.medEntryId))
       .map((entry) => {
         entry.resetDailyScheduleStatusesIfNeeded(currentDateTime);
         return entry;
@@ -185,7 +134,6 @@ export class MedTrackerService {
     medEntry.createdAt = medEntry.createdAt || new Date();
     medEntry.updatedAt = new Date();
     store.entries.set(medEntry.medEntryId, medEntry);
-    store.deletedIds.delete(medEntry.medEntryId);
     return cloneMedEntry(medEntry);
   }
 
@@ -225,11 +173,11 @@ export class MedTrackerService {
     return cloneMedEntry(nextEntry);
   }
 
-  softDeleteMedEntry(userId, medEntryId) {
+  deleteMedEntry(userId, medEntryId) {
     const { store } = getUserStore(this.entriesByUserId, userId);
     const normalizedEntryId = normalizeEntityId(medEntryId, 'medEntryId');
     ensureEntryActive(store, normalizedEntryId);
-    store.deletedIds.add(normalizedEntryId);
+    store.entries.delete(normalizedEntryId);
     return true;
   }
 
@@ -292,7 +240,6 @@ export class MedTrackerService {
   }
 
   getMedTrackerSummary(userId, range = null) {
-    const { store } = getUserStore(this.entriesByUserId, userId);
     const resolvedRange = normalizeRange(range);
     const entries = this.listMedEntries(userId);
     const filteredEntries = entries.filter((entry) => {
@@ -316,7 +263,7 @@ export class MedTrackerService {
       takenEntries,
       dueEntries,
       missedEntries,
-      deletedEntries: store.deletedIds.size,
+      deletedEntries: 0,
       entries: filteredEntries.map(cloneMedEntry),
     };
   }

@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     minHeight: accessibility.minTouchTarget,
   },

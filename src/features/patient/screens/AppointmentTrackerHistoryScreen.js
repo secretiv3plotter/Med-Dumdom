@@ -5,6 +5,11 @@ import { ROUTES } from '../../../app/navigation/routes';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import { DeleteButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
@@ -219,9 +224,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
     gap: spacing.sm,
     backgroundColor: colors.pageBg,
   },

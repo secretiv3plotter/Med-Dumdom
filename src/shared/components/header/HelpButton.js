@@ -53,19 +53,23 @@ export default function HelpButton({
 const styles = StyleSheet.create({
   container: {
     minWidth: BUTTON_VISUAL_SIZE,
+    maxWidth: '100%',
+    flexShrink: 1,
     alignItems: 'center',
-    gap: 0,
+    gap: spacing.xxs,
   },
   iconWrap: {
-    minWidth: accessibility.minTouchTarget,
-    minHeight: accessibility.minTouchTarget,
+    width: BUTTON_VISUAL_SIZE,
+    height: BUTTON_VISUAL_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
-    marginTop: -moderateScale(4),
+    marginTop: -moderateScale(2),
+    flexShrink: 1,
+    textAlign: 'center',
   },
   defaultText: {
     color: colors.title,

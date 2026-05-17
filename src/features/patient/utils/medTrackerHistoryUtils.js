@@ -115,10 +115,6 @@ export const dateKey = (date) => date.toISOString().slice(0, 10);
 export const getRecordDate = (record) => toHistoryDate(record.historyDate) ?? new Date(0);
 
 export const formatScheduleText = (entry, unit) => {
-  if (entry.scheduleType === 'meal') {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\n${capitalize(entry.mealContext)} ${capitalize(entry.associatedMeal)} at ${formatTime(entry.mealTime)}`;
-  }
-
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
 
@@ -140,12 +136,8 @@ export const buildHistoryRecordSearchText = (record) => {
     formatTakenAmount([record], record.unit, 'taken'),
     ...(record.dailySchedFinalStatuses || []).flatMap((entry) => [
       entry.finalStatus,
-      entry.scheduleType,
       entry.doseSize,
       entry.scheduledTime,
-      entry.mealContext,
-      entry.associatedMeal,
-      entry.mealTime,
       formatScheduleText(entry, record.unit),
       formatDateTime(entry.takenAt || entry.skippedAt || entry.resolvedAt),
     ]),

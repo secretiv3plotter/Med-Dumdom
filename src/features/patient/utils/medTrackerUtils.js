@@ -113,7 +113,7 @@ export const toMinutes = (timeValue) => {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 };
 
-export const scheduleEffectiveTime = (entry) => entry.scheduledTime || entry.mealTime || '';
+export const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
 
 export const getSchedulesEarliestToLatest = (dailySched = []) =>
   dailySched
@@ -151,12 +151,8 @@ export const buildMedicineSearchText = (medicine) => [
   medicine.instructions,
   medicine.prescriberContact,
   ...(medicine.dailySched || []).flatMap((entry) => [
-    entry.scheduleType,
     entry.doseSize,
     entry.scheduledTime,
-    entry.mealContext,
-    entry.associatedMeal,
-    entry.mealTime,
     entry.status,
   ]),
 ].filter((value) => value !== undefined && value !== null).map(normalizeSearchText).join(' ');
@@ -190,10 +186,6 @@ export const formatDoseWithUnit = (doseSize, unit) => {
 };
 
 export const formatScheduleEntry = (entry, unit = '') => {
-  if (entry.scheduleType === 'meal') {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\n${capitalize(entry.mealContext)} ${capitalize(entry.associatedMeal)} at ${formatTime(entry.mealTime)}`;
-  }
-
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
 
@@ -214,38 +206,35 @@ export const buildScheduleEntriesFromMedicine = (medicine) =>
     : [];
 
 export const buildScheduleDraftFromEntry = (entry) => ({
-  scheduleType: entry.scheduleType === 'meal' ? 'meal' : 'time',
   doseSize: entry.doseSize ? String(entry.doseSize) : '',
-  scheduledTime: entry.scheduleType === 'time' ? entry.scheduledTime || '' : '',
-  mealContext: entry.scheduleType === 'meal' ? entry.mealContext || 'after' : 'after',
-  associatedMeal: entry.scheduleType === 'meal' ? entry.associatedMeal || 'breakfast' : 'breakfast',
-  mealTime: entry.scheduleType === 'meal' ? entry.mealTime || '' : '',
+  scheduledTime: entry.scheduledTime || '',
 });
 
 export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
   const status = medicine.getScheduleStatus(scheduleIndex, now, now);
 
+  // Accessible color palette conforming to standard WCAG AA contrast ratio requirements
   if (status === 'taken') {
-    return { status, label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
+    return { status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }; // Sky Blue on Navy (contrast 6.3+)
   }
 
   if (status === 'missed') {
-    return { status, label: 'Missed', bgColor: '#FECACA', textColor: '#B91C1C' };
+    return { status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }; // Soft Red on Dark Crimson (contrast 6.5+)
   }
 
   if (status === 'skipped') {
-    return { status, label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' };
+    return { status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }; // Light Gray on Charcoal (neutral, contrast 6.0+)
   }
 
   if (status === 'due') {
-    return { status, label: 'Due now', bgColor: '#BBF7D0', textColor: '#15803D' };
+    return { status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }; // Mint Green on Forest Green (contrast 7.1+)
   }
 
   if (status === 'pending') {
-    return { status, label: 'Pending', bgColor: '#FEF08A', textColor: '#854D0E' };
+    return { status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }; // Soft Amber on Deep Brown (contrast 6.1+)
   }
 
-  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#854D0E' };
+  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' };
 };
 
 export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = new Date()) => {
@@ -272,13 +261,13 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
 export const completedScheduleStyle = {
   status: 'completed',
   label: 'Completed',
-  bgColor: '#DCFCE7',
-  textColor: '#166534',
+  bgColor: '#D1FAE5',
+  textColor: '#064E3B',
 };
 
 export const missedPreviewStyle = {
-  bgColor: '#FED7AA',
-  textColor: '#9A3412',
+  bgColor: '#FEE2E2',
+  textColor: '#991B1B',
 };
 
 export const formatRelativeDateLabel = (value, now = new Date()) => {
@@ -501,7 +490,7 @@ export const getMedicinePreviewState = (medicine, now = new Date()) => {
             status: 'upcoming',
             label: 'Upcoming',
             bgColor: colors.surface,
-            textColor: '#854D0E',
+            textColor: '#374151',
           },
         },
       ],
@@ -530,10 +519,7 @@ export const formatMedicineMeta = (medicine) => {
 
 export const getScheduleDuplicateKey = (entry) =>
   [
-    normalizeDuplicateKey(entry.scheduleType),
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
-    normalizeDuplicateKey(entry.mealContext),
-    normalizeDuplicateKey(entry.associatedMeal),
   ].join('|');
 
 export const hasDuplicateScheduleEntry = (scheduleEntries, nextEntry, editingIndex = null) => {

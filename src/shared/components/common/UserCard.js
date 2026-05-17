@@ -1,6 +1,6 @@
 // A reusable user card component for displaying user information with primary and secondary actions.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, moderateScale, radius, spacing } from '../../theme';
+import { accessibility, colors, getFontSize, getLineHeight, moderateScale, radius, spacing } from '../../theme';
 
 function getInitials(name = '') {
   return name
@@ -93,34 +93,40 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.brandText,
     fontWeight: '700',
-    fontSize: moderateScale(16),
+    fontSize: getFontSize(16),
   },
   textBlock: {
     flex: 1,
+    minWidth: 0,
   },
   name: {
     color: colors.title,
     fontWeight: '700',
-    fontSize: moderateScale(16),
+    fontSize: getFontSize(16),
   },
   subtitle: {
     color: colors.body,
-    fontSize: moderateScale(14),
+    fontSize: getFontSize(14),
     marginTop: 2,
   },
   details: {
     color: colors.bodyMuted,
-    fontSize: moderateScale(13),
+    fontSize: getFontSize(13),
     marginTop: 2,
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: moderateScale(120),
     minHeight: accessibility.minTouchTarget,
+    minWidth: 0,
     borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -134,8 +140,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   buttonText: {
-    fontSize: moderateScale(14),
+    fontSize: getFontSize(14),
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   primaryButtonText: {
     color: colors.surface,

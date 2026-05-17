@@ -1,5 +1,4 @@
 //non-clickable card with text content
-
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme';
 
@@ -31,11 +30,17 @@ export default function TextCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5, // Crisp 1.5px border for maximum boundary definition
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.xs,
+    // Soft shadow for premium visual depth
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   title: {
     ...typography.body,

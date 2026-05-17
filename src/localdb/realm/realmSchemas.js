@@ -21,12 +21,8 @@ const MedDailyScheduleSchema = {
   embedded: true,
   properties: {
     scheduleIndex: 'int',
-    scheduleType: 'string',
     doseSize: 'int',
     scheduledTime: 'string?',
-    mealContext: 'string?',
-    associatedMeal: 'string?',
-    mealTime: 'string?',
     instructions: 'string?',
     status: 'string',
     takenAt: 'date?',
@@ -62,12 +58,8 @@ const MedDailyScheduleHistorySchema = {
   embedded: true,
   properties: {
     scheduleIndex: 'int',
-    scheduleType: 'string',
     doseSize: 'int',
     scheduledTime: 'string?',
-    mealContext: 'string?',
-    associatedMeal: 'string?',
-    mealTime: 'string?',
     instructions: 'string?',
     finalStatus: 'string',
     takenAt: 'date?',
@@ -150,7 +142,7 @@ const ApptTrackerHistorySchema = {
   },
 };
 
-export const medTrackerRealmSchemas = [
+export const realmSchemas = [
   PatientUserSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
@@ -160,11 +152,11 @@ export const medTrackerRealmSchemas = [
   ApptTrackerHistorySchema,
 ];
 
-export const MED_TRACKER_REALM_SCHEMA_VERSION = 5;
+export const REALM_SCHEMA_VERSION = 8;
 
-export const medTrackerRealmConfig = {
-  schema: medTrackerRealmSchemas,
-  schemaVersion: MED_TRACKER_REALM_SCHEMA_VERSION,
+export const realmConfig = {
+  schema: realmSchemas,
+  schemaVersion: REALM_SCHEMA_VERSION,
   encryptionKey: realmEncryptionKey,
 };
 

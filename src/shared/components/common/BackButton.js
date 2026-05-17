@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginLeft: 0,
+    marginLeft: moderateScale(-8),
   },
   content: {
     flexDirection: 'row',

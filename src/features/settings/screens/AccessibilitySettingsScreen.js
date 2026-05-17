@@ -3,11 +3,17 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_RESERVED_HEIGHT,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, spacing, typography } from '../../../shared/theme';
+import { colors, radius, spacing, typography } from '../../../shared/theme';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -122,7 +128,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: 84,
+    paddingTop: BACK_HEADER_RESERVED_HEIGHT,
     paddingBottom: 150,
     gap: spacing.sm,
   },
@@ -139,7 +145,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -154,7 +160,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   textSizeButton: {
-    minWidth: 92,
+    flexBasis: 92,
+    minWidth: 0,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -182,10 +189,11 @@ const styles = StyleSheet.create({
   },
   stickyTop: {
     position: 'absolute',
-    top: spacing.md + spacing.sm,
+    top: BACK_HEADER_TOP_OFFSET,
     left: 0,
     right: 0,
     zIndex: 20,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
   },
 });

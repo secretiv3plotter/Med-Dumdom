@@ -53,6 +53,8 @@ const styles = StyleSheet.create({
   text: {
     ...typography.bodySmall,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   pressed: {
     backgroundColor: '#C7DBFF',

@@ -1,7 +1,7 @@
 export {
-  MED_TRACKER_REALM_SCHEMA_VERSION,
-  medTrackerRealmConfig,
-  medTrackerRealmSchemas,
+  REALM_SCHEMA_VERSION,
+  realmConfig,
+  realmSchemas,
   PatientUserSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
@@ -9,6 +9,6 @@ export {
   MedTrackerDailyHistorySchema,
   ApptEntrySchema,
   ApptTrackerHistorySchema,
-} from './medTrackerSchemas';
+} from './realmSchemas';
 
 export { realmEncryptionKey } from './encryptionKey';

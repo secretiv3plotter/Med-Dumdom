@@ -2,7 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
 
-const PROFILE_BUTTON_SIZE = moderateScale(accessibility.minTouchTarget * 1.7);
+const PROFILE_BUTTON_SIZE = accessibility.minTouchTarget + spacing.xs;
 
 export default function ProfileButton({
   onPress,
@@ -63,6 +63,8 @@ export default function ProfileButton({
 const styles = StyleSheet.create({
   container: {
     minWidth: PROFILE_BUTTON_SIZE,
+    maxWidth: '100%',
+    flexShrink: 1,
     alignItems: 'center',
     gap: spacing.xxs,
   },
@@ -81,6 +83,8 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontWeight: typography.button.fontWeight,
     marginTop: -moderateScale(2),
+    flexShrink: 1,
+    textAlign: 'center',
   },
   defaultText: {
     color: colors.title,

@@ -1,16 +1,13 @@
 // ReminderService
 // Role:
-// Own reminder business logic across medication, appointments, and manual caregiver reminders.
+// Own reminder business logic across medication and appointments.
 // This service decides when reminders exist, when they are due, and how they change state.
 //
 // What belongs here:
 // - create reminders from medication or appointment events
 // - mark reminders completed, dismissed, or snoozed
-// - manage manual reminders sent by caregivers
-//
 // Use cases covered:
-// - receive real time manual reminders from caregivers
-// - send manual reminders from caregivers to patients
+// - create reminders for scheduled medicine and appointment events
 //
 // What should NOT belong here:
 // - Firebase push delivery
@@ -20,7 +17,6 @@
 // Suggested service methods:
 // - createMedicationReminder(medEntry, now)
 // - createAppointmentReminder(apptEntry, now)
-// - createManualReminder(senderId, patientId, payload)
 // - getDueReminders(userId, now)
 // - snoozeReminder(reminderId, snoozeUntil)
 // - dismissReminder(reminderId)
@@ -36,14 +32,12 @@
 // Notes:
 // - this service should work with the ReminderModel
 // Dependencies:
-// - direct dependencies: MedTrackerService, ApptTrackerService,
-//   PrivacySettingsService, PatientCaregiverLinkService
-// - commonly used by: reminder popup logic, caregiver reminder flows
+// - direct dependencies: MedTrackerService, ApptTrackerService
+// - commonly used by: reminder popup logic
 
 import Reminder from '../models/ReminderModel';
 import medTrackerService from './MedTrackerService';
 import apptTrackerService from './ApptTrackerService';
-import privacySettingsService from './PrivacySettingsService';
 import { normalizeEntityId } from './serviceUtils';
 
 const normalizeDate = (value, fieldName) => {
@@ -176,7 +170,7 @@ const buildDateKey = (value) => {
   return value.toISOString().slice(0, 10);
 };
 
-const getEffectiveScheduleTime = (scheduleEntry) => scheduleEntry?.scheduledTime || scheduleEntry?.mealTime || '';
+const getEffectiveScheduleTime = (scheduleEntry) => scheduleEntry?.scheduledTime || '';
 
 const resolveOwnerId = (candidate, sourceEntry = null) => {
   const fromCandidate =
@@ -253,44 +247,6 @@ const buildMedicationScheduleContexts = (sourceEntry, now) => {
     .filter(Boolean);
 };
 
-const createManualReminderRecord = ({ reminderId, senderId, patientId, title, message, dueAt, createdAt, relatedEntryId }) => {
-  const record = {
-    reminderId,
-    type: 'manual',
-    relatedEntryId,
-    title,
-    message,
-    snoozeDateTime: null,
-    status: 'pending',
-    senderId,
-    patientId,
-    createdAt,
-    dueAt,
-    markCompleted() {
-      this.status = 'completed';
-      this.snoozeDateTime = null;
-      return this;
-    },
-    dismissReminder() {
-      this.status = 'dismissed';
-      return this;
-    },
-    snoozeReminder(newSnoozeDateTime) {
-      this.snoozeDateTime = normalizeDate(newSnoozeDateTime, 'snoozeDateTime');
-      this.status = 'pending';
-      return this;
-    },
-    isMedicationReminder() {
-      return false;
-    },
-    isAppointmentReminder() {
-      return false;
-    },
-  };
-
-  return record;
-};
-
 const reminderDueAt = (reminder, now) => {
   if (reminder.type === 'manual') {
     return reminder.dueAt instanceof Date ? reminder.dueAt : reminder.createdAt ?? now;
@@ -327,8 +283,6 @@ export class ReminderService {
   constructor(options = {}) {
     this.medTrackerService = options.medTrackerService ?? medTrackerService;
     this.apptTrackerService = options.apptTrackerService ?? apptTrackerService;
-    this.privacySettingsService = options.privacySettingsService ?? privacySettingsService;
-    this.caregiverLinkService = options.caregiverLinkService ?? null;
     this.remindersByUserId = new Map();
     this.reminderIndex = new Map();
   }
@@ -410,44 +364,6 @@ export class ReminderService {
     reminder.sourceEntry = sourceEntry;
     store.reminders.set(reminder.reminderId, reminder);
     this.reminderIndex.set(reminder.reminderId, { ownerId: resolvedOwnerId });
-    return cloneReminder(reminder);
-  }
-
-  createManualReminder(senderId, patientId, payload) {
-    const normalizedSenderId = normalizeEntityId(senderId, 'senderId');
-    const normalizedPatientId = normalizeEntityId(patientId, 'patientId');
-    const resolvedPayload = normalizeReminderSettings(payload);
-
-    if (this.caregiverLinkService && typeof this.caregiverLinkService.canCaregiverAccessPatient === 'function') {
-      if (!this.caregiverLinkService.canCaregiverAccessPatient(normalizedPatientId, normalizedSenderId)) {
-        throw new Error('Caregiver is not linked to this patient.');
-      }
-    }
-
-    if (this.privacySettingsService?.canCaregiverSendManualReminder) {
-      if (!this.privacySettingsService.canCaregiverSendManualReminder(normalizedPatientId, normalizedSenderId)) {
-        throw new Error('Manual caregiver reminders are not permitted for this patient.');
-      }
-    }
-
-    const { normalizedUserId, store } = getReminderStore(this.remindersByUserId, normalizedPatientId);
-    const reminderId = resolvedPayload.reminderId || buildReminderId(normalizedUserId, store, 'manual');
-    const createdAt = normalizeDate(resolvedPayload.createdAt ?? new Date(), 'createdAt') ?? new Date();
-    const dueAt = normalizeDate(resolvedPayload.dueAt ?? resolvedPayload.reminderAt ?? createdAt, 'dueAt') ?? createdAt;
-    const text = buildReminderText('Manual reminder', 'You have a new caregiver reminder.', resolvedPayload);
-    const reminder = createManualReminderRecord({
-      reminderId,
-      senderId: normalizedSenderId,
-      patientId: normalizedPatientId,
-      relatedEntryId: resolvedPayload.relatedEntryId ? String(resolvedPayload.relatedEntryId).trim() : reminderId,
-      title: text.title,
-      message: text.message,
-      createdAt,
-      dueAt,
-    });
-
-    store.reminders.set(reminderId, reminder);
-    this.reminderIndex.set(reminderId, { ownerId: normalizedPatientId });
     return cloneReminder(reminder);
   }
 
