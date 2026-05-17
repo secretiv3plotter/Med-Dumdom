@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
-import { ScheduleEntryText, StatusTimesSummary } from './MedTrackerDisplayComponents';
+import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import {
   completedScheduleStyle,
   formatDate,
@@ -23,7 +23,6 @@ const PILL_RADIUS = moderateScale(999);
 export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleStatusChange }) {
   const previewState = getMedicinePreviewState(medicine, observedNow);
   const latestTakenAt = getLatestTakenAt(medicine);
-  const statusTimesSummary = getStatusTimesSummary(medicine, observedNow);
 
   const medName = medicine.medName || '';
   const baseFontSize = typography.body?.fontSize || 16;
@@ -66,8 +65,6 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
           </Text>
         </View>
       </View>
-
-      <StatusTimesSummary summary={statusTimesSummary} />
 
       <View style={styles.schedulePreviewList}>
         {previewState.type === 'completed' ? <CompletedPreviewCard /> : null}
@@ -168,22 +165,22 @@ function SchedulePreviewCard({
       {canSelectStatus ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
-            label="Taken"
-            onPress={(event) => {
-              event?.stopPropagation?.();
-              onScheduleStatusChange(medicine, index, 'taken');
-            }}
-            variant={entry.status === 'taken' ? 'solid' : 'outline'}
-            style={styles.scheduleActionButton}
-          />
-          <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={(event) => {
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'skipped');
             }}
-            style={styles.scheduleActionButton}
+            style={styles.skipActionButton}
+          />
+          <ActionButton
+            label="Taken"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onScheduleStatusChange(medicine, index, 'taken');
+            }}
+            variant={entry.status === 'taken' ? 'solid' : 'outline'}
+            style={styles.takenActionButton}
           />
         </View>
       ) : null}
@@ -251,16 +248,16 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
       {canSelectStatus ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
-            label="Taken"
-            onPress={() => onScheduleStatusChange(medicine, index, 'taken')}
-            variant={entry.status === 'taken' ? 'solid' : 'outline'}
-            style={styles.scheduleActionButton}
-          />
-          <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={() => onScheduleStatusChange(medicine, index, 'skipped')}
-            style={styles.scheduleActionButton}
+            style={styles.skipActionButton}
+          />
+          <ActionButton
+            label="Taken"
+            onPress={() => onScheduleStatusChange(medicine, index, 'taken')}
+            variant={entry.status === 'taken' ? 'solid' : 'outline'}
+            style={styles.takenActionButton}
           />
         </View>
       ) : null}
@@ -456,9 +453,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     flexWrap: 'wrap',
   },
-  scheduleActionButton: {
-    minWidth: moderateScale(82),
+  skipActionButton: {
+    minWidth: moderateScale(70),
     flexGrow: 1,
+  },
+  takenActionButton: {
+    minWidth: moderateScale(110),
+    flexGrow: 2,
   },
   segmentButton: {
     minHeight: moderateScale(44),

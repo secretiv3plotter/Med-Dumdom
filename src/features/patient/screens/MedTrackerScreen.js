@@ -375,21 +375,44 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ...scheduleStatusDefaults,
     };
 
-    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, editingScheduleIndex)) {
+    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, null)) {
       setFormError('This schedule item already exists.');
       return;
     }
 
-    setScheduleEntries((current) => {
-      if (editingScheduleIndex === null) {
-        return [...current, nextEntry];
-      }
-
-      return current.map((entry, index) => (index === editingScheduleIndex ? nextEntry : entry));
-    });
+    setScheduleEntries((current) => [...current, nextEntry]);
     setFormError('');
     setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+  };
+
+  const saveInlineScheduleEntry = (indexToUpdate, updatedFields) => {
+    const doseSize = parsePositiveInteger(updatedFields.doseSize);
+    if (!doseSize) {
+      return 'Enter a valid dose size.';
+    }
+
+    const scheduledTime = normalizeTimeInput(updatedFields.scheduledTime);
+    if (!scheduledTime) {
+      return 'Enter a valid scheduled time.';
+    }
+
+    const activatedAt = scheduleEntries[indexToUpdate]?.activatedAt || new Date().toISOString();
+    const nextEntry = {
+      ...scheduleEntries[indexToUpdate],
+      doseSize,
+      scheduledTime,
+      activatedAt,
+    };
+
+    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, indexToUpdate)) {
+      return 'This schedule item already exists.';
+    }
+
+    setScheduleEntries((current) =>
+      current.map((entry, index) => (index === indexToUpdate ? nextEntry : entry))
+    );
     setEditingScheduleIndex(null);
+    return '';
   };
 
   const editScheduleEntry = (indexToEdit) => {
@@ -398,7 +421,6 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    setScheduleDraft(buildScheduleDraftFromEntry(entry));
     setEditingScheduleIndex(indexToEdit);
     setFormError('');
   };
@@ -596,10 +618,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           setFormError('');
         }}
         onCancelScheduleEdit={() => {
-          setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
           setEditingScheduleIndex(null);
         }}
         onSaveScheduleEntry={saveScheduleEntry}
+        onSaveInlineScheduleEntry={saveInlineScheduleEntry}
         onEditScheduleEntry={editScheduleEntry}
         onDeleteScheduleEntry={requestDeleteScheduleEntry}
         onCancel={resetEditor}

@@ -21,6 +21,7 @@ export function MedTrackerEditorContent({
   onSelectScheduleType,
   onCancelScheduleEdit,
   onSaveScheduleEntry,
+  onSaveInlineScheduleEntry,
   onEditScheduleEntry,
   onDeleteScheduleEntry,
   onCancel,
@@ -58,6 +59,7 @@ export function MedTrackerEditorContent({
           setScheduleDraft={setScheduleDraft}
           onCancelScheduleEdit={onCancelScheduleEdit}
           onSaveScheduleEntry={onSaveScheduleEntry}
+          onSaveInlineScheduleEntry={onSaveInlineScheduleEntry}
           onEditScheduleEntry={onEditScheduleEntry}
           onDeleteScheduleEntry={onDeleteScheduleEntry}
         />
