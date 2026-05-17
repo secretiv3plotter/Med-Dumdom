@@ -117,6 +117,10 @@ export default function ProfileScreen({ navigation }) {
     setDraft(toDraft(savedProfile));
   };
 
+  const onCancel = () => {
+    setDraft(toDraft(profile));
+    setIsEditing(false);
+  };
   const confirmSaveChanges = () => {
     let parsedBirthDate = null;
     if (draft.birthDate) {
@@ -210,14 +214,7 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={styles.infoTitle}>Personal Information</Text>
               </View>
               <View style={styles.editActionWrap}>
-                {isEditing ? (
-                  <CancelButton
-                    onPress={() => setIsEditing(false)}
-                    style={styles.editActionButton}
-                    circleStyle={styles.editActionCircle}
-                    textStyle={styles.editActionText}
-                  />
-                ) : (
+                {!isEditing ? (
                   <EditButton
                     onPress={() => setIsEditing(true)}
                     iconSize={moderateScale(32)}
@@ -226,7 +223,7 @@ export default function ProfileScreen({ navigation }) {
                     circleStyle={styles.editActionCircle}
                     textStyle={[styles.editActionText, styles.editTextBlack]}
                   />
-                )}
+                ) : null}
               </View>
             </View>
 
@@ -283,13 +280,22 @@ export default function ProfileScreen({ navigation }) {
           </TextCard>
 
           {isEditing ? (
-            <ActionButton
-              label="Save Changes"
-              onPress={() => setShowConfirmSave(true)}
-              style={styles.saveButton}
-              textStyle={styles.saveButtonText}
-            />
-          ) : null}
+  <View style={styles.editActionsRow}>
+    <ActionButton
+      label="Cancel"
+      variant="outline"
+      onPress={onCancel}
+      style={[styles.editFooterButton, styles.cancelButton]}
+    />
+
+    <ActionButton
+      label="Save Changes"
+      onPress={() => setShowConfirmSave(true)}
+      style={[styles.editFooterButton, styles.saveButton]}
+      textStyle={styles.saveButtonText}
+    />
+  </View>
+) : null}
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
@@ -484,14 +490,16 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
   },
-  saveButton: {
+    saveButton: {
     borderRadius: radius.md,
     paddingVertical: spacing.sm,
-    alignSelf: 'center',
-    width: 170,
-    flex: 0,
-    marginTop: spacing.md,
   },
+
+  cancelButton: {
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+  },
+
   saveButtonText: {
     ...typography.bodySmall,
     color: colors.surface,
@@ -542,5 +550,15 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.bodyMuted,
     textAlign: 'left',
+  },
+  editActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  editFooterButton: {
+    flex: 1,
+    minWidth: 100,
   },
 });
