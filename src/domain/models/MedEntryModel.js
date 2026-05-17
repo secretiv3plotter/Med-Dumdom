@@ -14,6 +14,7 @@ import {
   toMinutes,
   isIntervalScheduleEntry,
   getIntervalMinutes,
+  isScheduleDateTimeInCurrentInterval,
 } from './medEntryModelUtils';
 import {
   getScheduleMissedDateTime,
@@ -392,6 +393,19 @@ export default class MedEntry {
 
   isScheduleActionAvailable(scheduleIndex, currTime = new Date(), currDate = new Date()) {
     return isScheduleActionAvailable(this, scheduleIndex, currTime, currDate, () => this.syncTakenStatusFromSchedule());
+  }
+
+  canRevertSchedule(scheduleIndex, currTime = new Date()) {
+    ensureScheduleIndex(this.dailySched, scheduleIndex);
+    const entry = this.dailySched[scheduleIndex];
+    if (!entry || (entry.status !== 'taken' && entry.status !== 'skipped')) {
+      return false;
+    }
+    if (isIntervalScheduleEntry(entry)) {
+      const actionTime = entry.takenAt || entry.skippedAt;
+      return isScheduleDateTimeInCurrentInterval(entry, actionTime, currTime);
+    }
+    return true;
   }
 
   isDue(currTime, currDate = new Date()) {

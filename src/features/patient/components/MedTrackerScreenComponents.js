@@ -191,7 +191,7 @@ function SchedulePreviewCard({
         </>
       ) : null}
 
-      {!isHourly && (entry.status === 'taken' || entry.status === 'skipped') ? (
+      {medicine.canRevertSchedule(index, observedNow) ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label="Revert Status"
@@ -312,7 +312,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
         </Text>
       ) : null}
 
-      {isResolved ? (
+      {medicine.canRevertSchedule(index, observedNow) ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label="Revert Status"

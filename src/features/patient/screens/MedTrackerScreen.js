@@ -261,7 +261,21 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         ? MEDICINE_SCHEDULE_TYPES.WEEKLY
         : MEDICINE_SCHEDULE_TYPES.DAILY;
 
-    setScheduleDraft(getInitialScheduleDraft(targetScheduleType));
+    if (hasHourlyItem) {
+      const hourlyEntry = (selectedMedicine.dailySched || []).find((entry) => entry.intervalMinutes);
+      if (hourlyEntry) {
+        setScheduleDraft({
+          doseSize: String(hourlyEntry.doseSize || ''),
+          intervalHours: String(Math.floor(Number(hourlyEntry.intervalMinutes || 0) / 60)),
+          intervalMinutes: String(Number(hourlyEntry.intervalMinutes || 0) % 60),
+          scheduledTime: '00:00',
+        });
+      } else {
+        setScheduleDraft(getInitialScheduleDraft(targetScheduleType));
+      }
+    } else {
+      setScheduleDraft(getInitialScheduleDraft(targetScheduleType));
+    }
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
@@ -426,10 +440,6 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
     const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
-    if (isHourly && hasHourlySchedule) {
-      setFormError('Only one hourly schedule item is allowed.');
-      return;
-    }
 
     const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
     const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00') || new Date();
@@ -483,6 +493,13 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       dayOfMonth,
       ...scheduleStatusDefaults,
     };
+
+    if (isHourly && hasHourlySchedule) {
+      setScheduleEntries([nextEntry]);
+      setFormError('');
+      setScheduleDraft(getInitialScheduleDraft(selectedScheduleType));
+      return;
+    }
 
     const nextEntries = [nextEntry];
 
@@ -689,11 +706,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const totalDailyAmount = sumDoseSizes(scheduleEntries);
-
-    // Recalculate/normalize activatedAt for hourly schedule entries based on final combined startDate
-    const updatedScheduleEntries = scheduleEntries.map((entry) => {
-      if (entry.intervalMinutes && !entry.activatedAt) {
+    let finalDailySched = scheduleEntries.map((entry) => {
+      if (entry.intervalMinutes) {
         return {
           ...entry,
           activatedAt: new Date(startDate.getTime() - entry.intervalMinutes * 60000).toISOString(),
@@ -702,12 +716,50 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return entry;
     });
 
+    if (editorMode === 'edit' && selectedMedicine && isHourly) {
+      const newDoseSize = finalDailySched[0].doseSize;
+      const newInterval = finalDailySched[0].intervalMinutes;
+      const originalSched = selectedMedicine.dailySched || [];
+      
+      finalDailySched = originalSched.map((entry, index) => {
+        if (entry.status === 'taken' || entry.status === 'skipped') {
+          return {
+            ...entry,
+            doseSize: newDoseSize,
+            intervalMinutes: newInterval,
+          };
+        }
+        
+        let nextActivatedAt = null;
+        if (index > 0) {
+          const prevEntry = originalSched[index - 1];
+          const prevActionTime = prevEntry.takenAt || prevEntry.skippedAt;
+          if (prevActionTime) {
+            nextActivatedAt = new Date(prevActionTime);
+          }
+        }
+        
+        if (!nextActivatedAt) {
+          nextActivatedAt = new Date(startDate.getTime() - newInterval * 60000);
+        }
+
+        return {
+          ...entry,
+          doseSize: newDoseSize,
+          intervalMinutes: newInterval,
+          activatedAt: nextActivatedAt.toISOString(),
+        };
+      });
+    }
+
+    const totalDailyAmount = sumDoseSizes(finalDailySched);
+
     const payload = {
       medName,
       unitStrength,
       unit,
       totalDailyAmount,
-      dailySched: updatedScheduleEntries,
+      dailySched: finalDailySched,
       startDate,
       endDate,
       instructions,
