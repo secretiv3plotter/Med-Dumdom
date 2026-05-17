@@ -37,12 +37,129 @@ import {
 const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
 const FOOTER_NAV_Z_INDEX = 30;
+const SEEDED_MOCK_HISTORY_USERS = new Set();
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
 };
+
+const dateOffset = (offsetDays) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const dateTimeOffset = (offsetDays, time) => {
+  const [hours, minutes] = String(time || '00:00').split(':').map(Number);
+  const date = dateOffset(offsetDays);
+  date.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0);
+  return date;
+};
+
+const createMockPreviousMedRecords = () => [
+  {
+    historyDate: dateOffset(-2),
+    entry: {
+      medEntryId: 'mock-med-history-atorvastatin',
+      medName: 'Atorvastatin',
+      unitStrength: '20 mg',
+      unit: 'tablet',
+      totalDailyAmount: 1,
+      startDate: dateOffset(-120),
+      endDate: null,
+      instructions: 'Take after dinner.',
+      prescriberContact: 'Dr. Santos - 0917 555 0108',
+      dailySched: [
+        {
+          doseSize: 1,
+          scheduledTime: '20:00',
+          status: 'taken',
+          takenAt: dateTimeOffset(-2, '20:08'),
+          skippedAt: null,
+        },
+      ],
+    },
+  },
+  {
+    historyDate: dateOffset(-9),
+    entry: {
+      medEntryId: 'mock-med-history-metformin',
+      medName: 'Metformin',
+      unitStrength: '500 mg',
+      unit: 'tablet',
+      totalDailyAmount: 2,
+      startDate: dateOffset(-90),
+      endDate: null,
+      instructions: 'Take with meals.',
+      prescriberContact: 'Dr. Reyes - 0917 555 0133',
+      dailySched: [
+        {
+          doseSize: 1,
+          scheduledTime: '08:00',
+          status: 'taken',
+          takenAt: dateTimeOffset(-9, '08:12'),
+          skippedAt: null,
+        },
+        {
+          doseSize: 1,
+          scheduledTime: '19:00',
+          status: 'skipped',
+          takenAt: null,
+          skippedAt: dateTimeOffset(-9, '19:00'),
+        },
+      ],
+    },
+  },
+  {
+    historyDate: dateOffset(-34),
+    entry: {
+      medEntryId: 'mock-med-history-cetirizine',
+      medName: 'Cetirizine',
+      unitStrength: '10 mg',
+      unit: 'tablet',
+      totalDailyAmount: 1,
+      startDate: dateOffset(-60),
+      endDate: dateOffset(-5),
+      instructions: 'Take as needed for allergies.',
+      prescriberContact: '',
+      dailySched: [
+        {
+          doseSize: 1,
+          scheduledTime: '21:00',
+          status: 'pending',
+          takenAt: null,
+          skippedAt: null,
+        },
+      ],
+    },
+  },
+  {
+    historyDate: dateOffset(-380),
+    entry: {
+      medEntryId: 'mock-med-history-vitamin-d',
+      medName: 'Vitamin D',
+      unitStrength: '1000 IU',
+      unit: 'capsule',
+      totalDailyAmount: 1,
+      startDate: dateOffset(-430),
+      endDate: null,
+      instructions: '',
+      prescriberContact: '',
+      dailySched: [
+        {
+          doseSize: 1,
+          scheduledTime: '07:00',
+          status: 'taken',
+          takenAt: dateTimeOffset(-380, '07:05'),
+          skippedAt: null,
+        },
+      ],
+    },
+  },
+];
 
 export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   const [version, setVersion] = useState(0);
@@ -64,6 +181,21 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
 
     return new RealmMedTrackerRepository(realm).listMedTrackerDailyHistory(CURRENT_USER_ID);
   }, [realm, version]);
+
+  useEffect(() => {
+    if (!realm || historyRecords.length || SEEDED_MOCK_HISTORY_USERS.has(CURRENT_USER_ID)) {
+      return;
+    }
+
+    const repository = new RealmMedTrackerRepository(realm);
+    realm.write(() => {
+      createMockPreviousMedRecords().forEach(({ entry, historyDate }) => {
+        repository.snapshotDailyHistory(CURRENT_USER_ID, entry, historyDate);
+      });
+    });
+    SEEDED_MOCK_HISTORY_USERS.add(CURRENT_USER_ID);
+    setVersion((current) => current + 1);
+  }, [realm, historyRecords.length]);
 
   const filteredHistoryRecords = useMemo(() => {
     const normalizedQuery = normalizeSearchText(searchQuery);
