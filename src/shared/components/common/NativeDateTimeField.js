@@ -69,14 +69,14 @@ const DAYS_OF_WEEK = [
 
 const parseValue = (value, mode) => {
   if (mode === 'day') {
-    return DAYS_OF_WEEK.includes(value) ? value : DAYS_OF_WEEK[new Date().getDay()];
+    return DAYS_OF_WEEK.includes(value) ? value : '';
   }
   return (mode === 'time' ? parseTimeValue(value) : parseDateValue(value));
 };
 
 const formatDisplayValue = (value, mode) => {
   if (mode === 'day') {
-    return value || DAYS_OF_WEEK[new Date().getDay()];
+    return value || '';
   }
   const parsed = parseValue(value, mode);
   if (!parsed) {

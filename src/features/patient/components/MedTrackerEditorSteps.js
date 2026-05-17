@@ -39,13 +39,17 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
 function InlineScheduleEditor({ entry, index, isWeekly, onSave, onCancel }) {
   const [doseSize, setDoseSize] = useState(String(entry.doseSize));
   const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
-  const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || 'Monday');
+  const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || '');
   const [error, setError] = useState('');
 
   const handleSave = () => {
     const trimmed = doseSize.trim();
     if (!trimmed) {
       setError('Enter a valid dose size.');
+      return;
+    }
+    if (isWeekly && !dayOfWeek) {
+      setError('Select a day of the week.');
       return;
     }
     setError('');
@@ -134,7 +138,7 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
         onChangeText={(value) => setFormState((current) => ({ ...current, medName: value }))}
       />
       <View style={styles.scheduleBuilder}>
-        <Text style={styles.sectionLabel}>Unit</Text>
+        <Text style={styles.sectionLabel}>Choose or add a unit</Text>
         <View style={styles.segmentRow}>
           {units.map((unit) => {
             const isSelected = formState.unit.toLowerCase() === unit.name.toLowerCase();
@@ -168,6 +172,7 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
             variant="solid"
             onPress={handleSaveCustomUnit}
             style={styles.customUnitAddButton}
+            disabled={!customUnitText.trim()}
           />
         </View>
       </View>

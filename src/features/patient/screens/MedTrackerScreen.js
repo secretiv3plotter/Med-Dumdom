@@ -79,7 +79,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [scheduleDraft, setScheduleDraft] = useState(() => ({
     doseSize: '',
     scheduledTime: '',
-    dayOfWeek: DAYS_OF_WEEK[new Date().getDay()],
+    dayOfWeek: '',
   }));
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
@@ -192,7 +192,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
-      dayOfWeek: DAYS_OF_WEEK[new Date().getDay()],
+      dayOfWeek: '',
     });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
@@ -205,7 +205,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
-      dayOfWeek: DAYS_OF_WEEK[new Date().getDay()],
+      dayOfWeek: '',
     });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
@@ -227,7 +227,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
-      dayOfWeek: DAYS_OF_WEEK[new Date().getDay()],
+      dayOfWeek: '',
     });
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -392,7 +392,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
-    const dayOfWeek = isWeekly ? (scheduleDraft.dayOfWeek || DAYS_OF_WEEK[new Date().getDay()]) : '';
+    const dayOfWeek = isWeekly ? scheduleDraft.dayOfWeek : '';
+    if (isWeekly && !dayOfWeek) {
+      setFormError('Select a day of the week for the schedule item.');
+      return;
+    }
 
     const nextEntry = {
       doseSize,
@@ -411,7 +415,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
-      dayOfWeek: DAYS_OF_WEEK[new Date().getDay()],
+      dayOfWeek: '',
     });
   };
 
@@ -427,7 +431,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
-    const dayOfWeek = isWeekly ? (updatedFields.dayOfWeek || DAYS_OF_WEEK[new Date().getDay()]) : '';
+    const dayOfWeek = isWeekly ? updatedFields.dayOfWeek : '';
+    if (isWeekly && !dayOfWeek) {
+      return 'Select a day of the week.';
+    }
 
     const activatedAt = scheduleEntries[indexToUpdate]?.activatedAt || new Date().toISOString();
     const nextEntry = {
