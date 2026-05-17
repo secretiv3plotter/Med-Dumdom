@@ -319,9 +319,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    minWidth: 0,
     ...typography.body,
     color: colors.title,
     paddingRight: spacing.sm,
+    paddingVertical: 0,
   },
   errorIcon: {
     marginRight: spacing.xs,

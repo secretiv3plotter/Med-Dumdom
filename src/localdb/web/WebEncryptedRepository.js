@@ -125,7 +125,8 @@ export class WebRealm {
       ApptEntry: {},
       ApptTrackerHistory: {},
       MedEntry: {},
-      MedTrackerDailyHistory: {}
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
     };
     
     this.key = null;
@@ -168,6 +169,13 @@ export class WebRealm {
         const encryptedObj = JSON.parse(stored);
         const decryptedJson = await decryptData(encryptedObj, this.key);
         this.collections = JSON.parse(decryptedJson);
+        // Ensure new collections are registered (mock migration support)
+        const schemas = ['PatientUser', 'ApptEntry', 'ApptTrackerHistory', 'MedEntry', 'MedTrackerDailyHistory', 'MedUnit'];
+        schemas.forEach((s) => {
+          if (!this.collections[s]) {
+            this.collections[s] = {};
+          }
+        });
       } else {
         // Initialize an empty database
         this.collections = {
@@ -175,7 +183,8 @@ export class WebRealm {
           ApptEntry: {},
           ApptTrackerHistory: {},
           MedEntry: {},
-          MedTrackerDailyHistory: {}
+          MedTrackerDailyHistory: {},
+          MedUnit: {}
         };
         await this.saveAsync();
       }
@@ -257,6 +266,7 @@ export class WebRealm {
     let primaryKeyField = 'apptEntryId';
     if (schemaName === 'PatientUser') primaryKeyField = 'userId';
     if (schemaName === 'MedEntry') primaryKeyField = 'medEntryId';
+    if (schemaName === 'MedUnit') primaryKeyField = 'unitId';
     if (schemaName === 'ApptTrackerHistory' || schemaName === 'MedTrackerDailyHistory') primaryKeyField = 'historyId';
     
     const id = String(data[primaryKeyField]);
@@ -294,7 +304,7 @@ export class WebRealm {
     for (const schemaName of Object.keys(this.collections)) {
       const collection = this.collections[schemaName];
       // Check primary key fields
-      const pKey = object.apptEntryId || object.medEntryId || object.historyId || object.userId;
+      const pKey = object.apptEntryId || object.medEntryId || object.historyId || object.userId || object.unitId;
       if (pKey && collection[String(pKey)]) {
         delete collection[String(pKey)];
         return;

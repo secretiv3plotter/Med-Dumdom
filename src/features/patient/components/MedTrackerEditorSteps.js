@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import { DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
@@ -6,12 +7,44 @@ import NativeDateTimeField from '../../../shared/components/common/NativeDateTim
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import { SegmentButton } from './MedTrackerScreenComponents';
-import { MEDICINE_SCHEDULE_TYPE_OPTIONS } from '../constants/medTrackerEditorSteps';
+import { MEDICINE_SCHEDULE_TYPE_OPTIONS, MEDICINE_SUB_INTERVAL_OPTIONS } from '../constants/medTrackerEditorSteps';
 import { capitalize, startOfToday } from '../utils/medTrackerUtils';
 
-const UNIT_OPTIONS = ['tablet', 'ml', 'units', 'custom'];
+function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
+  return (
+    <View style={[styles.unitBadgeContainer, selected && styles.unitBadgeContainerSelected]}>
+      <Pressable
+        onPress={onPress}
+        style={styles.unitBadgePressable}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+      >
+        <Text style={[styles.unitBadgeText, selected && styles.unitBadgeTextSelected]}>
+          {capitalize(label)}
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={onDelete}
+        style={styles.unitDeleteBadge}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete unit ${label}`}
+      >
+        <Text style={styles.unitDeleteBadgeText}>×</Text>
+      </Pressable>
+    </View>
+  );
+}
 
-export function MedicineDetailsStep({ formState, setFormState }) {
+export function MedicineDetailsStep({ formState, setFormState, units = [], onAddUnit, onDeleteUnit }) {
+  const [customUnitText, setCustomUnitText] = useState('');
+
+  const handleSaveCustomUnit = () => {
+    const trimmed = customUnitText.trim();
+    if (!trimmed) return;
+    onAddUnit?.(trimmed);
+    setCustomUnitText('');
+  };
+
   return (
     <View style={styles.formColumn}>
       <InputBar
@@ -19,38 +52,43 @@ export function MedicineDetailsStep({ formState, setFormState }) {
         value={formState.medName}
         onChangeText={(value) => setFormState((current) => ({ ...current, medName: value }))}
       />
-      <InputBar
-        placeholder="Unit strength (optional)"
-        value={formState.unitStrength}
-        onChangeText={(value) => setFormState((current) => ({ ...current, unitStrength: value }))}
-        accessibilityLabel="Unit strength"
-      />
       <View style={styles.scheduleBuilder}>
         <Text style={styles.sectionLabel}>Unit</Text>
         <View style={styles.segmentRow}>
-          {UNIT_OPTIONS.map((option) => (
-            <SegmentButton
-              key={option}
-              label={option === 'custom' ? 'Custom' : option === 'ml' ? 'mL' : capitalize(option)}
-              selected={
-                option === 'custom' ? !['tablet', 'ml', 'units'].includes(formState.unit) : formState.unit === option
-              }
-              onPress={() =>
-                setFormState((current) => ({
-                  ...current,
-                  unit: option === 'custom' ? '' : option,
-                }))
-              }
-            />
-          ))}
+          {units.map((unit) => {
+            const isSelected = formState.unit.toLowerCase() === unit.name.toLowerCase();
+            return (
+              <UnitSegmentButton
+                key={unit.unitId}
+                label={unit.name === 'mg' ? 'Mg' : capitalize(unit.name)}
+                selected={isSelected}
+                onPress={() =>
+                  setFormState((current) => ({
+                    ...current,
+                    unit: unit.name,
+                  }))
+                }
+                onDelete={() => onDeleteUnit?.(unit.unitId, unit.name)}
+              />
+            );
+          })}
         </View>
-        {!['tablet', 'ml', 'units'].includes(formState.unit) ? (
-          <InputBar
-            placeholder="Custom unit"
-            value={formState.unit}
-            onChangeText={(value) => setFormState((current) => ({ ...current, unit: value }))}
+
+        <View style={styles.customUnitAdderRow}>
+          <View style={{ flex: 1 }}>
+            <InputBar
+              placeholder="Add custom unit"
+              value={customUnitText}
+              onChangeText={setCustomUnitText}
+            />
+          </View>
+          <ActionButton
+            label="Add"
+            variant="solid"
+            onPress={handleSaveCustomUnit}
+            style={styles.customUnitAddButton}
           />
-        ) : null}
+        </View>
       </View>
       <InputBar
         placeholder="Instructions (optional)"
@@ -67,28 +105,85 @@ export function MedicineDetailsStep({ formState, setFormState }) {
 }
 
 export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectScheduleType }) {
+  const isSelectedSubInterval = ['regular_daily', 'regular_weekly', 'regular_monthly'].includes(selectedScheduleType);
+  const [isIntervalsExpanded, setIsIntervalsExpanded] = useState(isSelectedSubInterval);
+
   return (
     <View style={styles.scheduleTypeGrid}>
       {MEDICINE_SCHEDULE_TYPE_OPTIONS.map((option) => {
-        const selected = selectedScheduleType === option.value;
+        const isParentSelected = option.isParent && isSelectedSubInterval;
+        const selected = selectedScheduleType === option.value || isParentSelected;
+
         return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="button"
-            accessibilityLabel={option.label}
-            accessibilityState={{ selected }}
-            unstable_pressDelay={0}
-            onPress={() => onSelectScheduleType(option.value)}
-            style={({ pressed }) => [
-              styles.scheduleTypeCard,
-              selected && styles.scheduleTypeCardSelected,
-              pressed && styles.pressedCard,
-            ]}
-          >
-            <Text style={[styles.scheduleTypeLabel, selected && styles.scheduleTypeLabelSelected]}>
-              {option.label}
-            </Text>
-          </Pressable>
+          <View key={option.value} style={styles.optionContainer}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              accessibilityState={{ selected }}
+              unstable_pressDelay={0}
+              onPress={() => {
+                if (option.isParent) {
+                  const nextExpanded = !isIntervalsExpanded;
+                  setIsIntervalsExpanded(nextExpanded);
+                  if (nextExpanded && !isSelectedSubInterval) {
+                    onSelectScheduleType('regular_daily');
+                  }
+                } else {
+                  onSelectScheduleType(option.value);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.scheduleTypeCard,
+                selected && styles.scheduleTypeCardSelected,
+                pressed && styles.pressedCard,
+              ]}
+            >
+              <View style={styles.scheduleTypeCardContent}>
+                <Text style={[styles.scheduleTypeLabel, selected && styles.scheduleTypeLabelSelected]}>
+                  {option.label}
+                </Text>
+                {option.caption ? (
+                  <Text style={[styles.scheduleTypeCaption, selected && styles.scheduleTypeCaptionSelected]}>
+                    {option.caption}
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>
+
+            {option.isParent && isIntervalsExpanded ? (
+              <View style={styles.nestedIntervalsContainer}>
+                {MEDICINE_SUB_INTERVAL_OPTIONS.map((subOption) => {
+                  const subSelected = selectedScheduleType === subOption.value;
+                  return (
+                    <Pressable
+                      key={subOption.value}
+                      accessibilityRole="button"
+                      accessibilityLabel={subOption.label}
+                      accessibilityState={{ selected: subSelected }}
+                      unstable_pressDelay={0}
+                      onPress={() => onSelectScheduleType(subOption.value)}
+                      style={({ pressed }) => [
+                        styles.nestedTypeCard,
+                        subSelected && styles.nestedTypeCardSelected,
+                        pressed && styles.pressedCard,
+                      ]}
+                    >
+                      <View style={styles.scheduleTypeCardContent}>
+                        <Text style={[styles.nestedTypeLabel, subSelected && styles.nestedTypeLabelSelected]}>
+                          {subOption.label}
+                        </Text>
+                        {subOption.caption ? (
+                          <Text style={[styles.nestedTypeCaption, subSelected && styles.nestedTypeCaptionSelected]}>
+                            {subOption.caption}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
         );
       })}
     </View>
@@ -111,35 +206,30 @@ export function MedicineScheduleStep({
   return (
     <>
       <View style={styles.formColumn}>
-        <InputBar
-          placeholder="Total daily amount"
-          keyboardType="number-pad"
-          value={formState.totalDailyAmount}
-          onChangeText={(value) => setFormState((current) => ({ ...current, totalDailyAmount: value }))}
-        />
         <NativeDateTimeField
           label="Start date"
           placeholder="Select start date"
           accessibilityLabel="Start date"
           value={formState.startDate}
           onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
-          minimumDate={editorMode === 'edit' ? undefined : startOfToday()}
+          minimumDate={startOfToday()}
         />
         <NativeDateTimeField
           label="End date"
-          placeholder="Select end date"
+          placeholder="Select end date (optional)"
           accessibilityLabel="End date"
           value={formState.endDate}
           onChange={(value) => setFormState((current) => ({ ...current, endDate: value }))}
+          minimumDate={startOfToday()}
           optional
         />
       </View>
 
       <View style={styles.scheduleBuilder}>
-        <Text style={styles.sectionLabel}>Daily schedule entry</Text>
+        <Text style={styles.sectionLabel}>Create a schedule</Text>
 
         <InputBar
-          placeholder="Dose size"
+          placeholder="Dose"
           keyboardType="number-pad"
           value={scheduleDraft.doseSize}
           onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
@@ -147,9 +237,9 @@ export function MedicineScheduleStep({
 
         <NativeDateTimeField
           mode="time"
-          label="Scheduled time"
-          placeholder="Select scheduled time"
-          accessibilityLabel="Scheduled time"
+          label="Time"
+          placeholder="Select time"
+          accessibilityLabel="Time"
           value={scheduleDraft.scheduledTime}
           onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
         />
@@ -200,7 +290,12 @@ const styles = StyleSheet.create({
   },
   scheduleBuilder: {
     gap: spacing.sm,
-    paddingTop: spacing.xs,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+    marginTop: spacing.sm,
   },
   scheduleSection: {
     gap: spacing.xs,
@@ -267,5 +362,113 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.xs,
     flexWrap: 'wrap',
+  },
+  unitBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    minHeight: 44,
+  },
+  unitBadgeContainerSelected: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandSoft,
+  },
+  unitBadgePressable: {
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    marginRight: spacing.xs,
+  },
+  unitBadgeText: {
+    ...typography.bodySmall,
+    color: colors.body,
+    fontWeight: '700',
+  },
+  unitBadgeTextSelected: {
+    color: colors.brandText,
+  },
+  unitDeleteBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFEBEE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.xxs,
+  },
+  unitDeleteBadgeText: {
+    color: '#D32F2F',
+    fontSize: 14,
+    fontWeight: 'bold',
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  customUnitAdderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  customUnitAddButton: {
+    width: 60,
+    flexGrow: 0,
+    height: 48,
+    justifyContent: 'center',
+  },
+  optionContainer: {
+    flexDirection: 'column',
+    width: '100%',
+  },
+  scheduleTypeCardContent: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  scheduleTypeCaption: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    fontWeight: '400',
+    fontSize: 12,
+  },
+  scheduleTypeCaptionSelected: {
+    color: '#0055B3',
+  },
+  nestedIntervalsContainer: {
+    paddingLeft: spacing.lg,
+    marginTop: spacing.xs,
+    gap: spacing.xs,
+  },
+  nestedTypeCard: {
+    minHeight: 48,
+    backgroundColor: colors.pageBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    justifyContent: 'center',
+  },
+  nestedTypeCardSelected: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandSoft,
+  },
+  nestedTypeLabel: {
+    ...typography.bodySmall,
+    color: colors.body,
+    fontWeight: '700',
+  },
+  nestedTypeLabelSelected: {
+    color: colors.brandText,
+  },
+  nestedTypeCaption: {
+    fontSize: 11,
+    color: colors.bodyMuted,
+    fontWeight: '400',
+  },
+  nestedTypeCaptionSelected: {
+    color: '#0055B3',
   },
 });

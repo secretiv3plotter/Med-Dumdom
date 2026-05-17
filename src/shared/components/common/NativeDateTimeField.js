@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, ScrollView, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { accessibility, colors, radius, spacing, typography } from '../../theme';
@@ -123,6 +123,14 @@ export default function NativeDateTimeField({
   const [tempMinute, setTempMinute] = useState(0);
   const [tempAmPm, setTempAmPm] = useState('AM');
 
+  // Refs for custom scrolling column lists
+  const monthScrollRef = useRef(null);
+  const dayScrollRef = useRef(null);
+  const yearScrollRef = useRef(null);
+  const hourScrollRef = useRef(null);
+  const minuteScrollRef = useRef(null);
+  const ampmScrollRef = useRef(null);
+
   // Sync temp picker states when opening the picker
   useEffect(() => {
     if (isPickerVisible && Platform.OS === 'web') {
@@ -156,11 +164,17 @@ export default function NativeDateTimeField({
     }
   };
 
-  // Web Picker Confirm Handler
+  // Web Picker Confirm Handler with date bounds validation guard
   const handleWebConfirm = () => {
     setPickerVisible(false);
     if (mode === 'date') {
-      const finalDate = new Date(tempYear, tempMonth, tempDay);
+      let finalDate = new Date(tempYear, tempMonth, tempDay);
+      if (minimumDate instanceof Date) {
+        const minCompare = new Date(minimumDate.getFullYear(), minimumDate.getMonth(), minimumDate.getDate());
+        if (finalDate < minCompare) {
+          finalDate = minCompare;
+        }
+      }
       commitValue(finalDate);
     } else {
       let finalHour = tempHour;
@@ -204,6 +218,56 @@ export default function NativeDateTimeField({
       setTempDay(maxDays);
     }
   }, [tempYear, tempMonth, tempDay]);
+
+  // Dynamic Scroll to Selected active row on mount
+  useEffect(() => {
+    if (isPickerVisible && Platform.OS === 'web') {
+      setTimeout(() => {
+        if (mode === 'date') {
+          if (monthScrollRef.current) {
+            monthScrollRef.current.scrollTo({ y: tempMonth * 38, animated: false });
+          }
+          if (dayScrollRef.current) {
+            dayScrollRef.current.scrollTo({ y: (tempDay - 1) * 38, animated: false });
+          }
+          if (yearScrollRef.current) {
+            const yIdx = yearsList.indexOf(tempYear);
+            if (yIdx !== -1) {
+              yearScrollRef.current.scrollTo({ y: yIdx * 38, animated: false });
+            }
+          }
+        } else {
+          if (hourScrollRef.current) {
+            hourScrollRef.current.scrollTo({ y: (tempHour - 1) * 38, animated: false });
+          }
+          if (minuteScrollRef.current) {
+            minuteScrollRef.current.scrollTo({ y: tempMinute * 38, animated: false });
+          }
+          if (ampmScrollRef.current) {
+            ampmScrollRef.current.scrollTo({ y: (tempAmPm === 'PM' ? 1 : 0) * 38, animated: false });
+          }
+        }
+      }, 80);
+    }
+  }, [isPickerVisible, mode, tempMonth, tempDay, tempYear, tempHour, tempMinute, tempAmPm, yearsList]);
+
+  // Self-healing effect: shift selected month/day if they fall into disabled/past range
+  useEffect(() => {
+    if (Platform.OS === 'web' && minimumDate instanceof Date) {
+      const minYear = minimumDate.getFullYear();
+      const minMonth = minimumDate.getMonth();
+      const minDay = minimumDate.getDate();
+
+      if (tempYear === minYear) {
+        if (tempMonth < minMonth) {
+          setTempMonth(minMonth);
+        }
+        if (tempMonth === minMonth && tempDay < minDay) {
+          setTempDay(minDay);
+        }
+      }
+    }
+  }, [tempYear, tempMonth, tempDay, minimumDate]);
 
   const minutesList = useMemo(() => {
     const list = [];
@@ -285,43 +349,88 @@ export default function NativeDateTimeField({
                     {/* Month Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Month</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
-                        {MONTHS.map((m, idx) => (
-                          <Pressable
-                            key={m}
-                            onPress={() => setTempMonth(idx)}
-                            style={[styles.scrollItem, tempMonth === idx && styles.scrollItemActive]}
-                          >
-                            <Text style={[styles.scrollItemText, tempMonth === idx && styles.scrollItemTextActive]}>
-                              {m.slice(0, 3)}
-                            </Text>
-                          </Pressable>
-                        ))}
+                      <ScrollView
+                        ref={monthScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {MONTHS.map((m, idx) => {
+                          const minDate = minimumDate instanceof Date ? minimumDate : new Date();
+                          const isMonthDisabled = tempYear === minDate.getFullYear() && idx < minDate.getMonth();
+                          return (
+                            <Pressable
+                              key={m}
+                              disabled={isMonthDisabled}
+                              onPress={() => setTempMonth(idx)}
+                              style={[
+                                styles.scrollItem,
+                                tempMonth === idx && styles.scrollItemActive,
+                                isMonthDisabled && styles.scrollItemDisabled,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.scrollItemText,
+                                  tempMonth === idx && styles.scrollItemTextActive,
+                                  isMonthDisabled && styles.scrollItemTextDisabled,
+                                ]}
+                              >
+                                {m.slice(0, 3)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </ScrollView>
                     </View>
 
                     {/* Day Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Day</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
-                        {daysInMonthList.map((d) => (
-                          <Pressable
-                            key={d}
-                            onPress={() => setTempDay(d)}
-                            style={[styles.scrollItem, tempDay === d && styles.scrollItemActive]}
-                          >
-                            <Text style={[styles.scrollItemText, tempDay === d && styles.scrollItemTextActive]}>
-                              {d}
-                            </Text>
-                          </Pressable>
-                        ))}
+                      <ScrollView
+                        ref={dayScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        {daysInMonthList.map((d) => {
+                          const minDate = minimumDate instanceof Date ? minimumDate : new Date();
+                          const isDayDisabled =
+                            tempYear === minDate.getFullYear() &&
+                            tempMonth === minDate.getMonth() &&
+                            d < minDate.getDate();
+                          return (
+                            <Pressable
+                              key={d}
+                              disabled={isDayDisabled}
+                              onPress={() => setTempDay(d)}
+                              style={[
+                                styles.scrollItem,
+                                tempDay === d && styles.scrollItemActive,
+                                isDayDisabled && styles.scrollItemDisabled,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.scrollItemText,
+                                  tempDay === d && styles.scrollItemTextActive,
+                                  isDayDisabled && styles.scrollItemTextDisabled,
+                                ]}
+                              >
+                                {d}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </ScrollView>
                     </View>
 
                     {/* Year Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Year</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
+                      <ScrollView
+                        ref={yearScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
                         {yearsList.map((y) => (
                           <Pressable
                             key={y}
@@ -341,7 +450,11 @@ export default function NativeDateTimeField({
                     {/* Hour Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Hour</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
+                      <ScrollView
+                        ref={hourScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
                         {hoursList.map((h) => (
                           <Pressable
                             key={h}
@@ -359,7 +472,11 @@ export default function NativeDateTimeField({
                     {/* Minute Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Min</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
+                      <ScrollView
+                        ref={minuteScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
                         {minutesList.map((m) => (
                           <Pressable
                             key={m}
@@ -377,7 +494,11 @@ export default function NativeDateTimeField({
                     {/* AM/PM Scroll Wheel */}
                     <View style={styles.columnWrap}>
                       <Text style={styles.columnLabel}>Period</Text>
-                      <ScrollView style={styles.columnScroll} showsVerticalScrollIndicator={false}>
+                      <ScrollView
+                        ref={ampmScrollRef}
+                        style={styles.columnScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
                         {['AM', 'PM'].map((p) => (
                           <Pressable
                             key={p}
@@ -546,6 +667,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandSoft,
     borderBottomColor: colors.brandSoft,
   },
+  scrollItemDisabled: {
+    backgroundColor: '#F8FAFC',
+    opacity: 0.45,
+  },
   scrollItemText: {
     ...typography.bodySmall,
     color: colors.body,
@@ -554,6 +679,10 @@ const styles = StyleSheet.create({
   scrollItemTextActive: {
     color: colors.brandText,
     fontWeight: '700',
+  },
+  scrollItemTextDisabled: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
   },
   modalActions: {
     flexDirection: 'row',

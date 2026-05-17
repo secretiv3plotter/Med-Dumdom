@@ -134,6 +134,9 @@ export function MedicineEditorPopup({
   editorStep,
   selectedScheduleType,
   formState,
+  units,
+  onAddUnit,
+  onDeleteUnit,
   scheduleDraft,
   scheduleEntries,
   editingScheduleIndex,
@@ -168,6 +171,9 @@ export function MedicineEditorPopup({
         editorStep={editorStep}
         selectedScheduleType={selectedScheduleType}
         formState={formState}
+        units={units}
+        onAddUnit={onAddUnit}
+        onDeleteUnit={onDeleteUnit}
         scheduleDraft={scheduleDraft}
         scheduleEntries={scheduleEntries}
         editingScheduleIndex={editingScheduleIndex}
@@ -303,7 +309,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: spacing.sm,
-    minHeight: 72,
   },
   detailsHeaderTextBlock: {
     flex: 1,

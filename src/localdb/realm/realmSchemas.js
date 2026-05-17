@@ -16,6 +16,16 @@ const PatientUserSchema = {
   },
 };
 
+const MedUnitSchema = {
+  name: 'MedUnit',
+  primaryKey: 'unitId',
+  properties: {
+    unitId: 'string',
+    name: 'string',
+    isCustom: 'bool',
+  },
+};
+
 const MedDailyScheduleSchema = {
   name: 'MedDailySchedule',
   embedded: true,
@@ -146,13 +156,14 @@ export const realmSchemas = [
   PatientUserSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
+  MedUnitSchema,
   MedDailyScheduleHistorySchema,
   MedTrackerDailyHistorySchema,
   ApptEntrySchema,
   ApptTrackerHistorySchema,
 ];
 
-export const REALM_SCHEMA_VERSION = 8;
+export const REALM_SCHEMA_VERSION = 9;
 
 export const realmConfig = {
   schema: realmSchemas,
@@ -164,6 +175,7 @@ export {
   PatientUserSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
+  MedUnitSchema,
   MedDailyScheduleHistorySchema,
   MedTrackerDailyHistorySchema,
   ApptEntrySchema,

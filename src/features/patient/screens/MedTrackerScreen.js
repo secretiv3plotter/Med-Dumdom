@@ -32,6 +32,11 @@ import {
   sumDoseSizes,
 } from '../utils/medTrackerUtils';
 
+const DEFAULT_UNITS = [
+  { unitId: 'def-mg', name: 'mg', isCustom: false },
+  { unitId: 'def-capsule', name: 'capsule', isCustom: false },
+];
+
 const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
@@ -83,6 +88,49 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   );
 
   const medicines = useMemo(() => activeMedTrackerService.listMedEntries(CURRENT_USER_ID), [activeMedTrackerService, version]);
+
+  useEffect(() => {
+    if (!realm) return;
+
+    try {
+      const marker = realm.objectForPrimaryKey('MedUnit', 'seeded-marker');
+      if (!marker) {
+        realm.write(() => {
+          realm.create('MedUnit', { unitId: 'seeded-marker', name: 'seeded-marker', isCustom: false });
+          const defaults = ['mg', 'capsule'];
+          defaults.forEach((name) => {
+            realm.create('MedUnit', {
+              unitId: `unit-${name}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              name,
+              isCustom: false,
+            });
+          });
+        });
+        refresh();
+      } else {
+        // Limit premade units to just mg and capsule for existing sessions
+        const existing = Array.from(realm.objects('MedUnit')).filter((u) => !u.isCustom && u.unitId !== 'seeded-marker');
+        const toRemove = existing.filter((u) => u.name !== 'mg' && u.name !== 'capsule');
+        if (toRemove.length > 0) {
+          realm.write(() => {
+            toRemove.forEach((u) => {
+              realm.delete(u);
+            });
+          });
+          refresh();
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to seed default medicine units:', e);
+    }
+  }, [realm]);
+
+  const units = useMemo(() => {
+    if (realm) {
+      return Array.from(realm.objects('MedUnit')).filter((u) => u.unitId !== 'seeded-marker');
+    }
+    return DEFAULT_UNITS;
+  }, [realm, version]);
 
   const selectedMedicine = useMemo(
     () => medicines.find((medicine) => medicine.medEntryId === selectedMedicineId) || null,
@@ -193,6 +241,60 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setPendingDeleteMedicine(null);
     setIsDetailsVisible(false);
     setSelectedMedicineId(null);
+    refresh();
+  };
+
+  const handleAddUnit = (name) => {
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return;
+
+    const lowercaseName = cleanName.toLowerCase();
+    const existing = units.find((u) => u.name.toLowerCase() === lowercaseName);
+    if (existing) {
+      setFormState((current) => ({ ...current, unit: existing.name }));
+      return;
+    }
+
+    const newUnit = {
+      unitId: `unit-${lowercaseName}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: cleanName,
+      isCustom: true,
+    };
+
+    if (realm) {
+      try {
+        realm.write(() => {
+          realm.create('MedUnit', newUnit);
+        });
+      } catch (e) {
+        console.warn('Failed to save custom unit:', e);
+      }
+    } else {
+      DEFAULT_UNITS.push(newUnit);
+    }
+
+    setFormState((current) => ({ ...current, unit: cleanName }));
+    refresh();
+  };
+
+  const handleDeleteUnit = (unitId, unitName) => {
+    if (realm) {
+      try {
+        realm.write(() => {
+          const obj = realm.objectForPrimaryKey('MedUnit', unitId);
+          if (obj) {
+            realm.delete(obj);
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to delete unit:', e);
+      }
+    }
+
+    if (formState.unit.toLowerCase() === unitName.toLowerCase()) {
+      setFormState((current) => ({ ...current, unit: '' }));
+    }
+
     refresh();
   };
 
@@ -339,7 +441,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   };
 
   const goToScheduleStep = () => {
-    if (selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY) {
+    if (
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY
+    ) {
       setFormError('Only daily schedules are available right now.');
       return;
     }
@@ -361,14 +466,13 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const medName = formState.medName.trim();
     const unitStrength = formState.unitStrength.trim();
     const unit = formState.unit.trim();
-    const totalDailyAmount = parsePositiveInteger(formState.totalDailyAmount);
     const startDate = parseDateInput(formState.startDate);
     const endDateText = formState.endDate.trim();
     const endDate = endDateText ? parseDateInput(endDateText) : null;
     const instructions = formState.instructions.trim();
     const prescriberContact = formState.prescriberContact.trim();
 
-    if (!medName || !unit || !totalDailyAmount || !startDate) {
+    if (!medName || !unit || !startDate) {
       setFormError('Complete the required medication fields.');
       return;
     }
@@ -380,6 +484,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     if (editorMode !== 'edit' && isBeforeDate(startDate, startOfToday())) {
       setFormError('Start date must be today or a future date.');
+      return;
+    }
+
+    if (endDate && isBeforeDate(endDate, startOfToday())) {
+      setFormError('End date must be today or a future date.');
+      return;
+    }
+
+    if (endDate && isBeforeDate(endDate, startDate)) {
+      setFormError('End date cannot be before start date.');
       return;
     }
 
@@ -403,10 +517,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    if (sumDoseSizes(scheduleEntries) !== totalDailyAmount) {
-      setFormError('Total daily amount must match the sum of the schedule dose sizes.');
-      return;
-    }
+    const totalDailyAmount = sumDoseSizes(scheduleEntries);
 
     const payload = {
       medName,
@@ -468,6 +579,9 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         editorStep={editorStep}
         selectedScheduleType={selectedScheduleType}
         formState={formState}
+        units={units}
+        onAddUnit={handleAddUnit}
+        onDeleteUnit={handleDeleteUnit}
         scheduleDraft={scheduleDraft}
         scheduleEntries={scheduleEntries}
         editingScheduleIndex={editingScheduleIndex}

@@ -9,6 +9,9 @@ export function MedTrackerEditorContent({
   editorStep,
   selectedScheduleType,
   formState,
+  units,
+  onAddUnit,
+  onDeleteUnit,
   scheduleDraft,
   scheduleEntries,
   editingScheduleIndex,
@@ -38,7 +41,7 @@ export function MedTrackerEditorContent({
       <Text style={styles.stepTitle}>{stepTitle}</Text>
 
       {isDetailsStep ? (
-        <MedicineDetailsStep formState={formState} setFormState={setFormState} />
+        <MedicineDetailsStep formState={formState} setFormState={setFormState} units={units} onAddUnit={onAddUnit} onDeleteUnit={onDeleteUnit} />
       ) : isScheduleTypeStep ? (
         <MedicineScheduleTypeStep
           selectedScheduleType={selectedScheduleType}
@@ -63,21 +66,22 @@ export function MedTrackerEditorContent({
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
       <View style={styles.footerActionsRow}>
-        <ActionButton label="Cancel" variant="outline" onPress={onCancel} />
+        <ActionButton label="Cancel" variant="outline" onPress={onCancel} style={styles.footerButton} />
         {isDetailsStep ? (
-          <ActionButton label="Next" variant="solid" onPress={onNextStep} />
+          <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
         ) : isScheduleTypeStep ? (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} />
-            <ActionButton label="Next" variant="solid" onPress={onNextStep} />
+            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
+            <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
           </>
         ) : (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} />
+            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
             <ActionButton
               label={editorMode === 'edit' ? 'Save Medicine' : 'Add Medicine'}
               variant="solid"
               onPress={onSaveMedicine}
+              style={styles.footerButton}
             />
           </>
         )}
@@ -102,5 +106,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+    minWidth: 100,
   },
 });
