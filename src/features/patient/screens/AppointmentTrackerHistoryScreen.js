@@ -17,6 +17,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
@@ -254,6 +255,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
   const [pressedRecordId, setPressedRecordId] = useState(null);
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : apptTrackerService),
@@ -373,7 +375,12 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ThemedScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView
+        contentContainerStyle={styles.content}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? headerBlock : null}
         <InputBar
           placeholder="Search previous records"
@@ -627,8 +634,16 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
         ) : null}
       </LargePopup>
 
-      <View style={styles.footerNav}>
-        <NavigationBar selectedTab="appointment" showPressAlert={false} onNavigate={onTabNavigate} />
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[styles.footerNav, { opacity: footerNav.isVisible ? 1 : 0 }]}
+      >
+        <NavigationBar
+          selectedTab="appointment"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );

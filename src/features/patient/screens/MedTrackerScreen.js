@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import {
   ConfirmationDialogModal,
   MedicineDetailsPopup,
@@ -120,6 +121,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [observedNow, setObservedNow] = useState(() => new Date());
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const activeMedTrackerService = useMemo(
     () => (realm ? new RealmMedTrackerRepository(realm) : trackerService),
@@ -821,6 +823,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         onReviewRecords={() => navigation?.navigate?.(ROUTES.MED_TRACKER_HISTORY)}
         onScheduleStatusChange={requestScheduleStatusChange}
         headerContent={!pinHeader ? <MedTrackerHeaderContent onCreate={openCreateEditor} /> : null}
+        scrollHandlers={{
+          onLayout: footerNav.onLayout,
+          onContentSizeChange: footerNav.onContentSizeChange,
+          onScroll: footerNav.onScroll,
+        }}
       />
 
       <MedicineDetailsPopup
@@ -903,7 +910,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ) : null}
 
       <View
-        style={[styles.footerNav, { backgroundColor: colors.pageBg }]}
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[
+          styles.footerNav,
+          { backgroundColor: colors.pageBg, opacity: footerNav.isVisible ? 1 : 0 },
+        ]}
         onLayout={(event) => {
           const nextHeight = Math.ceil(event.nativeEvent.layout.height);
           setFooterNavHeight((currentHeight) => (
@@ -911,7 +922,12 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           ));
         }}
       >
-        <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
+        <NavigationBar
+          selectedTab="med"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );

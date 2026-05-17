@@ -14,6 +14,7 @@ import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, radius, spacing, typography } from '../../../shared/theme';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { scaleLayoutValue, useTextScale } from '../../../shared/theme/textScale';
 
 const SETTINGS_ITEMS = [
@@ -36,6 +37,7 @@ export default function SettingsScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || null;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -82,7 +84,13 @@ export default function SettingsScreen({ navigation }) {
         </View>
       ) : null}
 
-      <ThemedScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ThemedScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Settings</Text>
@@ -167,13 +175,20 @@ export default function SettingsScreen({ navigation }) {
           />
         </View>
       </ThemedScrollView>
-        <View style={[styles.footerNav, { backgroundColor: colors.pageBg }]}>
-          <NavigationBar
-            selectedTab="home"
-            showPressAlert={false}
-            onNavigate={onTabNavigate}
-          />
-        </View>
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[
+          styles.footerNav,
+          { backgroundColor: colors.pageBg, opacity: footerNav.isVisible ? 1 : 0 },
+        ]}
+      >
+        <NavigationBar
+          selectedTab="home"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
+      </View>
       {showDeleteDialog ? (
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogContainer}>
