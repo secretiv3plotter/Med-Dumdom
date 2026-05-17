@@ -39,7 +39,7 @@
 const DEFAULT_FAQS = [
   {
     faqId: 'profile-update',
-    category: 'Profile',
+    category: 'Account',
     tags: ['profile', 'personal information', 'name', 'contact'],
     question: 'How do I update my personal information?',
     answer: 'Go to the Profile section from the dashboard to update your name, contact number, or health details.',
@@ -53,10 +53,108 @@ const DEFAULT_FAQS = [
   },
   {
     faqId: 'support-contact',
-    category: 'Support',
+    category: 'Settings',
     tags: ['help', 'support', 'contact'],
     question: 'How do I contact support?',
     answer: 'Use the Help and Support section and send your issue details so our team can assist you.',
+  },
+  {
+    faqId: 'account-edit-profile',
+    category: 'Account',
+    tags: ['profile', 'personal information', 'name', 'birth date', 'address'],
+    question: 'How do I edit my profile details?',
+    answer: 'Open My Profile from the dashboard, tap Edit, update your info, then tap Save Changes and confirm.',
+  },
+  {
+    faqId: 'account-profile-picture-url',
+    category: 'Account',
+    tags: ['profile picture', 'avatar', 'url'],
+    question: 'Can I change my profile picture?',
+    answer: 'Yes. In My Profile edit mode, update the Profile picture URL field, save, and confirm your changes.',
+  },
+  {
+    faqId: 'account-where-password-change',
+    category: 'Account',
+    tags: ['password', 'security', 'settings'],
+    question: 'Where do I change my password?',
+    answer: 'Go to Settings, enter your current and new password in Password Change, then tap Change Password.',
+  },
+  {
+    faqId: 'meds-add-medicine',
+    category: 'Meds',
+    tags: ['add medicine', 'new medication', 'tracker'],
+    question: 'How do I add a medicine to my tracker?',
+    answer: 'Open Med Tracker, tap the add button, complete medicine details, choose a schedule type, add schedule items, then save.',
+  },
+  {
+    faqId: 'meds-schedule-types',
+    category: 'Meds',
+    tags: ['schedule', 'daily', 'hourly', 'weekly', 'monthly'],
+    question: 'What medication schedules can I use?',
+    answer: 'The app supports hourly, daily, weekly, and monthly medication schedules.',
+  },
+  {
+    faqId: 'meds-mark-status',
+    category: 'Meds',
+    tags: ['taken', 'skipped', 'status', 'dose'],
+    question: 'How do I mark a dose as taken or skipped?',
+    answer: 'Open a medicine or use the list controls, then set each schedule item status to taken or skipped. You can also clear or change a status.',
+  },
+  {
+    faqId: 'meds-custom-unit',
+    category: 'Meds',
+    tags: ['unit', 'mg', 'capsule', 'custom'],
+    question: 'Can I add my own medicine unit?',
+    answer: 'Yes. While editing a medicine, you can add a custom unit if mg or capsule does not match your prescription.',
+  },
+  {
+    faqId: 'appts-add-appointment',
+    category: 'Appts',
+    tags: ['appointment', 'add', 'schedule'],
+    question: 'How do I add an appointment?',
+    answer: 'Open Appointments, tap the add button, enter concern and address, then set a valid date and time and save.',
+  },
+  {
+    faqId: 'appts-mark-complete-skip',
+    category: 'Appts',
+    tags: ['completed', 'skipped', 'status', 'revert'],
+    question: 'Can I mark an appointment as done or skipped?',
+    answer: 'Yes. Open the appointment details and set the status to done or skipped. You can revert it back to pending.',
+  },
+  {
+    faqId: 'appts-edit-delete',
+    category: 'Appts',
+    tags: ['edit', 'delete', 'appointment details'],
+    question: 'How do I edit or delete an appointment?',
+    answer: 'Select an appointment, open details, then use Edit to update fields or Delete to remove it from your tracker.',
+  },
+  {
+    faqId: 'appts-history',
+    category: 'Appts',
+    tags: ['history', 'records', 'past appointments'],
+    question: 'Where can I review previous appointment records?',
+    answer: 'In the Appointments screen, tap Review previous records to open your appointment history.',
+  },
+  {
+    faqId: 'settings-accessibility',
+    category: 'Settings',
+    tags: ['accessibility', 'text size', 'contrast', 'dark mode'],
+    question: 'What can I customize in Accessibility Settings?',
+    answer: 'You can adjust text size and toggle options like high contrast, reduced motion, screen reader support, haptic feedback, and dark mode.',
+  },
+  {
+    faqId: 'settings-account-status',
+    category: 'Settings',
+    tags: ['account status', 'active', 'inactive'],
+    question: 'What does account status mean in Settings?',
+    answer: 'Account status shows if your account is currently Active or Inactive.',
+  },
+  {
+    faqId: 'settings-delete-account',
+    category: 'Settings',
+    tags: ['delete account', 'deactivate', 'recover'],
+    question: 'What happens when I delete my account?',
+    answer: 'The app performs a soft delete (deactivation). Your status becomes inactive and the account can still be recovered later.',
   },
 ];
 
@@ -187,6 +285,18 @@ export class FaqService {
 
   getFaqCategories() {
     return [...new Set(this.faqs.map((faq) => faq.category))];
+  }
+
+  getFaqsByCategory(category) {
+    const normalizedCategory = normalizeText(category).toLowerCase();
+
+    if (!normalizedCategory) {
+      return this.getAllFaqs();
+    }
+
+    return this.faqs
+      .filter((faq) => faq.category.toLowerCase() === normalizedCategory)
+      .map(cloneFaq);
   }
 }
 
