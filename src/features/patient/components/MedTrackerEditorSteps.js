@@ -516,11 +516,6 @@ export function MedicineScheduleStep({
                   }));
                 }}
               />
-              {calculatedDailyAmount !== null && !Number.isNaN(calculatedDailyAmount) ? (
-                <Text style={[styles.fieldSubcaption, { color: colors.brand, fontWeight: '700', marginTop: spacing.xxs || 4 }]}>
-                  Calculated daily dosage: {calculatedDailyAmount} {formState.unit || 'units'} per day
-                </Text>
-              ) : null}
             </>
           ) : (
             <NativeDateTimeField
