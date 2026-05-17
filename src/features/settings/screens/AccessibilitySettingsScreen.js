@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -43,6 +43,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   );
 
   const [sliderValue, setSliderValue] = useState(1);
+  const [inputValue, setInputValue] = useState('1.0');
 
   const canGoBack =
     typeof navigation?.canGoBack === 'function'
@@ -61,10 +62,6 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
     return Number.isNaN(parsed) ? 1 : parsed;
   }, [settings.textSizeLevel]);
-
-  useEffect(() => {
-    setSliderValue(textSizeLevel);
-  }, [textSizeLevel]);
 
   const setTextSizeLevel = (nextLevel) => {
     setSettings(
@@ -98,21 +95,40 @@ export default function AccessibilitySettingsScreen({ navigation }) {
           <View style={styles.sliderHeader}>
             <Text style={styles.sliderLabel}>A</Text>
 
-            <Text style={styles.sliderValue}>
-              {sliderValue.toFixed(1)}x
-            </Text>
+            <TextInput
+              style={styles.sliderInput}
+              value={inputValue}
+              keyboardType="decimal-pad"
+              onChangeText={(text) => {
+                setInputValue(text);
+
+                const parsed = parseFloat(text);
+
+                if (!Number.isNaN(parsed)) {
+                  const clamped = Math.min(2.5, Math.max(0.8, parsed));
+                  setSliderValue(clamped);
+                }
+              }}
+              onBlur={() => {
+                setInputValue(sliderValue.toFixed(1));
+              }}
+            />
 
             <Text style={styles.sliderLabelLarge}>A</Text>
           </View>
 
           <Slider
             style={styles.slider}
-            minimumValue={0.8}
-            maximumValue={1.5}
-            step={0.1}
+            minimumValue={1}
+            maximumValue={2.5}
+            step={0.5}
             value={sliderValue}
-            onValueChange={setSliderValue}
-            onSlidingComplete={setTextSizeLevel}
+            onValueChange={(value) => {
+              const rounded = Number(value.toFixed(1));
+
+              setSliderValue(rounded);
+              setInputValue(String(rounded));
+            }}
             minimumTrackTintColor={colors.brand}
             maximumTrackTintColor={colors.border}
             thumbTintColor={colors.brand}
@@ -247,6 +263,19 @@ const styles = StyleSheet.create({
   slider: {
     width: '100%',
     height: 40,
+  },
+  sliderInput: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+    minWidth: 60,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: colors.pageBg,
   },
 
 });
