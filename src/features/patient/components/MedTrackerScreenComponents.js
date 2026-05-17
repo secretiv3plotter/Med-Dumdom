@@ -15,6 +15,8 @@ import {
   getScheduleStatusStyle,
   getSchedulesEarliestToLatest,
   getStatusTimesSummary,
+  isIntervalScheduleEntry,
+  formatIntervalMinutes,
   isUpcomingScheduleTomorrow,
   missedPreviewStyle,
 } from '../utils/medTrackerUtils';
@@ -207,14 +209,20 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
           {(medicine.dailySched || []).some(e => e.intervalMinutes) ? 'Hourly interval schedule' : ((medicine.dailySched || []).some(e => e.monthOfYear) ? 'Monthly schedule' : ((medicine.dailySched || []).some(e => e.dayOfWeek) ? 'Weekly schedule' : 'Daily schedule'))}
         </Text>
         {getSchedulesEarliestToLatest(medicine.dailySched).map(({ entry, index }) => (
-          <MedicineDetailsScheduleCard
-            key={`${medicine.medEntryId}-schedule-${index}`}
-            entry={entry}
-            index={index}
-            medicine={medicine}
-            observedNow={observedNow}
-            onScheduleStatusChange={onScheduleStatusChange}
-          />
+          <View key={`${medicine.medEntryId}-schedule-${index}`} style={styles.scheduleCardWrapper}>
+            <MedicineDetailsScheduleCard
+              entry={entry}
+              index={index}
+              medicine={medicine}
+              observedNow={observedNow}
+              onScheduleStatusChange={onScheduleStatusChange}
+            />
+            {isIntervalScheduleEntry(entry) ? (
+              <Text style={styles.scheduleIntervalNote}>
+                Every {formatIntervalMinutes(entry.intervalMinutes)}
+              </Text>
+            ) : null}
+          </View>
         ))}
       </View>
     </>
@@ -225,6 +233,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const scheduleStatus = getScheduleStatusStyle(medicine, index, observedNow);
   const isTaken = scheduleStatus.status === 'taken';
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
+  const isResolved = entry.status === 'taken' || entry.status === 'skipped';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
   const scheduleDayLabel = getScheduleDayLabel(entry);
@@ -234,7 +243,10 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
     : null;
 
   return (
-    <View style={[styles.scheduleCard, { backgroundColor: scheduleStatus.bgColor }]}>
+    <View style={[
+      styles.scheduleCard,
+      isResolved ? styles.resolvedScheduleCard : { backgroundColor: scheduleStatus.bgColor },
+    ]}>
       <View style={styles.scheduleCardRow}>
         <ScheduleEntryText entry={entry} unit={medicine.unit} dayLabel={dayLabel} />
         <StatusBadge statusStyle={scheduleStatus} />
@@ -252,17 +264,37 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
         </Text>
       ) : null}
 
-      {canSelectStatus ? (
+      {isResolved ? (
+        <View style={styles.scheduleActionRow}>
+          <ActionButton
+            label="Revert Status"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onScheduleStatusChange(medicine, index, 'clear');
+            }}
+            variant="outline"
+            style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            textStyle={styles.revertStatusButtonText}
+            preserveFontSize
+          />
+        </View>
+      ) : canSelectStatus ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
-            onPress={() => onScheduleStatusChange(medicine, index, 'skipped')}
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onScheduleStatusChange(medicine, index, 'skipped');
+            }}
             style={styles.skipActionButton}
           />
           <ActionButton
             label="Taken"
-            onPress={() => onScheduleStatusChange(medicine, index, 'taken')}
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onScheduleStatusChange(medicine, index, 'taken');
+            }}
             variant={entry.status === 'taken' ? 'solid' : 'outline'}
             style={styles.takenActionButton}
           />
@@ -434,8 +466,21 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
+  scheduleCardWrapper: {
+    gap: spacing.xs,
+  },
+  scheduleIntervalNote: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    paddingLeft: spacing.sm,
+  },
   scheduleCardInList: {
     padding: spacing.sm,
+  },
+  resolvedScheduleCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
   scheduleCardRow: {
     flexDirection: 'row',
@@ -465,6 +510,18 @@ const styles = StyleSheet.create({
   takenActionButton: {
     minWidth: moderateScale(110),
     flexGrow: 2,
+  },
+  detailsScheduleActionButton: {
+    minWidth: moderateScale(82),
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  revertStatusButton: {
+    backgroundColor: '#FEE2E2',
+    borderColor: colors.error,
+  },
+  revertStatusButtonText: {
+    color: colors.error,
   },
   segmentButton: {
     minHeight: moderateScale(44),

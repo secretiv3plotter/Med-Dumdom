@@ -68,7 +68,7 @@ export default function LargePopup({
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={styles.backdrop} pointerEvents="box-none">
         <Pressable style={styles.dismissArea} onPress={onClose} />
         <Animated.View
           style={[
@@ -82,8 +82,11 @@ export default function LargePopup({
         >
           {header ? <View style={[styles.header, headerStyle]}>{header}</View> : null}
           <ScrollView
-            contentContainerStyle={[styles.content, contentContainerStyle]}
+            pointerEvents="auto"
+            contentContainerStyle={[styles.content, { flexGrow: 1 }, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+            nestedScrollEnabled
           >
             {children}
           </ScrollView>
@@ -95,7 +98,11 @@ export default function LargePopup({
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(17, 24, 39, 0.45)',
     justifyContent: 'flex-end',
   },

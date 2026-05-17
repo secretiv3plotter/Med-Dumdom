@@ -861,10 +861,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl + spacing.sm,
   },
   appointmentModalSheet: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
   },
   appointmentModalHeader: {
-    backgroundColor: '#E5E7EB',
+    // backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
     borderBottomColor: '#9CA3AF',
   },
   detailsTitle: {
