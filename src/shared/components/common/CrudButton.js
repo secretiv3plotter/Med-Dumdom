@@ -14,6 +14,7 @@ export default function CrudButton({
   label,
   icon = 'add',
   iconSize = DEFAULT_ICON_SIZE,
+  iconColorOverride,
   onPress,
   variant = 'solid',
   disabled = false,
@@ -27,7 +28,8 @@ export default function CrudButton({
   const outline = variant === 'outline';
   const redSolid = variant === 'redSolid';
   const disabledIconColor = colors.bodyMuted;
-  const iconColor = disabled ? disabledIconColor : solid || redSolid ? colors.surface : colors.brand;
+  const computedIconColor = disabled ? disabledIconColor : solid || redSolid ? colors.surface : colors.brand;
+  const iconColor = iconColorOverride ?? computedIconColor;
   const effectiveIconSize = outline && iconSize === DEFAULT_ICON_SIZE ? CIRCLE_SIZE : iconSize;
 
   return (

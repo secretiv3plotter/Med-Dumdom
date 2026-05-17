@@ -221,6 +221,9 @@ export default function NativeDateTimeField({
   minimumDate,
   maximumDate,
   monthValue = '',
+  focusBorderColor,
+  focusBackgroundColor,
+  focusTextColor,
 }) {
   const [isPickerVisible, setPickerVisible] = useState(false);
   const usesCustomPicker = Platform.OS === 'web' || mode === 'day' || mode === 'month' || mode === 'monthDay' || mode === 'duration';
@@ -235,6 +238,20 @@ export default function NativeDateTimeField({
   const displayValue = formatDisplayValue(value, mode);
   const resolvedPlaceholder = placeholder || (mode === 'day' ? 'Select day' : (mode === 'month' ? 'Select month' : (mode === 'monthDay' ? 'Select day' : (mode === 'duration' ? 'Select time period' : (mode === 'time' ? 'Select time' : 'Select date')))));
   const resolvedLabel = accessibilityLabel || label || resolvedPlaceholder;
+  const pickerAccent = focusBorderColor || colors.brand;
+  const pickerAccentSoft = focusBackgroundColor || colors.brandSoft;
+  const pickerAccentText = focusTextColor || colors.brandText;
+  const pickerActiveItemStyle = {
+    backgroundColor: pickerAccentSoft,
+    borderBottomColor: pickerAccentSoft,
+  };
+  const pickerActiveTextStyle = {
+    color: pickerAccentText,
+  };
+  const pickerConfirmButtonStyle = {
+    borderColor: pickerAccent,
+    backgroundColor: pickerAccent,
+  };
 
   // States for Custom Web Scroller Picker Wheel
   const [tempYear, setTempYear] = useState(new Date().getFullYear());
@@ -699,7 +716,12 @@ export default function NativeDateTimeField({
           accessibilityHint={`Opens the ${mode} picker`}
           unstable_pressDelay={0}
           onPress={() => setPickerVisible(true)}
-          style={({ pressed }) => [styles.field, pressed && styles.fieldPressed]}
+          style={({ pressed }) => [
+            styles.field,
+            pressed && styles.fieldPressed,
+            pressed && focusBorderColor ? { borderColor: focusBorderColor } : null,
+            pressed && focusBackgroundColor ? { backgroundColor: focusBackgroundColor } : null,
+          ]}
         >
           <Text style={[styles.value, !displayValue && styles.placeholder]}>
             {displayValue || resolvedPlaceholder}
@@ -756,6 +778,7 @@ export default function NativeDateTimeField({
                         onChangeText={(input) => handleTypedDatePartChange('month', input)}
                         placeholder="Month"
                         accessibilityLabel="Type month"
+                        selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                       />
                     </View>
@@ -768,6 +791,7 @@ export default function NativeDateTimeField({
                         maxLength={2}
                         placeholder="DD"
                         accessibilityLabel="Type day"
+                        selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                       />
                     </View>
@@ -780,6 +804,7 @@ export default function NativeDateTimeField({
                         maxLength={4}
                         placeholder="YYYY"
                         accessibilityLabel="Type year"
+                        selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                       />
                     </View>
@@ -798,6 +823,7 @@ export default function NativeDateTimeField({
                         maxLength={2}
                         placeholder="HH"
                         accessibilityLabel="Type hour"
+                        selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                       />
                     </View>
@@ -810,6 +836,7 @@ export default function NativeDateTimeField({
                         maxLength={2}
                         placeholder="MM"
                         accessibilityLabel="Type minutes"
+                        selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                       />
                     </View>
@@ -823,6 +850,7 @@ export default function NativeDateTimeField({
                           maxLength={2}
                           placeholder="AM"
                           accessibilityLabel="Type AM or PM"
+                          selectionColor={pickerAccent}
                           style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                         />
                       </View>
@@ -842,6 +870,7 @@ export default function NativeDateTimeField({
                         : `Type ${mode === 'monthDay' ? 'day' : mode}`
                     }
                     accessibilityLabel={`Type ${resolvedLabel}`}
+                    selectionColor={pickerAccent}
                     style={[styles.typedInput, typedPickerError && styles.typedInputError]}
                   />
                   {typedPickerError ? <Text style={styles.typedInputErrorText}>{typedPickerError}</Text> : null}
@@ -869,13 +898,13 @@ export default function NativeDateTimeField({
                           }}
                           style={[
                             styles.scrollItem,
-                            tempDayOfWeek === d && styles.scrollItemActive,
+                            tempDayOfWeek === d && pickerActiveItemStyle,
                           ]}
                         >
                           <Text
                             style={[
                               styles.scrollItemText,
-                              tempDayOfWeek === d && styles.scrollItemTextActive,
+                              tempDayOfWeek === d && pickerActiveTextStyle,
                             ]}
                           >
                             {d}
@@ -903,13 +932,13 @@ export default function NativeDateTimeField({
                           }}
                           style={[
                             styles.scrollItem,
-                            tempMonth === idx && styles.scrollItemActive,
+                            tempMonth === idx && pickerActiveItemStyle,
                           ]}
                         >
                           <Text
                             style={[
                               styles.scrollItemText,
-                              tempMonth === idx && styles.scrollItemTextActive,
+                              tempMonth === idx && pickerActiveTextStyle,
                             ]}
                           >
                             {monthName}
@@ -937,13 +966,13 @@ export default function NativeDateTimeField({
                           }}
                           style={[
                             styles.scrollItem,
-                            tempDayOfMonth === d && styles.scrollItemActive,
+                            tempDayOfMonth === d && pickerActiveItemStyle,
                           ]}
                         >
                           <Text
                             style={[
                               styles.scrollItemText,
-                              tempDayOfMonth === d && styles.scrollItemTextActive,
+                              tempDayOfMonth === d && pickerActiveTextStyle,
                             ]}
                           >
                             {d}
@@ -977,14 +1006,14 @@ export default function NativeDateTimeField({
                               }}
                               style={[
                                 styles.scrollItem,
-                                tempMonth === idx && styles.scrollItemActive,
+                                tempMonth === idx && pickerActiveItemStyle,
                                 isMonthDisabled && styles.scrollItemDisabled,
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.scrollItemText,
-                                  tempMonth === idx && styles.scrollItemTextActive,
+                                  tempMonth === idx && pickerActiveTextStyle,
                                   isMonthDisabled && styles.scrollItemTextDisabled,
                                 ]}
                               >
@@ -1022,14 +1051,14 @@ export default function NativeDateTimeField({
                               }}
                               style={[
                                 styles.scrollItem,
-                                tempDay === d && styles.scrollItemActive,
+                                tempDay === d && pickerActiveItemStyle,
                                 isDayDisabled && styles.scrollItemDisabled,
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.scrollItemText,
-                                  tempDay === d && styles.scrollItemTextActive,
+                                  tempDay === d && pickerActiveTextStyle,
                                   isDayDisabled && styles.scrollItemTextDisabled,
                                 ]}
                               >
@@ -1058,9 +1087,9 @@ export default function NativeDateTimeField({
                               setTypedDateYear(String(y));
                               setTypedPickerError('');
                             }}
-                            style={[styles.scrollItem, tempYear === y && styles.scrollItemActive]}
+                            style={[styles.scrollItem, tempYear === y && pickerActiveItemStyle]}
                           >
-                            <Text style={[styles.scrollItemText, tempYear === y && styles.scrollItemTextActive]}>
+                            <Text style={[styles.scrollItemText, tempYear === y && pickerActiveTextStyle]}>
                               {y}
                             </Text>
                           </Pressable>
@@ -1087,9 +1116,9 @@ export default function NativeDateTimeField({
                               setTypedTimeHour(mode === 'duration' ? pad2(h) : String(h));
                               setTypedPickerError('');
                             }}
-                            style={[styles.scrollItem, tempHour === h && styles.scrollItemActive]}
+                            style={[styles.scrollItem, tempHour === h && pickerActiveItemStyle]}
                           >
-                            <Text style={[styles.scrollItemText, tempHour === h && styles.scrollItemTextActive]}>
+                            <Text style={[styles.scrollItemText, tempHour === h && pickerActiveTextStyle]}>
                               {mode === 'duration' ? pad2(h) : h}
                             </Text>
                           </Pressable>
@@ -1114,9 +1143,9 @@ export default function NativeDateTimeField({
                               setTypedTimeMinute(pad2(m));
                               setTypedPickerError('');
                             }}
-                            style={[styles.scrollItem, tempMinute === m && styles.scrollItemActive]}
+                            style={[styles.scrollItem, tempMinute === m && pickerActiveItemStyle]}
                           >
-                            <Text style={[styles.scrollItemText, tempMinute === m && styles.scrollItemTextActive]}>
+                            <Text style={[styles.scrollItemText, tempMinute === m && pickerActiveTextStyle]}>
                               {pad2(m)}
                             </Text>
                           </Pressable>
@@ -1139,9 +1168,9 @@ export default function NativeDateTimeField({
                                 setTypedTimePeriod(p);
                                 setTypedPickerError('');
                               }}
-                              style={[styles.scrollItem, tempAmPm === p && styles.scrollItemActive]}
+                              style={[styles.scrollItem, tempAmPm === p && pickerActiveItemStyle]}
                             >
-                              <Text style={[styles.scrollItemText, tempAmPm === p && styles.scrollItemTextActive]}>
+                              <Text style={[styles.scrollItemText, tempAmPm === p && pickerActiveTextStyle]}>
                                 {p}
                               </Text>
                             </Pressable>
@@ -1163,7 +1192,7 @@ export default function NativeDateTimeField({
                 </Pressable>
                 <Pressable
                   onPress={handleWebConfirm}
-                  style={[styles.actionBtn, styles.confirmBtn]}
+                  style={[styles.actionBtn, styles.confirmBtn, pickerConfirmButtonStyle]}
                 >
                   <Text style={styles.confirmBtnText}>Done</Text>
                 </Pressable>

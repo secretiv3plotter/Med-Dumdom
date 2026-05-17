@@ -393,13 +393,15 @@ export function MedicineScheduleStep({
   const isHourly = selectedScheduleType === 'regular_hourly';
   const isWeekly = selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly';
   const isMonthly = selectedScheduleType === 'monthly' || selectedScheduleType === 'regular_monthly';
+  const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
   const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
     (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : String(scheduleDraft.scheduledTime || '').trim()) &&
     (!isWeekly || scheduleDraft.dayOfWeek) &&
-    (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth))
+    (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth)) &&
+    (!isHourly || !hasHourlySchedule)
   );
 
   return (
@@ -424,92 +426,94 @@ export function MedicineScheduleStep({
         />
       </View>
 
-      <View style={styles.scheduleBuilder}>
-        <Text style={styles.sectionLabel}>Create a schedule</Text>
+      {(scheduleEntries.length === 0 || !isHourly) ? (
+        <View style={styles.scheduleBuilder}>
+          <Text style={styles.sectionLabel}>Create a schedule</Text>
 
-        <Text style={styles.fieldSubcaption}>
-          How many {getDoseUnitLabel(formState.unit)} will you take for this dose?
-        </Text>
-        <InputBar
-          placeholder="Dose"
-          keyboardType="number-pad"
-          value={scheduleDraft.doseSize}
-          onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
-        />
-
-        {isWeekly && (
-          <NativeDateTimeField
-            mode="day"
-            label="Day of week"
-            placeholder="Select day"
-            accessibilityLabel="Day of week"
-            value={scheduleDraft.dayOfWeek}
-            onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
+          <Text style={styles.fieldSubcaption}>
+            How many {getDoseUnitLabel(formState.unit)} will you take for this dose?
+          </Text>
+          <InputBar
+            placeholder="Dose"
+            keyboardType="number-pad"
+            value={scheduleDraft.doseSize}
+            onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
           />
-        )}
 
-        {isMonthly && (
-          <>
+          {isWeekly && (
             <NativeDateTimeField
-              mode="month"
-              label="Month"
-              placeholder="Select month"
-              accessibilityLabel="Month"
-              value={scheduleDraft.monthOfYear}
-              onChange={(value) => setScheduleDraft((current) => ({
-                ...current,
-                monthOfYear: value,
-                dayOfMonth: Number(current.dayOfMonth) > getDaysForMonth(value) ? '' : current.dayOfMonth,
-              }))}
-            />
-            <NativeDateTimeField
-              mode="monthDay"
-              label="Day"
+              mode="day"
+              label="Day of week"
               placeholder="Select day"
-              accessibilityLabel="Day"
-              value={scheduleDraft.dayOfMonth}
-              monthValue={scheduleDraft.monthOfYear}
-              onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfMonth: value }))}
+              accessibilityLabel="Day of week"
+              value={scheduleDraft.dayOfWeek}
+              onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
             />
-          </>
-        )}
+          )}
 
-        {isHourly ? (
-          <NativeDateTimeField
-            mode="duration"
-            label="Time Period"
-            placeholder="Select time period"
-            accessibilityLabel="Time Period"
-            value={hasSelectedInterval ? formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes) : ''}
-            onChange={(value) => {
-              const nextInterval = parseIntervalValue(value);
-              setScheduleDraft((current) => ({
-                ...current,
-                intervalHours: nextInterval.hours,
-                intervalMinutes: nextInterval.minutes,
-              }));
-            }}
-          />
-        ) : (
-          <NativeDateTimeField
-            mode="time"
-            label="Time"
-            placeholder="Select time"
-            accessibilityLabel="Time"
-            value={scheduleDraft.scheduledTime}
-            onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
-          />
-        )}
+          {isMonthly && (
+            <>
+              <NativeDateTimeField
+                mode="month"
+                label="Month"
+                placeholder="Select month"
+                accessibilityLabel="Month"
+                value={scheduleDraft.monthOfYear}
+                onChange={(value) => setScheduleDraft((current) => ({
+                  ...current,
+                  monthOfYear: value,
+                  dayOfMonth: Number(current.dayOfMonth) > getDaysForMonth(value) ? '' : current.dayOfMonth,
+                }))}
+              />
+              <NativeDateTimeField
+                mode="monthDay"
+                label="Day"
+                placeholder="Select day"
+                accessibilityLabel="Day"
+                value={scheduleDraft.dayOfMonth}
+                monthValue={scheduleDraft.monthOfYear}
+                onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfMonth: value }))}
+              />
+            </>
+          )}
 
-        <View style={styles.footerActionsRow}>
-          <ActionButton
-            label="Add schedule item"
-            variant="solid"
-            onPress={onSaveScheduleEntry}
-            disabled={!isScheduleDraftComplete}
-          />
+          {isHourly ? (
+            <NativeDateTimeField
+              mode="duration"
+              label="Time Period"
+              placeholder="Select time period"
+              accessibilityLabel="Time Period"
+              value={hasSelectedInterval ? formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes) : ''}
+              onChange={(value) => {
+                const nextInterval = parseIntervalValue(value);
+                setScheduleDraft((current) => ({
+                  ...current,
+                  intervalHours: nextInterval.hours,
+                  intervalMinutes: nextInterval.minutes,
+                }));
+              }}
+            />
+          ) : (
+            <NativeDateTimeField
+              mode="time"
+              label="Time"
+              placeholder="Select time"
+              accessibilityLabel="Time"
+              value={scheduleDraft.scheduledTime}
+              onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+            />
+          )}
+
+          <View style={styles.footerActionsRow}>
+            <ActionButton
+              label="Add schedule item"
+              variant="solid"
+              onPress={onSaveScheduleEntry}
+              disabled={!isScheduleDraftComplete}
+            />
+          </View>
         </View>
-      </View>
+      ) : null}
 
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>Added schedule items</Text>

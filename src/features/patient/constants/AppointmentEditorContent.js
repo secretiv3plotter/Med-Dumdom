@@ -46,7 +46,7 @@ export function AppointmentEditorContent({
             onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
           />
           <InputBar
-            placeholder="Note (optional)"
+            placeholder="Notes"
             value={formState.note}
             onChangeText={(value) => setFormState((current) => ({ ...current, note: value }))}
             multiline

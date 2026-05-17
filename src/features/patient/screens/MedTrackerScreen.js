@@ -367,7 +367,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    if (currentStatus === targetStatus) {
+    if (targetStatus === 'clear' || currentStatus === targetStatus) {
       activeMedTrackerService.clearMedScheduleStatus(CURRENT_USER_ID, medEntryId, scheduleIndex);
     } else if (targetStatus === 'taken') {
       activeMedTrackerService.markMedScheduleTaken(CURRENT_USER_ID, medEntryId, scheduleIndex, new Date());
@@ -384,12 +384,26 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const currentStatus = medicine.dailySched[scheduleIndex]?.status || 'pending';
-    if (currentStatus === 'taken' || currentStatus === 'skipped') {
+    if (targetStatus === 'clear') {
       setPendingScheduleAction({
         medEntryId: medicine.medEntryId,
+        medName: medicine.medName,
         scheduleIndex,
         targetStatus,
         currentStatus,
+        mode: 'revert',
+      });
+      return;
+    }
+
+    if (currentStatus === 'taken' || currentStatus === 'skipped') {
+      setPendingScheduleAction({
+        medEntryId: medicine.medEntryId,
+        medName: medicine.medName,
+        scheduleIndex,
+        targetStatus,
+        currentStatus,
+        mode: currentStatus === targetStatus ? 'revert' : 'change',
       });
       return;
     }
@@ -418,15 +432,23 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const activatedAt = new Date().toISOString();
+    const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
+    const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
+    if (isHourly && hasHourlySchedule) {
+      setFormError('Only one hourly schedule item is allowed.');
+      return;
+    }
+
+    const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+    const activatedAt = isHourly
+      ? new Date(Date.now() - intervalTotalMinutes * 60000).toISOString()
+      : new Date().toISOString();
     const scheduleStatusDefaults = {
       status: 'pending',
       takenAt: null,
       skippedAt: null,
       activatedAt,
     };
-    const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
-    const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
     const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(scheduleDraft.scheduledTime);
     if (!scheduledTime) {
       setFormError('Enter a valid scheduled time.');
@@ -496,6 +518,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
+    const hasOtherHourlySchedule = isHourly && scheduleEntries.some((entry, index) => entry.intervalMinutes && index !== indexToUpdate);
+    if (hasOtherHourlySchedule) {
+      return 'Only one hourly schedule item is allowed.';
+    }
+
     const intervalTotalMinutes = Number(updatedFields.intervalMinutes || 0);
     const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(updatedFields.scheduledTime);
     if (!scheduledTime) {
@@ -769,9 +796,13 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       {pendingScheduleAction ? (
         <ConfirmationDialogModal
           visible={true}
-          title="Change schedule status?"
-          message="This schedule item already has a selected status. Confirm to change or clear it."
-          confirmLabel="Confirm"
+          title={pendingScheduleAction.mode === 'revert' ? 'Revert status?' : 'Change schedule status?'}
+          message={
+            pendingScheduleAction.mode === 'revert'
+              ? `Revert the status of ${pendingScheduleAction.medName || 'this medicine schedule'} back to pending?`
+              : 'This schedule item already has a selected status. Confirm to change it.'
+          }
+          confirmLabel={pendingScheduleAction.mode === 'revert' ? 'Revert' : 'Confirm'}
           onCancel={() => setPendingScheduleAction(null)}
           onConfirm={confirmScheduleStatusChange}
         />

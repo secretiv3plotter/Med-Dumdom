@@ -95,9 +95,12 @@ export default function InputBar({
   validatePasswordDifference,
   passwordMismatchMessage = 'New password must be different from current password.',
   showErrorIcon = true,
+  showSearchIcon = false,
   reserveRightSlot,
   allowFontScaling = true,
   maxFontSizeMultiplier,
+  focusBorderColor,
+  focusBackgroundColor,
 }) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
@@ -241,9 +244,19 @@ export default function InputBar({
           },
           multiline && styles.multilineContainer,
           isFocused && !hasError && styles.containerFocused,
+          isFocused && !hasError && focusBorderColor ? { borderColor: focusBorderColor } : null,
+          isFocused && !hasError && focusBackgroundColor ? { backgroundColor: focusBackgroundColor } : null,
           hasError && styles.containerError,
         ]}
       >
+        {showSearchIcon ? (
+          <Ionicons
+            name="search"
+            size={moderateScale(18)}
+            color={colors.bodyMuted}
+            style={styles.searchIcon}
+          />
+        ) : null}
         <TextInput
           placeholder={placeholder}
           accessibilityLabel={resolvedAccessibilityLabel}
@@ -338,6 +351,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.title,
     paddingVertical: 0,
+  },
+  searchIcon: {
+    marginRight: spacing.xs,
   },
   errorIcon: {
     marginRight: spacing.xs,

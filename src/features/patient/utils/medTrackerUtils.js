@@ -45,6 +45,19 @@ export const formatDate = (value) => {
   });
 };
 
+export const formatDateInputValue = (value) => {
+  if (!value) {
+    return '';
+  }
+
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+};
+
 export const formatTime = (value) => {
   const text = String(value || '').trim();
   if (!text) {
@@ -128,7 +141,32 @@ export const formatIntervalMinutes = (intervalMinutes) => {
 
   const hoursPart = Math.floor(minutes / 60);
   const minutesPart = minutes % 60;
-  return `${String(hoursPart).padStart(2, '0')}:${String(minutesPart).padStart(2, '0')}`;
+  const parts = [];
+
+  if (hoursPart > 0) {
+    parts.push(`${hoursPart} hour${hoursPart === 1 ? '' : 's'}`);
+  }
+  if (minutesPart > 0) {
+    parts.push(`${minutesPart} minute${minutesPart === 1 ? '' : 's'}`);
+  }
+
+  return parts.join(' ');
+};
+
+export const getIntervalScheduleTime = (entry, now = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return '';
+  }
+
+  const occurrenceMinutes = getIntervalOccurrenceMinutes(entry, now);
+  if (occurrenceMinutes === null) {
+    return '';
+  }
+
+  const hours = Math.floor(occurrenceMinutes / 60);
+  const minutes = occurrenceMinutes % 60;
+  return formatTime(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`);
 };
 
 export const getIntervalOccurrenceMinutes = (entry, now = new Date()) => {
@@ -312,8 +350,8 @@ export const buildFormStateFromMedicine = (medicine) => ({
   unitStrength: medicine.unitStrength || '',
   unit: medicine.unit || '',
   totalDailyAmount: medicine.totalDailyAmount ? String(medicine.totalDailyAmount) : '',
-  startDate: medicine.startDate ? medicine.startDate.toISOString().slice(0, 10) : '',
-  endDate: medicine.endDate ? medicine.endDate.toISOString().slice(0, 10) : '',
+  startDate: medicine.startDate ? formatDateInputValue(medicine.startDate) : '',
+  endDate: medicine.endDate ? formatDateInputValue(medicine.endDate) : '',
   instructions: medicine.instructions || '',
   prescriberContact: medicine.prescriberContact || '',
 });

@@ -10,7 +10,6 @@ import {
 
 const PILL_RADIUS = moderateScale(999);
 const APPOINTMENT_ACCENT = '#52B788';
-const APPOINTMENT_ACCENT_SOFT = '#E9F8F1';
 const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 
@@ -55,7 +54,7 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
           >
             {appointment.concern}
           </Text>
-          <Text style={styles.cardHeaderMeta} numberOfLines={1}>
+          <Text style={styles.cardHeaderMeta}>
             {`${formatDate(appointment.dateSched)} at ${formatTime(appointment.timeSched)}`}
           </Text>
           <Text style={styles.cardHeaderMeta} numberOfLines={1}>{appointment.address}</Text>
@@ -66,22 +65,24 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
       {canSelectStatus && !appointment.isCompleted && !appointment.isSkipped ? (
         <View style={styles.appointmentFooter}>
           <ActionButton
-            label="Done"
-            onPress={(event) => {
-              event?.stopPropagation?.();
-              onStatusChange(appointment, 'completed');
-            }}
-            variant="outline"
-            style={styles.scheduleActionButton}
-          />
-          <ActionButton
             label="Skip"
             onPress={(event) => {
               event?.stopPropagation?.();
               onStatusChange(appointment, 'skipped');
             }}
             variant="outline"
-            style={styles.scheduleActionButton}
+            style={[styles.scheduleActionButton, styles.skipActionButton]}
+            textStyle={styles.skipActionButtonText}
+          />
+          <ActionButton
+            label="Done"
+            onPress={(event) => {
+              event?.stopPropagation?.();
+              onStatusChange(appointment, 'completed');
+            }}
+            variant="solid"
+            style={[styles.scheduleActionButton, styles.doneActionButton]}
+            textStyle={styles.doneActionButtonText}
           />
         </View>
       ) : null}
@@ -98,7 +99,7 @@ export function AppointmentDetailsContent({ appointment, observedNow, onStatusCh
     <>
       <View style={[
         styles.scheduleCard,
-        muted ? styles.mutedScheduleCard : { backgroundColor: statusStyle.bgColor },
+        muted && styles.mutedScheduleCard,
       ]}>
         <View style={styles.scheduleCardRow}>
           <View style={styles.scheduleTextBlock}>
@@ -124,16 +125,18 @@ export function AppointmentDetailsContent({ appointment, observedNow, onStatusCh
         ) : canSelectStatus && !isResolved ? (
           <View style={styles.scheduleActionRow}>
             <ActionButton
-              label="Done"
-              onPress={() => onStatusChange(appointment, 'completed')}
-              variant="outline"
-              style={styles.scheduleActionButton}
-            />
-            <ActionButton
               label="Skip"
               onPress={() => onStatusChange(appointment, 'skipped')}
               variant="outline"
-              style={styles.scheduleActionButton}
+              style={[styles.scheduleActionButton, styles.skipActionButton]}
+              textStyle={styles.skipActionButtonText}
+            />
+            <ActionButton
+              label="Done"
+              onPress={() => onStatusChange(appointment, 'completed')}
+              variant="solid"
+              style={[styles.scheduleActionButton, styles.doneActionButton]}
+              textStyle={styles.doneActionButtonText}
             />
           </View>
         ) : null}
@@ -177,7 +180,7 @@ function StatusBadge({ statusStyle }) {
 
 const styles = StyleSheet.create({
   appointmentListItem: {
-    backgroundColor: APPOINTMENT_ACCENT_SOFT,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: APPOINTMENT_ACCENT,
     borderRadius: radius.xl,
@@ -240,7 +243,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   mutedScheduleCard: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
     borderColor: colors.border,
   },
   scheduleCardRow: {
@@ -270,9 +273,24 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   scheduleActionButton: {
-    minWidth: moderateScale(82),
-    flexGrow: 1,
     flexShrink: 1,
+  },
+  doneActionButton: {
+    minWidth: moderateScale(110),
+    flexGrow: 2,
+    backgroundColor: APPOINTMENT_ACCENT,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  doneActionButtonText: {
+    color: colors.surface,
+  },
+  skipActionButton: {
+    minWidth: moderateScale(70),
+    flexGrow: 1,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  skipActionButtonText: {
+    color: APPOINTMENT_ACCENT_TEXT,
   },
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
