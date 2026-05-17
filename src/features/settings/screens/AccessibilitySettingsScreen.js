@@ -121,7 +121,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
             style={styles.slider}
             minimumValue={1}
             maximumValue={2.5}
-            step={0.5}
+            step={0.1}
             value={sliderValue}
             onValueChange={(value) => {
               const rounded = Number(value.toFixed(1));
