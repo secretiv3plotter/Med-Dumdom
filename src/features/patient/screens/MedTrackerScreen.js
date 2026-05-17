@@ -83,6 +83,7 @@ const getInitialScheduleDraft = (scheduleType) => ({
   scheduledTime: '',
   intervalHours: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 1 : '',
   intervalMinutes: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 0 : '',
+  intervalDays: '',
   dayOfWeek: '',
   monthOfYear: '',
   dayOfMonth: '',
@@ -93,6 +94,7 @@ const EMPTY_SCHEDULE_DRAFT = {
   scheduledTime: '',
   intervalHours: '',
   intervalMinutes: '',
+  intervalDays: '',
   dayOfWeek: '',
   monthOfYear: '',
   dayOfMonth: '',
@@ -256,23 +258,27 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
     const hasMonthlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.monthOfYear);
-    const hasHourlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.intervalMinutes);
-    const targetScheduleType = hasHourlyItem
-      ? MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
+    const intervalItem = (selectedMedicine.dailySched || []).find((entry) => entry.intervalMinutes);
+    const hasIntervalItem = Boolean(intervalItem);
+    const hasWeeklyIntervalItem = Number(intervalItem?.intervalMinutes || 0) >= 1440;
+    const targetScheduleType = hasIntervalItem
+      ? hasWeeklyIntervalItem
+        ? MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY
+        : MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
       : hasMonthlyItem
       ? MEDICINE_SCHEDULE_TYPES.MONTHLY
       : hasWeeklyItem
         ? MEDICINE_SCHEDULE_TYPES.WEEKLY
         : MEDICINE_SCHEDULE_TYPES.DAILY;
 
-    if (hasHourlyItem) {
-      const hourlyEntry = (selectedMedicine.dailySched || []).find((entry) => entry.intervalMinutes);
-      if (hourlyEntry) {
+    if (hasIntervalItem) {
+      if (intervalItem) {
         setScheduleDraft({
-          doseSize: String(hourlyEntry.doseSize || ''),
-          intervalHours: String(Math.floor(Number(hourlyEntry.intervalMinutes || 0) / 60)),
-          intervalMinutes: String(Number(hourlyEntry.intervalMinutes || 0) % 60),
-          scheduledTime: '00:00',
+          doseSize: String(intervalItem.doseSize || ''),
+          intervalHours: hasWeeklyIntervalItem ? '' : String(Math.floor(Number(intervalItem.intervalMinutes || 0) / 60)),
+          intervalMinutes: hasWeeklyIntervalItem ? '' : String(Number(intervalItem.intervalMinutes || 0) % 60),
+          intervalDays: hasWeeklyIntervalItem ? String(Math.floor(Number(intervalItem.intervalMinutes || 0) / 1440)) : '',
+          scheduledTime: hasWeeklyIntervalItem ? intervalItem.scheduledTime : '00:00',
         });
       } else {
         setScheduleDraft(getInitialScheduleDraft(targetScheduleType));
@@ -443,11 +449,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
-    const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
+    const isWeeklyInterval = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isIntervalSchedule = isHourly || isWeeklyInterval;
+    const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
 
-    const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
-    const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00') || new Date();
-    const activatedAt = isHourly
+    const intervalTotalMinutes = isWeeklyInterval
+      ? Number(scheduleDraft.intervalDays || 0) * 1440
+      : Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+    const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(scheduleDraft.scheduledTime);
+    const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : scheduledTime || '00:00') || new Date();
+    const activatedAt = isIntervalSchedule
       ? new Date(combinedStart.getTime() - intervalTotalMinutes * 60000).toISOString()
       : combinedStart.toISOString();
     const scheduleStatusDefaults = {
@@ -456,17 +467,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       skippedAt: null,
       activatedAt,
     };
-    const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(scheduleDraft.scheduledTime);
     if (!scheduledTime) {
       setFormError('Enter a valid scheduled time.');
       return;
     }
-    if (isHourly && intervalTotalMinutes <= 0) {
-      setFormError('Select a time period greater than 00:00.');
+    if (isIntervalSchedule && intervalTotalMinutes <= 0) {
+      setFormError(isWeeklyInterval ? 'Enter how many days between doses.' : 'Select a time period greater than 00:00.');
       return;
     }
 
-    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY;
     const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY;
     const dayOfWeek = isWeekly ? scheduleDraft.dayOfWeek : '';
     const monthOfYear = isMonthly ? scheduleDraft.monthOfYear : '';
@@ -491,14 +501,14 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const nextEntry = {
       doseSize,
       scheduledTime,
-      intervalMinutes: isHourly ? intervalTotalMinutes : null,
+      intervalMinutes: isIntervalSchedule ? intervalTotalMinutes : null,
       dayOfWeek,
       monthOfYear,
       dayOfMonth,
       ...scheduleStatusDefaults,
     };
 
-    if (isHourly && hasHourlySchedule) {
+    if (isIntervalSchedule && hasIntervalSchedule) {
       setScheduleEntries([nextEntry]);
       setFormError('');
       setScheduleDraft(getInitialScheduleDraft(selectedScheduleType));
@@ -524,9 +534,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
-    const hasOtherHourlySchedule = isHourly && scheduleEntries.some((entry, index) => entry.intervalMinutes && index !== indexToUpdate);
-    if (hasOtherHourlySchedule) {
-      return 'Only one hourly schedule item is allowed.';
+    const isWeeklyInterval = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isIntervalSchedule = isHourly || isWeeklyInterval;
+    const hasOtherIntervalSchedule = isIntervalSchedule && scheduleEntries.some((entry, index) => entry.intervalMinutes && index !== indexToUpdate);
+    if (hasOtherIntervalSchedule) {
+      return isWeeklyInterval ? 'Only one weekly interval schedule item is allowed.' : 'Only one hourly schedule item is allowed.';
     }
 
     const intervalTotalMinutes = Number(updatedFields.intervalMinutes || 0);
@@ -534,11 +546,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     if (!scheduledTime) {
       return 'Enter a valid scheduled time.';
     }
-    if (isHourly && intervalTotalMinutes <= 0) {
-      return 'Select a time period greater than 00:00.';
+    if (isIntervalSchedule && intervalTotalMinutes <= 0) {
+      return isWeeklyInterval ? 'Enter how many days between doses.' : 'Select a time period greater than 00:00.';
     }
 
-    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY;
     const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY;
     const dayOfWeek = isWeekly ? updatedFields.dayOfWeek : '';
     const monthOfYear = isMonthly ? updatedFields.monthOfYear : '';
@@ -561,7 +573,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ...scheduleEntries[indexToUpdate],
       doseSize,
       scheduledTime,
-      intervalMinutes: isHourly ? intervalTotalMinutes : null,
+      intervalMinutes: isIntervalSchedule ? intervalTotalMinutes : null,
       dayOfWeek,
       monthOfYear,
       dayOfMonth,
@@ -659,7 +671,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const medName = formState.medName.trim();
     const unitStrength = formState.unitStrength.trim();
     const unit = formState.unit.trim();
-    const isHourly = scheduleEntries.some((entry) => entry.intervalMinutes);
+    const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
+    const isIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
     const startDate = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : '00:00');
     const endDateText = formState.endDate.trim();
     const endDate = endDateText ? parseDateInput(endDateText) : null;
@@ -712,17 +725,19 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     let finalDailySched = scheduleEntries.map((entry) => {
       if (entry.intervalMinutes) {
+        const intervalStartDate = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : entry.scheduledTime) || startDate;
         return {
           ...entry,
-          activatedAt: new Date(startDate.getTime() - entry.intervalMinutes * 60000).toISOString(),
+          activatedAt: new Date(intervalStartDate.getTime() - entry.intervalMinutes * 60000).toISOString(),
         };
       }
       return entry;
     });
 
-    if (editorMode === 'edit' && selectedMedicine && isHourly) {
+    if (editorMode === 'edit' && selectedMedicine && isIntervalSchedule) {
       const newDoseSize = finalDailySched[0].doseSize;
       const newInterval = finalDailySched[0].intervalMinutes;
+      const newScheduledTime = finalDailySched[0].scheduledTime;
       const originalSched = selectedMedicine.dailySched || [];
       
       finalDailySched = originalSched.map((entry, index) => {
@@ -731,6 +746,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
             ...entry,
             doseSize: newDoseSize,
             intervalMinutes: newInterval,
+            scheduledTime: newScheduledTime,
           };
         }
         
@@ -744,13 +760,15 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         }
         
         if (!nextActivatedAt) {
-          nextActivatedAt = new Date(startDate.getTime() - newInterval * 60000);
+          const intervalStartDate = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : newScheduledTime) || startDate;
+          nextActivatedAt = new Date(intervalStartDate.getTime() - newInterval * 60000);
         }
 
         return {
           ...entry,
           doseSize: newDoseSize,
           intervalMinutes: newInterval,
+          scheduledTime: newScheduledTime,
           activatedAt: nextActivatedAt.toISOString(),
         };
       });

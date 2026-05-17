@@ -83,6 +83,11 @@ export const formatIntervalMinutes = (intervalMinutes) => {
     return '';
   }
 
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    const daysPart = minutes / 1440;
+    return `${daysPart} day${daysPart === 1 ? '' : 's'}`;
+  }
+
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 };
 
@@ -149,7 +154,10 @@ export const formatScheduleText = (entry, unit) => {
       ? entry.dayOfMonth ? ` on ${entry.monthOfYear} ${entry.dayOfMonth}` : ` in ${entry.monthOfYear}`
       : '';
   if (isIntervalScheduleEntry(entry)) {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${dayLabel}`;
+    const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
+      ? `\nAt ${formatTime(entry.scheduledTime)}`
+      : '';
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${scheduledTimeText}${dayLabel}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}${dayLabel}`;

@@ -144,6 +144,11 @@ export const formatIntervalMinutes = (intervalMinutes) => {
     return '';
   }
 
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    const daysPart = minutes / 1440;
+    return `${daysPart} day${daysPart === 1 ? '' : 's'}`;
+  }
+
   const hoursPart = Math.floor(minutes / 60);
   const minutesPart = minutes % 60;
   const parts = [];
@@ -344,7 +349,10 @@ export const formatDoseWithUnit = (doseSize, unit) => {
 
 export const formatScheduleEntry = (entry, unit = '') => {
   if (isIntervalScheduleEntry(entry)) {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}`;
+    const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
+      ? `\nAt ${formatTime(entry.scheduledTime)}`
+      : '';
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${scheduledTimeText}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
@@ -377,8 +385,9 @@ export const buildScheduleEntriesFromMedicine = (medicine) =>
 export const buildScheduleDraftFromEntry = (entry) => ({
   doseSize: entry.doseSize ? String(entry.doseSize) : '',
   scheduledTime: entry.scheduledTime || '',
-  intervalHours: entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
-  intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) % 60 : '',
+  intervalHours: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
+  intervalMinutes: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Number(entry.intervalMinutes) % 60 : '',
+  intervalDays: entry.intervalMinutes && Number(entry.intervalMinutes) >= 1440 ? Math.floor(Number(entry.intervalMinutes) / 1440) : '',
   dayOfWeek: entry.dayOfWeek || '',
   monthOfYear: entry.monthOfYear || '',
   dayOfMonth: entry.dayOfMonth ? String(entry.dayOfMonth) : '',

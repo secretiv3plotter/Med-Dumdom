@@ -236,7 +236,7 @@ function SchedulePreviewCard({
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
   const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
   const sectionLabelText = intervalEntry
-    ? `Hourly interval schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
+    ? `${Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Weekly interval' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
     : (medicine.dailySched || []).some(e => e.monthOfYear)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
