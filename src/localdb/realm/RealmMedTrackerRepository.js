@@ -113,6 +113,7 @@ const toMedEntryModel = (entry) =>
     prescriberContact: entry.prescriberContact || '',
     createdAt: entry.createdAt || null,
     updatedAt: entry.updatedAt || null,
+    totalPrescribedDoses: entry.totalPrescribedDoses ?? null,
   });
 
 const toHistoryScheduleEntry = (entry, index = 0) => ({
@@ -262,6 +263,7 @@ export default class RealmMedTrackerRepository {
         endDate: medEntry.endDate,
         instructions: medEntry.instructions || '',
         prescriberContact: medEntry.prescriberContact || '',
+        totalPrescribedDoses: medEntry.totalPrescribedDoses,
         isDeleted: false,
         deletedAt: null,
         createdAt: existingCreatedAt || now,
@@ -466,6 +468,11 @@ export default class RealmMedTrackerRepository {
       if (updates.endDate !== undefined) currentModel.updateEndDate(updates.endDate);
       if (updates.instructions !== undefined) currentModel.updateInstructions(updates.instructions);
       if (updates.prescriberContact !== undefined) currentModel.updatePrescriberContact(updates.prescriberContact);
+      if (updates.totalPrescribedDoses !== undefined) {
+        currentModel.totalPrescribedDoses = updates.totalPrescribedDoses === null || updates.totalPrescribedDoses === undefined || updates.totalPrescribedDoses === ''
+          ? null
+          : Number(updates.totalPrescribedDoses);
+      }
 
       this.persistMedEntry(userId, currentModel, existingEntry.createdAt);
       return currentModel;

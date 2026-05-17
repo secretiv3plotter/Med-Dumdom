@@ -12,6 +12,8 @@ import {
   normalizeTimesTaken,
   sumDoseSizes,
   toMinutes,
+  isIntervalScheduleEntry,
+  getIntervalMinutes,
 } from './medEntryModelUtils';
 import {
   getScheduleMissedDateTime,
@@ -44,6 +46,7 @@ export default class MedEntry {
     timesTaken = [],
     createdAt = null,
     updatedAt = null,
+    totalPrescribedDoses = null,
   } = {}) {
     this.medEntryId = medEntryId === undefined || medEntryId === null ? '' : String(medEntryId).trim();
     this.medName = normalizeRequiredString(medName, 'medName');
@@ -75,6 +78,7 @@ export default class MedEntry {
     this.timesTaken = normalizeTimesTaken(timesTaken);
     this.createdAt = normalizeOptionalDate(createdAt, 'createdAt');
     this.updatedAt = normalizeOptionalDate(updatedAt, 'updatedAt');
+    this.totalPrescribedDoses = null;
 
     if (this.isTaken) {
       if (!this.timeTaken || !this.dateTaken) {
@@ -273,12 +277,34 @@ export default class MedEntry {
     ensureScheduleIndex(this.dailySched, scheduleIndex);
     const takenDateTime = normalizeDate(takenAt, 'takenAt') ?? new Date();
 
+    const currentEntry = this.dailySched[scheduleIndex];
+
     this.dailySched[scheduleIndex] = {
-      ...this.dailySched[scheduleIndex],
+      ...currentEntry,
       status: 'taken',
       takenAt: takenDateTime.toISOString(),
       skippedAt: null,
     };
+
+    if (isIntervalScheduleEntry(currentEntry)) {
+      const hasSubsequent = this.dailySched.slice(scheduleIndex + 1).length > 0;
+      if (!hasSubsequent) {
+        const intervalMinutes = getIntervalMinutes(currentEntry);
+        const currentActivatedAt = new Date(currentEntry.activatedAt);
+        const nextActivatedAt = new Date(currentActivatedAt.getTime() + intervalMinutes * 60000);
+        
+        const nextEntry = {
+          ...currentEntry,
+          status: 'pending',
+          takenAt: null,
+          skippedAt: null,
+          activatedAt: nextActivatedAt.toISOString(),
+        };
+        this.dailySched.push(nextEntry);
+      }
+      this.totalDailyAmount = sumDoseSizes(this.dailySched);
+      this.amount = this.totalDailyAmount;
+    }
 
     this.syncTakenStatusFromSchedule();
     return this;
@@ -294,12 +320,34 @@ export default class MedEntry {
         : null;
     const resolvedSkippedDateTime = missedDateTime || skippedDateTime;
 
+    const currentEntry = this.dailySched[scheduleIndex];
+
     this.dailySched[scheduleIndex] = {
-      ...this.dailySched[scheduleIndex],
+      ...currentEntry,
       status: 'skipped',
       takenAt: null,
       skippedAt: resolvedSkippedDateTime.toISOString(),
     };
+
+    if (isIntervalScheduleEntry(currentEntry)) {
+      const hasSubsequent = this.dailySched.slice(scheduleIndex + 1).length > 0;
+      if (!hasSubsequent) {
+        const intervalMinutes = getIntervalMinutes(currentEntry);
+        const currentActivatedAt = new Date(currentEntry.activatedAt);
+        const nextActivatedAt = new Date(currentActivatedAt.getTime() + intervalMinutes * 60000);
+        
+        const nextEntry = {
+          ...currentEntry,
+          status: 'pending',
+          takenAt: null,
+          skippedAt: null,
+          activatedAt: nextActivatedAt.toISOString(),
+        };
+        this.dailySched.push(nextEntry);
+      }
+      this.totalDailyAmount = sumDoseSizes(this.dailySched);
+      this.amount = this.totalDailyAmount;
+    }
 
     this.syncTakenStatusFromSchedule();
     return this;
@@ -307,13 +355,20 @@ export default class MedEntry {
 
   clearScheduleStatus(scheduleIndex) {
     ensureScheduleIndex(this.dailySched, scheduleIndex);
+    const currentEntry = this.dailySched[scheduleIndex];
 
     this.dailySched[scheduleIndex] = {
-      ...this.dailySched[scheduleIndex],
+      ...currentEntry,
       status: 'pending',
       takenAt: null,
       skippedAt: null,
     };
+
+    if (isIntervalScheduleEntry(currentEntry)) {
+      this.dailySched = this.dailySched.slice(0, scheduleIndex + 1);
+      this.totalDailyAmount = sumDoseSizes(this.dailySched);
+      this.amount = this.totalDailyAmount;
+    }
 
     this.syncTakenStatusFromSchedule();
     return this;

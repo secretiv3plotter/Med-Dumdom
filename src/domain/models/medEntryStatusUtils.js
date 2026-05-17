@@ -250,7 +250,8 @@ export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = ne
   const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
   const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
   if (isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex])) {
-    return currentMinutes !== null;
+    const status = getScheduleStatus(medEntry, scheduleIndex, currTime, currDate, syncTakenStatus);
+    return status === 'due' || status === 'pending' || status === 'missed';
   }
 
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));

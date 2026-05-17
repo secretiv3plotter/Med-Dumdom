@@ -60,6 +60,7 @@ const MedEntrySchema = {
     endDate: 'date?',
     instructions: 'string?',
     prescriberContact: 'string?',
+    totalPrescribedDoses: 'int?',
     isDeleted: { type: 'bool', default: false },
     deletedAt: 'date?',
     createdAt: 'date',
@@ -171,7 +172,7 @@ export const realmSchemas = [
   ApptTrackerHistorySchema,
 ];
 
-export const REALM_SCHEMA_VERSION = 13;
+export const REALM_SCHEMA_VERSION = 14;
 
 export const realmConfig = {
   schema: realmSchemas,

@@ -183,24 +183,6 @@ export const getIntervalMinutes = (entry) => {
 
 export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
 
-export const getIntervalOccurrenceMinutes = (entry, dateValue = new Date()) => {
-  const intervalMinutes = getIntervalMinutes(entry);
-  if (!intervalMinutes) {
-    return null;
-  }
-
-  const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
-  const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
-  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
-  if (currentDate.getTime() < firstDueAt.getTime()) {
-    return null;
-  }
-
-  const elapsedIntervals = Math.floor((currentDate.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
-  const occurrenceDate = new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
-  return occurrenceDate.getHours() * 60 + occurrenceDate.getMinutes();
-};
-
 export const getIntervalOccurrenceDateTime = (entry, dateValue = new Date()) => {
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
@@ -211,11 +193,19 @@ export const getIntervalOccurrenceDateTime = (entry, dateValue = new Date()) => 
   const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
   const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
   if (currentDate.getTime() < firstDueAt.getTime()) {
+    if (currentDate.getTime() >= activatedAt.getTime()) {
+      return activatedAt;
+    }
     return null;
   }
 
   const elapsedIntervals = Math.floor((currentDate.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
   return new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+};
+
+export const getIntervalOccurrenceMinutes = (entry, dateValue = new Date()) => {
+  const occurrenceDate = getIntervalOccurrenceDateTime(entry, dateValue);
+  return occurrenceDate ? occurrenceDate.getHours() * 60 + occurrenceDate.getMinutes() : null;
 };
 
 export const getIntervalNextOccurrenceDateTime = (entry, dateValue = new Date()) => {
@@ -419,8 +409,12 @@ export const sumDoseSizes = (dailySched) =>
   dailySched.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
 
 export const ensureDateRange = (startDate, endDate) => {
-  if (startDate && endDate && startDate.getTime() > endDate.getTime()) {
-    throw new RangeError('endDate must be the same as or later than startDate.');
+  if (startDate && endDate) {
+    const s = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const e = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    if (s.getTime() > e.getTime()) {
+      throw new RangeError('endDate must be the same as or later than startDate.');
+    }
   }
 };
 

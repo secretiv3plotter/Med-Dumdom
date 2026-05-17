@@ -25,7 +25,9 @@ export const isBeforeDate = (date, minimumDate) => {
     return false;
   }
 
-  return date.getTime() < minimumDate.getTime();
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const m = new Date(minimumDate.getFullYear(), minimumDate.getMonth(), minimumDate.getDate());
+  return d.getTime() < m.getTime();
 };
 
 export const formatDate = (value) => {
@@ -345,16 +347,24 @@ export const formatScheduleEntry = (entry, unit = '') => {
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
 
-export const buildFormStateFromMedicine = (medicine) => ({
-  medName: medicine.medName || '',
-  unitStrength: medicine.unitStrength || '',
-  unit: medicine.unit || '',
-  totalDailyAmount: medicine.totalDailyAmount ? String(medicine.totalDailyAmount) : '',
-  startDate: medicine.startDate ? formatDateInputValue(medicine.startDate) : '',
-  endDate: medicine.endDate ? formatDateInputValue(medicine.endDate) : '',
-  instructions: medicine.instructions || '',
-  prescriberContact: medicine.prescriberContact || '',
-});
+export const buildFormStateFromMedicine = (medicine) => {
+  const startD = medicine.startDate ? (medicine.startDate instanceof Date ? medicine.startDate : new Date(medicine.startDate)) : null;
+  const startTimeStr = startD && !Number.isNaN(startD.getTime())
+    ? `${String(startD.getHours()).padStart(2, '0')}:${String(startD.getMinutes()).padStart(2, '0')}`
+    : '';
+
+  return {
+    medName: medicine.medName || '',
+    unitStrength: medicine.unitStrength || '',
+    unit: medicine.unit || '',
+    totalDailyAmount: medicine.totalDailyAmount ? String(medicine.totalDailyAmount) : '',
+    startDate: medicine.startDate ? formatDateInputValue(medicine.startDate) : '',
+    startTime: startTimeStr,
+    endDate: medicine.endDate ? formatDateInputValue(medicine.endDate) : '',
+    instructions: medicine.instructions || '',
+    prescriberContact: medicine.prescriberContact || '',
+  };
+};
 
 export const buildScheduleEntriesFromMedicine = (medicine) =>
   Array.isArray(medicine.dailySched)
@@ -712,18 +722,26 @@ export const getMedicineDuplicateKey = ({ medName, unitStrength, unit }) =>
   ].join('|');
 
 export const formatMedicineMeta = (medicine) => {
-  const dailyAmountText = `${medicine.totalDailyAmount} ${medicine.unit} per day`;
+  const dailyAmountText = `${getCalculatedDailyAmount(medicine)} ${medicine.unit} per day`;
   return medicine.unitStrength ? `${medicine.unitStrength} • ${dailyAmountText}` : dailyAmountText;
 };
 
-export const getScheduleDuplicateKey = (entry) =>
-  [
+export const getScheduleDuplicateKey = (entry) => {
+  if (isIntervalScheduleEntry(entry)) {
+    return [
+      'interval',
+      normalizeDuplicateKey(entry.intervalMinutes || ''),
+      normalizeDuplicateKey(entry.activatedAt || ''),
+    ].join('|');
+  }
+  return [
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
     normalizeDuplicateKey(entry.intervalMinutes || ''),
     normalizeDuplicateKey(entry.dayOfWeek || ''),
     normalizeDuplicateKey(entry.monthOfYear || ''),
     normalizeDuplicateKey(entry.dayOfMonth || ''),
   ].join('|');
+};
 
 export const hasDuplicateScheduleEntry = (scheduleEntries, nextEntry, editingIndex = null) => {
   const nextKey = getScheduleDuplicateKey(nextEntry);
@@ -744,3 +762,89 @@ export const hasDuplicateSchedules = (scheduleEntries) => {
     return false;
   });
 };
+
+export const getNextHourOClock = () => {
+  const d = new Date();
+  d.setHours(d.getHours() + 1, 0, 0, 0);
+  return `${String(d.getHours()).padStart(2, '0')}:00`;
+};
+
+export const combineDateAndTime = (dateStr, timeStr) => {
+  const dText = String(dateStr || '').trim();
+  if (!dText) {
+    return null;
+  }
+  const tText = String(timeStr || '00:00').trim();
+  const [year, month, day] = dText.split('-').map(Number);
+  const [hours, minutes] = tText.split(':').map(Number);
+  const parsed = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const getLastActionMessage = (medicine) => {
+  const actions = (medicine.dailySched || [])
+    .filter((entry) => entry.status === 'taken' || entry.status === 'skipped')
+    .map((entry) => {
+      const time = entry.status === 'taken' ? entry.takenAt : entry.skippedAt;
+      return {
+        status: entry.status,
+        time: time ? new Date(time) : null,
+      };
+    })
+    .filter((a) => a.time && !Number.isNaN(a.time.getTime()))
+    .sort((first, second) => first.time.getTime() - second.time.getTime());
+
+  const latest = actions[actions.length - 1];
+  if (!latest) {
+    return null;
+  }
+
+  const statusLabel = latest.status === 'taken' ? 'Last Taken' : 'Last Skipped';
+  return `${statusLabel} ${formatDateTime(latest.time)}`;
+};
+
+export const getCalculatedDailyAmount = (medicine) => {
+  const firstEntry = medicine.dailySched?.[0];
+  if (firstEntry && isIntervalScheduleEntry(firstEntry)) {
+    const doseSize = Number(firstEntry.doseSize || 0);
+    const interval = Number(firstEntry.intervalMinutes || 0);
+    if (interval > 0) {
+      return Math.floor(1440 / interval) * doseSize;
+    }
+  }
+  return medicine.totalDailyAmount;
+};
+
+export const getMedicineStatusForSorting = (medicine, now = new Date()) => {
+  const scheduleItems = (medicine.dailySched || []).map((entry, index) => ({
+    entry,
+    index,
+    statusStyle: getScheduleStatusStyle(medicine, index, now),
+  }));
+
+  const currentActiveItem = scheduleItems.find(({ index, statusStyle }) =>
+    (statusStyle.status === 'due' || statusStyle.status === 'pending') &&
+    medicine.isScheduleActionAvailable(index, now, now)
+  );
+
+  if (currentActiveItem) {
+    return currentActiveItem.statusStyle.status;
+  }
+
+  const upcomingItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'upcoming');
+  if (upcomingItems.length) {
+    return 'upcoming';
+  }
+
+  if (isMedicineCompletedToday(medicine, now)) {
+    return 'completed';
+  }
+
+  const missedAmount = getMissedAmountToday(medicine, scheduleItems);
+  if (missedAmount > 0) {
+    return 'missed';
+  }
+
+  return 'upcoming';
+};
+
