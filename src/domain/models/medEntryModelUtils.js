@@ -208,6 +208,7 @@ export const normalizeScheduleEntry = (entry, index) => {
     return {
       doseSize: 1,
       scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
+      dayOfWeek: '',
       instructions: '',
       status: 'pending',
       takenAt: null,
@@ -223,6 +224,7 @@ export const normalizeScheduleEntry = (entry, index) => {
   const doseSize = normalizeInteger(entry.doseSize ?? entry.amount ?? 1, `dailySched[${index}].doseSize`, {
     allowZero: false,
   });
+  const dayOfWeek = normalizeOptionalString(entry.dayOfWeek, `dailySched[${index}].dayOfWeek`);
   const instructions = normalizeOptionalString(entry.instructions, `dailySched[${index}].instructions`);
   const status = normalizeScheduleStatus(entry.status, `dailySched[${index}].status`);
   const takenAt = normalizeOptionalDateTime(entry.takenAt, `dailySched[${index}].takenAt`);
@@ -235,6 +237,7 @@ export const normalizeScheduleEntry = (entry, index) => {
       entry.scheduledTime ?? entry.time ?? entry.mealTime,
       `dailySched[${index}].scheduledTime`
     ),
+    dayOfWeek,
     instructions,
     status,
     takenAt,

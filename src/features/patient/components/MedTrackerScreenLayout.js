@@ -147,6 +147,7 @@ export function MedicineEditorPopup({
   onSelectScheduleType,
   onCancelScheduleEdit,
   onSaveScheduleEntry,
+  onSaveInlineScheduleEntry,
   onEditScheduleEntry,
   onDeleteScheduleEntry,
   onCancel,
@@ -184,6 +185,7 @@ export function MedicineEditorPopup({
         onSelectScheduleType={onSelectScheduleType}
         onCancelScheduleEdit={onCancelScheduleEdit}
         onSaveScheduleEntry={onSaveScheduleEntry}
+        onSaveInlineScheduleEntry={onSaveInlineScheduleEntry}
         onEditScheduleEntry={onEditScheduleEntry}
         onDeleteScheduleEntry={onDeleteScheduleEntry}
         onCancel={onCancel}
