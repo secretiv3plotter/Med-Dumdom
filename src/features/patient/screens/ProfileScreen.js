@@ -51,6 +51,23 @@ const toDraft = (profile) => ({
   address: profile.address || '',
 });
 
+const formatBirthDate = (birthDate) => {
+  if (!birthDate) {
+    return '--';
+  }
+
+  const parsed = birthDate instanceof Date ? birthDate : new Date(birthDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return '--';
+  }
+
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
 export default function ProfileScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
 
@@ -172,7 +189,6 @@ export default function ProfileScreen({ navigation }) {
           <TextCard cardStyle={styles.profileCard}>
             <View style={styles.infoTitleRow}>
               <View style={styles.infoTitleGroup}>
-                <Ionicons name="person-outline" size={16} color={colors.title} />
                 <Text style={styles.infoTitle}>Personal Information</Text>
               </View>
               <View style={styles.editActionWrap}>
@@ -186,9 +202,11 @@ export default function ProfileScreen({ navigation }) {
                 ) : (
                   <EditButton
                     onPress={() => setIsEditing(true)}
+                    iconSize={moderateScale(32)}
+                    iconColorOverride={colors.title}
                     style={styles.editActionButton}
                     circleStyle={styles.editActionCircle}
-                    textStyle={styles.editActionText}
+                    textStyle={[styles.editActionText, styles.editTextBlack]}
                   />
                 )}
               </View>
@@ -229,13 +247,9 @@ export default function ProfileScreen({ navigation }) {
             ) : (
               <>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Name:</Text>
-                  <Text style={styles.infoValue}>{profile.fullName || '--'}</Text>
-                </View>
-                <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Birth date:</Text>
                   <Text style={styles.infoValue}>
-                    {profile.birthDate ? profile.birthDate.toISOString().slice(0, 10) : '--'}
+                    {formatBirthDate(profile.birthDate)}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
@@ -393,11 +407,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   editActionWrap: {
-    minWidth: 72,
-    alignItems: 'center',
+    minWidth: 0,
+    alignItems: 'flex-end',
   },
   editActionButton: {
-    minWidth: 64,
+    minWidth: 0,
   },
   editActionCircle: {
     width: 36,
@@ -408,6 +422,9 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     fontWeight: '700',
     marginTop: -8,
+  },
+  editTextBlack: {
+    color: colors.title,
   },
   label: {
     ...typography.bodySmall,

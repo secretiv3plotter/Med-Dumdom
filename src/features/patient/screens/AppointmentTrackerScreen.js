@@ -391,6 +391,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             accessibilityLabel="Search appointments"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            showSearchIcon
             autoComplete="off"
             focusBorderColor={APPOINTMENT_ACCENT}
           />
