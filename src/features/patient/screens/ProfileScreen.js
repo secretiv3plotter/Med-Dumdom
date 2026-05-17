@@ -15,6 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import {
+  BACK_HEADER_BOTTOM_PADDING,
+  BACK_HEADER_HORIZONTAL_PADDING,
+  BACK_HEADER_TOP_OFFSET,
+} from '../../../shared/components/common/backHeaderMetrics';
 import { CancelButton, EditButton } from '../../../shared/components/common/CrudButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
@@ -23,9 +28,10 @@ import NativeDateTimeField from '../../../shared/components/common/NativeDateTim
 import TextCard from '../../../shared/components/common/TextCard';
 import SettingsButton from '../components/SettingsButton';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
-import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
+const SETTINGS_ICON_SIZE = moderateScale(48);
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -142,7 +148,10 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <Text style={styles.headerTitle}>My Profile</Text>
             <View style={styles.settingsControl}>
-              <SettingsButton onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: returnRoute })} />
+              <SettingsButton
+                iconSize={SETTINGS_ICON_SIZE}
+                onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: returnRoute })}
+              />
             </View>
           </View>
         </View>
@@ -314,17 +323,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stickyTop: {
-    position: 'absolute',
-    top: spacing.md + spacing.sm,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
   },
   topBar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    minHeight: 48,
   },
   sideControl: {
     width: 84,
@@ -333,10 +339,13 @@ const styles = StyleSheet.create({
   settingsControl: {
     width: 100,
     alignItems: 'flex-end',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+
   },
   content: {
-    padding: spacing.lg,
-    paddingTop: 112,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
     gap: spacing.sm,
   },
   contentWithFooter: {
@@ -347,9 +356,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.title,
-    color: colors.brandText,
     textAlign: 'center',
+    alignSelf: 'center',
     flex: 1,
+    color: colors.brand,
   },
   profileCardTop: {
     backgroundColor: colors.surface,
@@ -422,6 +432,7 @@ const styles = StyleSheet.create({
   editActionCircle: {
     width: 36,
     height: 36,
+    paddingBottom: spacing.sm,
   },
   editActionText: {
     ...typography.bodySmall,
