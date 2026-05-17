@@ -17,6 +17,7 @@ export default function CrudButton({
   variant = 'solid',
   disabled = false,
   style,
+  pressedStyle,
   circleStyle,
   textStyle,
   ...pressableProps
@@ -39,6 +40,7 @@ export default function CrudButton({
       style={({ pressed }) => [
         styles.container,
         pressed && !disabled && styles.pressed,
+        pressed && !disabled && pressedStyle,
         style,
       ]}
       {...pressableProps}

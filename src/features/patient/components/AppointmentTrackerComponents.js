@@ -8,6 +8,10 @@ import {
 } from '../utils/apptTrackerUtils';
 
 const PILL_RADIUS = moderateScale(999);
+const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_SOFT = '#E9F8F1';
+const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
+const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 
 export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onStatusChange, muted = false }) {
   const statusStyle = getApptStatusStyle(appointment, observedNow);
@@ -172,9 +176,9 @@ function StatusBadge({ statusStyle }) {
 
 const styles = StyleSheet.create({
   appointmentListItem: {
-    backgroundColor: colors.brandSoft,
+    backgroundColor: APPOINTMENT_ACCENT_SOFT,
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: APPOINTMENT_ACCENT,
     borderRadius: radius.xl,
     padding: spacing.md,
     gap: spacing.sm,
@@ -184,8 +188,8 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
   },
   pressedCard: {
-    backgroundColor: '#C7DBFF',
-    borderColor: colors.brandText,
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
   },
   pressedMutedCard: {
     backgroundColor: '#D1D5DB',

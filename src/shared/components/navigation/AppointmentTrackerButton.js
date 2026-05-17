@@ -2,10 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 
+const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
+const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
+
 export default function AppointmentTrackerButton({ onPress, variant = 'outline', disabled = false }) {
   const isSolid = variant === 'solid';
-  const iconColor = disabled ? colors.bodyMuted : colors.brand;
-  const textColor = disabled ? colors.bodyMuted : colors.brand;
+  const iconColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT;
+  const textColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT_TEXT;
 
   return (
     <Pressable
@@ -57,8 +61,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pressed: {
-    backgroundColor: '#C7DBFF',
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
     borderWidth: 1,
-    borderColor: colors.brandText,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
   },
 });

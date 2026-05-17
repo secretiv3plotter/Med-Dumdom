@@ -37,6 +37,9 @@ const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
+const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
+const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -318,7 +321,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             <Text style={styles.title}>Appointments</Text>
             <Text style={styles.subtitle}>Manage all your appointments and meetings in one place.</Text>
           </View>
-          <AddButton onPress={handleAddAppointment} />
+          <AddButton
+            onPress={handleAddAppointment}
+            circleStyle={styles.appointmentAddCircle}
+            textStyle={styles.appointmentAddText}
+            pressedStyle={styles.appointmentAddPressed}
+          />
         </View>
       </View>
 
@@ -668,7 +676,7 @@ const styles = StyleSheet.create({
     minHeight: 86,
   },
   selectedAppointmentCard: {
-    borderColor: colors.brand,
+    borderColor: APPOINTMENT_ACCENT,
     borderWidth: 2,
   },
   appointmentCardContent: {
@@ -688,7 +696,7 @@ const styles = StyleSheet.create({
   historyBar: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: APPOINTMENT_ACCENT,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     alignItems: 'center',
@@ -698,12 +706,21 @@ const styles = StyleSheet.create({
   },
   historyBarText: {
     ...typography.body,
-    color: colors.brand,
+    color: APPOINTMENT_ACCENT_TEXT,
     fontWeight: '700',
   },
   pressedControl: {
-    backgroundColor: '#C7DBFF',
-    borderColor: colors.brandText,
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  appointmentAddCircle: {
+    backgroundColor: APPOINTMENT_ACCENT,
+  },
+  appointmentAddText: {
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
+  appointmentAddPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
   },
   cardHeaderName: {
     ...typography.body,
