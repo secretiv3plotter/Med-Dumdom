@@ -113,14 +113,124 @@ export const toMinutes = (timeValue) => {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 };
 
+export const getIntervalMinutes = (entry) => {
+  const value = Number(entry?.intervalMinutes || 0);
+  return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
+
+export const formatIntervalMinutes = (intervalMinutes) => {
+  const minutes = Number(intervalMinutes || 0);
+  if (!Number.isInteger(minutes) || minutes <= 0) {
+    return '';
+  }
+
+  const hoursPart = Math.floor(minutes / 60);
+  const minutesPart = minutes % 60;
+  return `${String(hoursPart).padStart(2, '0')}:${String(minutesPart).padStart(2, '0')}`;
+};
+
+export const getIntervalOccurrenceMinutes = (entry, now = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return null;
+  }
+
+  const date = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const activatedAt = entry?.activatedAt ? new Date(entry.activatedAt) : date;
+  const firstDueAt = Number.isNaN(activatedAt.getTime())
+    ? date
+    : new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (date.getTime() < firstDueAt.getTime()) {
+    return firstDueAt.getHours() * 60 + firstDueAt.getMinutes();
+  }
+
+  const elapsedIntervals = Math.floor((date.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
+  const occurrenceDate = new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+  return occurrenceDate.getHours() * 60 + occurrenceDate.getMinutes();
+};
+
+const getMinutesUntilNextIntervalOccurrence = (entry, now = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return null;
+  }
+
+  const currentDate = now instanceof Date ? now : new Date(now);
+  const activatedAt = entry?.activatedAt ? new Date(entry.activatedAt) : currentDate;
+  if (Number.isNaN(currentDate.getTime()) || Number.isNaN(activatedAt.getTime())) {
+    return null;
+  }
+
+  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (currentDate.getTime() < firstDueAt.getTime()) {
+    return Math.max(0, Math.ceil((firstDueAt.getTime() - currentDate.getTime()) / 60000));
+  }
+
+  const elapsedIntervals = Math.floor((currentDate.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
+  const occurrenceDate = new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+  return Math.max(0, Math.floor((occurrenceDate.getTime() - currentDate.getTime()) / 60000));
+};
+
 export const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
+
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
+  const date = dateValue instanceof Date ? new Date(dateValue.getTime()) : new Date(dateValue);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  if (entry?.dayOfWeek) {
+    return DAYS_OF_WEEK[date.getDay()] === entry.dayOfWeek;
+  }
+
+  if (entry?.monthOfYear) {
+    if (MONTHS[date.getMonth()] !== entry.monthOfYear) {
+      return false;
+    }
+  }
+
+  if (entry?.dayOfMonth) {
+    return date.getDate() === Number(entry.dayOfMonth);
+  }
+
+  return true;
+};
+
+export const getScheduleDayLabel = (entry) => {
+  if (entry?.dayOfWeek) {
+    return `on ${entry.dayOfWeek}`;
+  }
+
+  if (entry?.monthOfYear) {
+    return entry.dayOfMonth ? `on ${entry.monthOfYear} ${entry.dayOfMonth}` : `in ${entry.monthOfYear}`;
+  }
+
+  return '';
+};
 
 export const getSchedulesEarliestToLatest = (dailySched = []) =>
   dailySched
     .map((entry, index) => ({
       entry,
       index,
-      sortMinutes: toMinutes(scheduleEffectiveTime(entry)) ?? Number.NEGATIVE_INFINITY,
+      sortMinutes: isIntervalScheduleEntry(entry)
+        ? Number.NEGATIVE_INFINITY
+        : toMinutes(scheduleEffectiveTime(entry)) ?? Number.NEGATIVE_INFINITY,
     }))
     .sort((first, second) => first.sortMinutes - second.sortMinutes || first.index - second.index);
 
@@ -153,6 +263,10 @@ export const buildMedicineSearchText = (medicine) => [
   ...(medicine.dailySched || []).flatMap((entry) => [
     entry.doseSize,
     entry.scheduledTime,
+    entry.intervalMinutes,
+    entry.dayOfWeek,
+    entry.monthOfYear,
+    entry.dayOfMonth,
     entry.status,
   ]),
 ].filter((value) => value !== undefined && value !== null).map(normalizeSearchText).join(' ');
@@ -186,6 +300,10 @@ export const formatDoseWithUnit = (doseSize, unit) => {
 };
 
 export const formatScheduleEntry = (entry, unit = '') => {
+  if (isIntervalScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}`;
+  }
+
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
 };
 
@@ -208,7 +326,11 @@ export const buildScheduleEntriesFromMedicine = (medicine) =>
 export const buildScheduleDraftFromEntry = (entry) => ({
   doseSize: entry.doseSize ? String(entry.doseSize) : '',
   scheduledTime: entry.scheduledTime || '',
+  intervalHours: entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
+  intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) % 60 : '',
   dayOfWeek: entry.dayOfWeek || '',
+  monthOfYear: entry.monthOfYear || '',
+  dayOfMonth: entry.dayOfMonth ? String(entry.dayOfMonth) : '',
 });
 
 export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
@@ -244,6 +366,10 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
   }
 
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(entry));
+  if (isIntervalScheduleEntry(entry)) {
+    return false;
+  }
+
   const currentMinutes = toMinutes(normalizeTimeInput(`${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`));
   if (scheduleMinutes === null || currentMinutes === null) {
     return false;
@@ -252,11 +378,17 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
   const tomorrow = new Date(now.getTime());
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  if (!medicine.isActiveOnDate(now) && medicine.isActiveOnDate(tomorrow)) {
+  const hasDayConstraint = Boolean(entry?.dayOfWeek || entry?.monthOfYear || entry?.dayOfMonth);
+
+  if (
+    (!medicine.isActiveOnDate(now) || !isScheduleEntryForDate(entry, now)) &&
+    medicine.isActiveOnDate(tomorrow) &&
+    isScheduleEntryForDate(entry, tomorrow)
+  ) {
     return true;
   }
 
-  return medicine.isActiveOnDate(now) && currentMinutes >= scheduleMinutes;
+  return !hasDayConstraint && medicine.isActiveOnDate(now) && currentMinutes >= scheduleMinutes;
 };
 
 export const completedScheduleStyle = {
@@ -434,15 +566,43 @@ export const getStatusTimesSummary = (medicine, now = new Date()) => {
   return summary;
 };
 
+const findNextScheduleDate = (entry, now = new Date(), startOffset = 0) => {
+  for (let offset = startOffset; offset <= 370; offset += 1) {
+    const candidate = new Date(now.getTime());
+    candidate.setDate(candidate.getDate() + offset);
+    if (isScheduleEntryForDate(entry, candidate)) {
+      candidate.setHours(0, 0, 0, 0);
+      return candidate;
+    }
+  }
+
+  const fallback = new Date(now.getTime());
+  fallback.setHours(0, 0, 0, 0);
+  return fallback;
+};
+
 const getNearestScheduleItem = (scheduleItems, now = new Date()) => {
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentDay = new Date(now.getTime());
+  currentDay.setHours(0, 0, 0, 0);
   return [...scheduleItems]
     .map((item) => {
       const scheduleMinutes = toMinutes(scheduleEffectiveTime(item.entry));
+      const minutesUntilInterval = getMinutesUntilNextIntervalOccurrence(item.entry, now);
+      const hasDayConstraint = Boolean(item.entry?.dayOfWeek || item.entry?.monthOfYear || item.entry?.dayOfMonth);
+      const startOffset = hasDayConstraint && isScheduleEntryForDate(item.entry, now) && scheduleMinutes !== null && currentMinutes > scheduleMinutes
+        ? 1
+        : 0;
+      const nextScheduleDate = findNextScheduleDate(item.entry, now, startOffset);
+      const daysUntilNext = Math.max(0, Math.round((nextScheduleDate.getTime() - currentDay.getTime()) / 86400000));
       const minutesUntilNext =
-        scheduleMinutes === null
+        minutesUntilInterval !== null
+          ? minutesUntilInterval
+          : scheduleMinutes === null
           ? Number.POSITIVE_INFINITY
-          : scheduleMinutes >= currentMinutes
+          : daysUntilNext > 0
+            ? daysUntilNext * 1440 + scheduleMinutes - currentMinutes
+            : scheduleMinutes >= currentMinutes
             ? scheduleMinutes - currentMinutes
             : 1440 - currentMinutes + scheduleMinutes;
 
@@ -521,7 +681,10 @@ export const formatMedicineMeta = (medicine) => {
 export const getScheduleDuplicateKey = (entry) =>
   [
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
+    normalizeDuplicateKey(entry.intervalMinutes || ''),
     normalizeDuplicateKey(entry.dayOfWeek || ''),
+    normalizeDuplicateKey(entry.monthOfYear || ''),
+    normalizeDuplicateKey(entry.dayOfMonth || ''),
   ].join('|');
 
 export const hasDuplicateScheduleEntry = (scheduleEntries, nextEntry, editingIndex = null) => {

@@ -72,6 +72,17 @@ export const formatDoseWithUnit = (doseSize, unit) => {
   return normalizedUnit ? `${doseSize} ${normalizedUnit}` : String(doseSize);
 };
 
+export const formatIntervalMinutes = (intervalMinutes) => {
+  const minutes = Number(intervalMinutes || 0);
+  if (!Number.isInteger(minutes) || minutes <= 0) {
+    return '';
+  }
+
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+};
+
+export const isIntervalScheduleEntry = (entry) => Number(entry?.intervalMinutes || 0) > 0;
+
 export const getTakenAmountForRecord = (record) =>
   (record.dailySchedFinalStatuses || []).reduce(
     (total, entry) => total + (entry.finalStatus === 'taken' ? Number(entry.doseSize || 0) : 0),
@@ -115,7 +126,16 @@ export const dateKey = (date) => date.toISOString().slice(0, 10);
 export const getRecordDate = (record) => toHistoryDate(record.historyDate) ?? new Date(0);
 
 export const formatScheduleText = (entry, unit) => {
-  return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
+  const dayLabel = entry.dayOfWeek
+    ? ` on ${entry.dayOfWeek}`
+    : entry.monthOfYear
+      ? entry.dayOfMonth ? ` on ${entry.monthOfYear} ${entry.dayOfMonth}` : ` in ${entry.monthOfYear}`
+      : '';
+  if (isIntervalScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${dayLabel}`;
+  }
+
+  return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}${dayLabel}`;
 };
 
 export const buildHistoryRecordSearchText = (record) => {
@@ -138,6 +158,10 @@ export const buildHistoryRecordSearchText = (record) => {
       entry.finalStatus,
       entry.doseSize,
       entry.scheduledTime,
+      entry.intervalMinutes,
+      entry.dayOfWeek,
+      entry.monthOfYear,
+      entry.dayOfMonth,
       formatScheduleText(entry, record.unit),
       formatDateTime(entry.takenAt || entry.skippedAt || entry.resolvedAt),
     ]),

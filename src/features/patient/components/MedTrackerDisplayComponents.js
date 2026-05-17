@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, moderateScale, typography, spacing } from '../../../shared/theme';
-import { formatDoseWithUnit, formatTime } from '../utils/medTrackerUtils';
+import { formatDoseWithUnit, formatIntervalMinutes, formatTime, isIntervalScheduleEntry } from '../utils/medTrackerUtils';
 
 export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
   const scheduleDayLabel = dayLabel ? ` ${dayLabel}` : '';
@@ -8,7 +8,10 @@ export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
   return (
     <Text style={styles.scheduleCardTitle}>
       Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
-      {'\n'}At <Text style={styles.scheduleTextStrong}>{formatTime(entry.scheduledTime)}</Text>{scheduleDayLabel}
+      {'\n'}{isIntervalScheduleEntry(entry) ? 'Every' : 'At'}{' '}
+      <Text style={styles.scheduleTextStrong}>
+        {isIntervalScheduleEntry(entry) ? formatIntervalMinutes(entry.intervalMinutes) : formatTime(entry.scheduledTime)}
+      </Text>{scheduleDayLabel}
     </Text>
   );
 }

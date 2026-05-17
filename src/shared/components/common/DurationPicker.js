@@ -5,9 +5,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function DurationUnit({ label, value, min, max, maxLength, onChange, disabled }) {
+function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, padValue = false }) {
   const decrease = () => onChange(clamp(value - 1, min, max));
   const increase = () => onChange(clamp(value + 1, min, max));
+  const displayValue = padValue ? String(value).padStart(maxLength, '0') : String(value);
 
   const onInputChange = (input) => {
     const sanitized = input.replace(/[^0-9]/g, '');
@@ -41,7 +42,7 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled })
           <Text style={[styles.stepBtnText, disabled ? styles.stepBtnTextDisabled : styles.stepBtnTextActive]}>-</Text>
         </Pressable>
         <TextInput
-          value={String(value)}
+          value={displayValue}
           onChangeText={onInputChange}
           editable={!disabled}
           keyboardType="number-pad"
@@ -80,6 +81,7 @@ export default function DurationPicker({ units = [], disabled = false }) {
               min={unit.min}
               max={unit.max}
               maxLength={unit.maxLength || 2}
+              padValue={unit.padValue}
               disabled={disabled}
               onChange={(nextValue) => unit.onChange(nextValue)}
             />

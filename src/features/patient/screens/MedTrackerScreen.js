@@ -62,10 +62,24 @@ const DAYS_OF_WEEK = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 ];
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const getDaysForMonth = (monthOfYear) => {
+  const monthIndex = MONTHS.indexOf(monthOfYear);
+  return monthIndex === -1 ? 31 : new Date(new Date().getFullYear(), monthIndex + 1, 0).getDate();
+};
+
 const EMPTY_SCHEDULE_DRAFT = {
   doseSize: '',
   scheduledTime: '',
+  intervalHours: '',
+  intervalMinutes: '',
   dayOfWeek: '',
+  monthOfYear: '',
+  dayOfMonth: '',
 };
 
 export default function MedTrackerScreen({ navigation, realm = null, trackerService = medTrackerService }) {
@@ -79,7 +93,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [scheduleDraft, setScheduleDraft] = useState(() => ({
     doseSize: '',
     scheduledTime: '',
+    intervalHours: '',
+    intervalMinutes: '',
     dayOfWeek: '',
+    monthOfYear: '',
+    dayOfMonth: '',
   }));
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
@@ -192,7 +210,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
+      intervalHours: '',
+      intervalMinutes: '',
       dayOfWeek: '',
+      monthOfYear: '',
+      dayOfMonth: '',
     });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
@@ -205,7 +227,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
+      intervalHours: '',
+      intervalMinutes: '',
       dayOfWeek: '',
+      monthOfYear: '',
+      dayOfMonth: '',
     });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
@@ -227,7 +253,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
+      intervalHours: '',
+      intervalMinutes: '',
       dayOfWeek: '',
+      monthOfYear: '',
+      dayOfMonth: '',
     });
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -235,7 +265,17 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setEditorMode('edit');
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
     const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
-    setSelectedScheduleType(hasWeeklyItem ? MEDICINE_SCHEDULE_TYPES.WEEKLY : MEDICINE_SCHEDULE_TYPES.DAILY);
+    const hasMonthlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.monthOfYear);
+    const hasHourlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.intervalMinutes);
+    setSelectedScheduleType(
+      hasHourlyItem
+        ? MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
+        : hasMonthlyItem
+        ? MEDICINE_SCHEDULE_TYPES.MONTHLY
+        : hasWeeklyItem
+          ? MEDICINE_SCHEDULE_TYPES.WEEKLY
+          : MEDICINE_SCHEDULE_TYPES.DAILY
+    );
   };
 
   const onTabNavigate = (tabKey) => {
@@ -385,37 +425,67 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       skippedAt: null,
       activatedAt,
     };
-    const scheduledTime = normalizeTimeInput(scheduleDraft.scheduledTime);
+    const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
+    const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+    const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(scheduleDraft.scheduledTime);
     if (!scheduledTime) {
       setFormError('Enter a valid scheduled time.');
       return;
     }
+    if (isHourly && intervalTotalMinutes <= 0) {
+      setFormError('Select a time period greater than 00:00.');
+      return;
+    }
 
     const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY;
     const dayOfWeek = isWeekly ? scheduleDraft.dayOfWeek : '';
+    const monthOfYear = isMonthly ? scheduleDraft.monthOfYear : '';
+    const dayOfMonth = isMonthly ? parsePositiveInteger(scheduleDraft.dayOfMonth) : null;
     if (isWeekly && !dayOfWeek) {
       setFormError('Select a day of the week for the schedule item.');
+      return;
+    }
+    if (isMonthly && !monthOfYear) {
+      setFormError('Select a month for the schedule item.');
+      return;
+    }
+    if (isMonthly && !dayOfMonth) {
+      setFormError('Select a day for the schedule item.');
+      return;
+    }
+    if (isMonthly && dayOfMonth > getDaysForMonth(monthOfYear)) {
+      setFormError(`Select a valid day for ${monthOfYear}.`);
       return;
     }
 
     const nextEntry = {
       doseSize,
       scheduledTime,
+      intervalMinutes: isHourly ? intervalTotalMinutes : null,
       dayOfWeek,
+      monthOfYear,
+      dayOfMonth,
       ...scheduleStatusDefaults,
     };
 
-    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, null)) {
+    const nextEntries = [nextEntry];
+
+    if (nextEntries.some((entry) => hasDuplicateScheduleEntry(scheduleEntries, entry, null))) {
       setFormError('This schedule item already exists.');
       return;
     }
 
-    setScheduleEntries((current) => [...current, nextEntry]);
+    setScheduleEntries((current) => [...current, ...nextEntries]);
     setFormError('');
     setScheduleDraft({
       doseSize: '',
       scheduledTime: '',
+      intervalHours: '',
+      intervalMinutes: '',
       dayOfWeek: '',
+      monthOfYear: '',
+      dayOfMonth: '',
     });
   };
 
@@ -425,15 +495,32 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return 'Enter a valid dose size.';
     }
 
-    const scheduledTime = normalizeTimeInput(updatedFields.scheduledTime);
+    const isHourly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY;
+    const intervalTotalMinutes = Number(updatedFields.intervalMinutes || 0);
+    const scheduledTime = isHourly ? '00:00' : normalizeTimeInput(updatedFields.scheduledTime);
     if (!scheduledTime) {
       return 'Enter a valid scheduled time.';
     }
+    if (isHourly && intervalTotalMinutes <= 0) {
+      return 'Select a time period greater than 00:00.';
+    }
 
     const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY;
     const dayOfWeek = isWeekly ? updatedFields.dayOfWeek : '';
+    const monthOfYear = isMonthly ? updatedFields.monthOfYear : '';
+    const dayOfMonth = isMonthly ? parsePositiveInteger(updatedFields.dayOfMonth) : null;
     if (isWeekly && !dayOfWeek) {
       return 'Select a day of the week.';
+    }
+    if (isMonthly && !monthOfYear) {
+      return 'Select a month.';
+    }
+    if (isMonthly && !dayOfMonth) {
+      return 'Select a day.';
+    }
+    if (isMonthly && dayOfMonth > getDaysForMonth(monthOfYear)) {
+      return `Select a valid day for ${monthOfYear}.`;
     }
 
     const activatedAt = scheduleEntries[indexToUpdate]?.activatedAt || new Date().toISOString();
@@ -441,7 +528,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ...scheduleEntries[indexToUpdate],
       doseSize,
       scheduledTime,
+      intervalMinutes: isHourly ? intervalTotalMinutes : null,
       dayOfWeek,
+      monthOfYear,
+      dayOfMonth,
       activatedAt,
     };
 
@@ -509,10 +599,13 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     if (
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY &&
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY &&
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.WEEKLY &&
-      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.MONTHLY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY
     ) {
-      setFormError('Only daily and weekly schedules are available right now.');
+      setFormError('Only hourly, daily, weekly, and monthly schedules are available right now.');
       return;
     }
 

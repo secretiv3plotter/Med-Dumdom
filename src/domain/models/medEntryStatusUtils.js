@@ -4,6 +4,10 @@ import {
   dateTimeAtMinutes,
   ensureScheduleIndex,
   getScheduleDateTime,
+  getIntervalNextOccurrenceDateTime,
+  getIntervalOccurrenceMinutes,
+  isIntervalScheduleEntry,
+  isScheduleDateTimeInCurrentInterval,
   isBeforeCurrentDay,
   isBeforeDay,
   normalizeDate,
@@ -12,6 +16,38 @@ import {
   scheduleEffectiveTime,
   toMinutes,
 } from './medEntryModelUtils';
+
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+export const isScheduleActiveOnDate = (scheduleEntry, currDate = new Date()) => {
+  const currentDay = normalizeOptionalDate(currDate, 'currDate');
+  if (!currentDay) {
+    return false;
+  }
+
+  if (scheduleEntry?.dayOfWeek) {
+    return DAYS_OF_WEEK[currentDay.getDay()] === scheduleEntry.dayOfWeek;
+  }
+
+  if (scheduleEntry?.monthOfYear) {
+    if (MONTHS[currentDay.getMonth()] !== scheduleEntry.monthOfYear) {
+      return false;
+    }
+  }
+
+  if (scheduleEntry?.dayOfMonth) {
+    return currentDay.getDate() === Number(scheduleEntry.dayOfMonth);
+  }
+
+  return true;
+};
 
 export const resetDailyScheduleStatusesIfNeeded = (medEntry, now = new Date(), syncTakenStatus) => {
   const currentDateTime = normalizeDate(now, 'now') ?? new Date();
@@ -39,6 +75,20 @@ export const resetDailyScheduleStatusesIfNeeded = (medEntry, now = new Date(), s
 
   let didReset = false;
   medEntry.dailySched = medEntry.dailySched.map((entry) => {
+    if (
+      isIntervalScheduleEntry(entry) &&
+      entry.status !== 'pending' &&
+      !isScheduleDateTimeInCurrentInterval(entry, getScheduleDateTime(entry), currentDateTime)
+    ) {
+      didReset = true;
+      return {
+        ...entry,
+        status: 'pending',
+        takenAt: null,
+        skippedAt: null,
+      };
+    }
+
     if (entry.status === 'pending' || !isBeforeDay(getScheduleDateTime(entry), currentDay)) {
       return entry;
     }
@@ -93,19 +143,28 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
   ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
   const scheduleEntry = medEntry.dailySched[scheduleIndex];
 
-  if (scheduleEntry.status === 'taken') {
-    return 'taken';
-  }
-
-  if (scheduleEntry.status === 'skipped') {
-    return 'skipped';
-  }
-
   if (!isActiveOnDate(medEntry, currDate)) {
     return 'upcoming';
   }
 
+  if (!isScheduleActiveOnDate(scheduleEntry, currDate)) {
+    return 'upcoming';
+  }
+
   const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
+
+  if (scheduleEntry.status === 'taken') {
+    return isIntervalScheduleEntry(scheduleEntry) && !isScheduleDateTimeInCurrentInterval(scheduleEntry, scheduleEntry.takenAt, currentTime)
+      ? 'pending'
+      : 'taken';
+  }
+
+  if (scheduleEntry.status === 'skipped') {
+    return isIntervalScheduleEntry(scheduleEntry) && !isScheduleDateTimeInCurrentInterval(scheduleEntry, scheduleEntry.skippedAt, currentTime)
+      ? 'pending'
+      : 'skipped';
+  }
+
   const currentDay = new Date(currentTime.getTime());
   currentDay.setHours(0, 0, 0, 0);
   if (isBeforeCurrentDay(currDate, currentDay)) {
@@ -113,12 +172,26 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
   }
 
   const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  if (isIntervalScheduleEntry(scheduleEntry)) {
+    const occurrenceMinutes = getIntervalOccurrenceMinutes(scheduleEntry, currentTime);
+    if (currentMinutes === null || occurrenceMinutes === null) {
+      return 'upcoming';
+    }
+
+    if (currentMinutes >= occurrenceMinutes + DUE_NOW_GRACE_MINUTES) {
+      return 'pending';
+    }
+
+    return currentMinutes >= occurrenceMinutes ? 'due' : 'upcoming';
+  }
+
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
   if (currentMinutes === null || scheduleMinutes === null) {
     return 'upcoming';
   }
 
   const laterScheduledMinutes = medEntry.dailySched
+    .filter((entry) => isScheduleActiveOnDate(entry, currDate))
     .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
     .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
     .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
@@ -138,11 +211,16 @@ export const getScheduleMissedDateTime = (medEntry, scheduleIndex, currTime = ne
   ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
   const currentDateTime = normalizeDate(currTime, 'currTime') ?? new Date();
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));
+  if (isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex])) {
+    return getIntervalNextOccurrenceDateTime(medEntry.dailySched[scheduleIndex], currentDateTime) || currentDateTime;
+  }
+
   if (scheduleMinutes === null) {
     return currentDateTime;
   }
 
   const laterScheduledMinutes = medEntry.dailySched
+    .filter((entry) => isScheduleActiveOnDate(entry, currentDateTime))
     .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
     .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
     .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
@@ -165,8 +243,16 @@ export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = ne
     return false;
   }
 
+  if (!isScheduleActiveOnDate(medEntry.dailySched[scheduleIndex], currDate)) {
+    return false;
+  }
+
   const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
   const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  if (isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex])) {
+    return currentMinutes !== null;
+  }
+
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));
   if (currentMinutes === null || scheduleMinutes === null || currentMinutes < scheduleMinutes) {
     return false;
