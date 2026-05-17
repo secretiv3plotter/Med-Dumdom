@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
-import { scaleLayoutValue } from '../../theme/textScale';
+import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 export default function MedTrackerButton({ onPress, variant = 'outline', disabled = false }) {
   const isSolid = variant === 'solid';
+  const { darkModeEnabled } = useTextScale();
   const iconColor = disabled ? colors.bodyMuted : colors.brand;
   const textColor = disabled ? colors.bodyMuted : colors.brand;
+  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
 
   return (
     <Pressable
@@ -27,7 +29,9 @@ export default function MedTrackerButton({ onPress, variant = 'outline', disable
           paddingVertical: scaleLayoutValue(spacing.xs),
         },
         isSolid ? styles.solidButton : styles.outlineButton,
+        { backgroundColor: isSolid ? colors.pageBg : colors.surface },
         pressed && !disabled && styles.pressed,
+        pressed && !disabled && { backgroundColor: pressedBackgroundColor },
       ]}
     >
       <Ionicons

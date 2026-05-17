@@ -885,7 +885,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       ) : null}
 
       <View
-        style={styles.footerNav}
+        style={[styles.footerNav, { backgroundColor: colors.pageBg }]}
         onLayout={(event) => {
           const nextHeight = Math.ceil(event.nativeEvent.layout.height);
           setFooterNavHeight((currentHeight) => (

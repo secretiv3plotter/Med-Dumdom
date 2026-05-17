@@ -100,7 +100,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.stickyTop}>
+      <View style={[styles.stickyTop, { backgroundColor: colors.pageBg }]}>
         <BackButton onPress={() => navigation?.navigate?.(ROUTES.SETTINGS)} />
       </View>
 
@@ -178,7 +178,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
         </View>
       </ThemedScrollView>
 
-      <View style={styles.footerNav}>
+      <View style={[styles.footerNav, { backgroundColor: colors.pageBg }]}>
         <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
