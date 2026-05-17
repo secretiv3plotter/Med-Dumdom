@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   leftGroup: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexShrink: 1,
   },
   rightGroup: {
