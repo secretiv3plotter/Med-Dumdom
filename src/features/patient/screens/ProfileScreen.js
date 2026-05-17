@@ -141,11 +141,13 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.stickyTop}>
           <View style={styles.topBar}>
-            <View style={styles.sideControl}>
-              <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
+            <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
+          </View>
+
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.title}>My Profile</Text>
             </View>
-            <Text style={styles.headerTitle}>My Profile</Text>
-            <View style={styles.sideControl} />
           </View>
         </View>
 
@@ -492,5 +494,21 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     color: colors.brandText,
+  },
+  headerRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginTop: spacing.sm,
+  marginBottom: spacing.sm,
+  },
+
+  headerTextWrap: {
+    flex: 1,
+  },
+
+  title: {
+    ...typography.title,
+    color: colors.title,
   },
 });
