@@ -34,7 +34,7 @@ import {
 } from '../utils/apptTrackerUtils';
 
 const CURRENT_USER_ID = 'current-user';
-const TOP_OVERLAY_HEIGHT = 130;
+const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 
 const TAB_KEY_TO_ROUTE = {
@@ -53,6 +53,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   const [formError, setFormError] = useState('');
   const [draftDetails, setDraftDetails] = useState(EMPTY_APPT_FORM);
   const [searchQuery, setSearchQuery] = useState('');
+  const [footerNavHeight, setFooterNavHeight] = useState(0);
   const [observedNow, setObservedNow] = useState(() => new Date());
 
   const activeApptTrackerService = useMemo(
@@ -227,8 +228,8 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyTop}>
-        <View style={styles.headerRow}>
+      <View style={styles.topHeader}>
+        <View style={styles.backButtonRow}>
           <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
 
@@ -241,7 +242,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
         <View style={styles.searchWrap}>
           <InputBar
             placeholder="Search appointments"
@@ -457,7 +458,15 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         </View>
       </LargePopup>
 
-      <View style={styles.footerNav}>
+      <View
+        style={styles.footerNav}
+        onLayout={(event) => {
+          const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+          setFooterNavHeight((currentHeight) => (
+            currentHeight === nextHeight ? currentHeight : nextHeight
+          ));
+        }}
+      >
         <NavigationBar selectedTab="appointment" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
     </SafeAreaView>
@@ -507,9 +516,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pageBg,
   },
   content: {
-    padding: spacing.lg,
-    paddingTop: TOP_OVERLAY_HEIGHT,
-    paddingBottom: 150,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
   headerRow: {
@@ -524,6 +533,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: spacing.xs,
   },
+  backButtonRow: {
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
   title: {
     ...typography.title,
     color: colors.title,
@@ -532,9 +545,29 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.bodyMuted,
   },
+  searchWrap: {
+    marginBottom: 0,
+  },
   listSection: {
-    marginTop: spacing.sm,
+    marginTop: 0,
     gap: spacing.sm,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  emptyText: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
   },
   appointmentCard: {
     minHeight: 86,
@@ -664,18 +697,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 30,
+    zIndex: FOOTER_NAV_Z_INDEX,
   },
-  stickyTop: {
-    position: 'absolute',
-    top: BACK_HEADER_TOP_OFFSET,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+  topHeader: {
     backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
-    paddingTop: 0,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
     paddingBottom: BACK_HEADER_BOTTOM_PADDING,
-    minHeight: TOP_OVERLAY_HEIGHT,
+    gap: spacing.xxs,
   },
 });
