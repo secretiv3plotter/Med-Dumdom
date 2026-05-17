@@ -531,7 +531,7 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
 export const completedScheduleStyle = {
   status: 'completed',
   label: 'Completed',
-  bgColor: '#D1FAE5',
+  bgColor: '#d1fae56c',
   textColor: '#064E3B',
 };
 

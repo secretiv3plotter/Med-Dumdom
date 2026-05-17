@@ -898,10 +898,10 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl + spacing.sm,
   },
   appointmentModalSheet: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
   },
   appointmentModalHeader: {
-    backgroundColor: '#E5E7EB',
+    //backgroundColor: '#E5E7EB',
     borderBottomColor: '#9CA3AF',
   },
   detailsHeaderRow: {
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.lg,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#f8fafc',
   },
   notesPanel: {
     gap: spacing.sm,

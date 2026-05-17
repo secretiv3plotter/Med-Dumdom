@@ -14,6 +14,7 @@ export default function ThemedScrollView({
   scrollbarThumbStyle,
   scrollbarTrackStyle,
   showsVerticalScrollIndicator,
+  showCustomScrollbar = true,
   scrollEventThrottle = 16,
   onLayout,
   onContentSizeChange,
@@ -44,7 +45,7 @@ export default function ThemedScrollView({
     : 0;
   const trackColor = darkModeEnabled ? DARK_TRACK_COLOR : LIGHT_TRACK_COLOR;
   const thumbColor = darkModeEnabled ? colors.brand : colors.brandText;
-  const showCustomScrollbar = darkModeEnabled && hasScrollableContent;
+  const shouldShowCustomScrollbar = showCustomScrollbar && darkModeEnabled && hasScrollableContent;
 
   return (
     <View style={[styles.shell, style]}>
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   track: {
     position: 'absolute',
     top: 8,
-    right: 4,
+    right: 0,
     bottom: 8,
     width: 6,
     borderRadius: 999,
