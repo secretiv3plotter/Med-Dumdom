@@ -97,6 +97,8 @@ export default function InputBar({
   reserveRightSlot,
   allowFontScaling = true,
   maxFontSizeMultiplier,
+  focusBorderColor,
+  focusBackgroundColor,
 }) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
   const [isFocused, setIsFocused] = useState(false);
@@ -235,6 +237,8 @@ export default function InputBar({
           styles.container,
           multiline && styles.multilineContainer,
           isFocused && !hasError && styles.containerFocused,
+          isFocused && !hasError && focusBorderColor ? { borderColor: focusBorderColor } : null,
+          isFocused && !hasError && focusBackgroundColor ? { backgroundColor: focusBackgroundColor } : null,
           hasError && styles.containerError,
         ]}
       >

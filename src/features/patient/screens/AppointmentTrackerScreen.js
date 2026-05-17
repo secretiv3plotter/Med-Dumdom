@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -8,7 +9,7 @@ import {
   BACK_HEADER_HORIZONTAL_PADDING,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
-import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
+import { AddButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
@@ -16,7 +17,7 @@ import NativeDateTimeField from '../../../shared/components/common/NativeDateTim
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { AppointmentDetailsContent, AppointmentPreviewCard } from '../components/AppointmentTrackerComponents';
 import { APPOINTMENT_EDITOR_STEPS } from '../constants/apptTrackerEditorSteps';
 import { AppointmentEditorContent } from '../components/AppointmentEditorContent';
@@ -38,6 +39,7 @@ const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
 const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_SOFT = '#E9F8F1';
 const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 const SEEDED_MOCK_APPOINTMENT_USERS = new Set();
@@ -390,6 +392,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoComplete="off"
+            focusBorderColor={APPOINTMENT_ACCENT}
           />
         </View>
         <View style={styles.listSection}>
@@ -463,10 +466,22 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                 <Text style={styles.detailsTitle}>Appointment Details</Text>
                 <Text style={styles.detailsAppointmentName}>{selectedAppointment.concern}</Text>
               </View>
-              <View style={styles.detailActionsTop}>
-                <EditButton onPress={handleEditAppointment} />
-                <DeleteButton onPress={handleDeleteAppointment} />
-              </View>
+              {!isEditingDetails ? (
+                <View style={styles.detailActionsTop}>
+                  <SmallHeaderAction
+                    label="Edit"
+                    icon="create-outline"
+                    color={APPOINTMENT_ACCENT_TEXT}
+                    onPress={handleEditAppointment}
+                  />
+                  <SmallHeaderAction
+                    label="Delete"
+                    icon="trash-outline"
+                    color={colors.error || '#D32F2F'}
+                    onPress={handleDeleteAppointment}
+                  />
+                </View>
+              ) : null}
             </View>
           ) : null
         }
@@ -476,61 +491,79 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       >
         {selectedAppointment ? (
           <>
-            <EditableDetailItem
-              label="Concern"
-              value={isEditingDetails ? draftDetails.concern : selectedAppointment.concern}
-              editable={isEditingDetails}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, concern: text }))}
-            />
-            <EditableDetailItem
-              label="Address"
-              value={isEditingDetails ? draftDetails.address : selectedAppointment.address}
-              editable={isEditingDetails}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, address: text }))}
-            />
-            <EditableDetailItem
-              label="Doctor name"
-              value={isEditingDetails ? draftDetails.doctorName : selectedAppointment.doctorName || '--'}
-              editable={isEditingDetails}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, doctorName: text }))}
-            />
-            <EditableDetailItem
-              label="Contact number"
-              value={isEditingDetails ? draftDetails.contactNumber : selectedAppointment.contactNumber || '--'}
-              editable={isEditingDetails}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, contactNumber: text }))}
-            />
-            <EditableDetailItem
-              label="Date scheduled"
-              value={isEditingDetails ? draftDetails.dateSched : formatDate(selectedAppointment.dateSched)}
-              editable={isEditingDetails}
-              mode="date"
-              minimumDate={startOfToday()}
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, dateSched: text }))}
-            />
-            <EditableDetailItem
-              label="Time scheduled"
-              value={isEditingDetails ? draftDetails.timeSched : formatTime(selectedAppointment.timeSched)}
-              editable={isEditingDetails}
-              mode="time"
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, timeSched: text }))}
-            />
-            <EditableDetailItem
-              label="Note"
-              value={isEditingDetails ? draftDetails.note : selectedAppointment.note || '--'}
-              editable={isEditingDetails}
-              multiline
-              onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, note: text }))}
-            />
+            {isEditingDetails ? (
+              <>
+                <EditableDetailItem
+                  label="Concern"
+                  value={draftDetails.concern}
+                  editable
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, concern: text }))}
+                />
+                <EditableDetailItem
+                  label="Address"
+                  value={draftDetails.address}
+                  editable
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, address: text }))}
+                />
+                <EditableDetailItem
+                  label="Doctor name"
+                  value={draftDetails.doctorName}
+                  editable
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, doctorName: text }))}
+                />
+                <EditableDetailItem
+                  label="Contact number"
+                  value={draftDetails.contactNumber}
+                  editable
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, contactNumber: text }))}
+                />
+                <EditableDetailItem
+                  label="Date scheduled"
+                  value={draftDetails.dateSched}
+                  editable
+                  mode="date"
+                  minimumDate={startOfToday()}
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, dateSched: text }))}
+                />
+                <EditableDetailItem
+                  label="Time scheduled"
+                  value={draftDetails.timeSched}
+                  editable
+                  mode="time"
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, timeSched: text }))}
+                />
+                <EditableDetailItem
+                  label="Notes"
+                  value={draftDetails.note}
+                  editable
+                  multiline
+                  onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, note: text }))}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.stepTitle}>Appointment Details</Text>
+                <View style={styles.detailPanel}>
+                  <DetailItem label="Concern" value={selectedAppointment.concern} />
+                  <DetailItem label="Address" value={selectedAppointment.address} />
+                  <View style={styles.detailGrid}>
+                    <DetailItem label="Doctor name" value={selectedAppointment.doctorName} />
+                    <DetailItem label="Contact number" value={selectedAppointment.contactNumber} />
+                  </View>
+                </View>
 
-            {!isEditingDetails ? (
-              <AppointmentDetailsContent
-                appointment={selectedAppointment}
-                observedNow={observedNow}
-                onStatusChange={handleScheduleStatusChange}
-                muted={selectedAppointment.isCompleted || selectedAppointment.isSkipped}
-              />
-            ) : null}
+                <AppointmentDetailsContent
+                  appointment={selectedAppointment}
+                  observedNow={observedNow}
+                  onStatusChange={handleScheduleStatusChange}
+                  muted={selectedAppointment.isCompleted || selectedAppointment.isSkipped}
+                />
+
+                <View style={styles.notesPanel}>
+                  <DetailItem label="Notes" value={selectedAppointment.note} />
+                </View>
+              </>
+            )}
 
             <View style={styles.footerActionsRow}>
               {isEditingDetails ? (
@@ -542,6 +575,9 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                 <ActionButton
                   label="Close"
                   variant="outline"
+                  style={styles.closeButton}
+                  textStyle={styles.closeButtonText}
+                  pressedStyle={styles.closeButtonPressed}
                   onPress={() => {
                     setIsEditingDetails(false);
                     setIsDetailsVisible(false);
@@ -617,10 +653,17 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
 }
 
 function DetailItem({ label, value }) {
+  const displayValue = String(value || '').trim();
+  const accessibleValue = displayValue || 'Blank';
+
   return (
-    <View style={styles.detailRow}>
+    <View
+      style={[styles.detailRow, styles.readOnlyDetailRow]}
+      accessible
+      accessibilityLabel={`${label}: ${accessibleValue}`}
+    >
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={styles.detailValue}>{displayValue}</Text>
     </View>
   );
 }
@@ -632,7 +675,7 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
 
   if (mode === 'date' || mode === 'time') {
     return (
-      <View style={styles.detailRow}>
+      <View style={styles.editDetailRow}>
         <NativeDateTimeField
           label={label}
           value={value}
@@ -640,13 +683,16 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
           onChange={onChangeText}
           accessibilityLabel={label}
           minimumDate={minimumDate}
+          focusBorderColor={APPOINTMENT_ACCENT}
+          focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
+          focusTextColor={APPOINTMENT_ACCENT_TEXT}
         />
       </View>
     );
   }
 
   return (
-    <View style={styles.detailRow}>
+    <View style={[styles.editDetailRow, multiline && styles.editNotesRow]}>
       <Text style={styles.detailLabel}>{label}</Text>
       <InputBar
         value={value}
@@ -654,7 +700,28 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
         placeholder={label}
         multiline={multiline}
         numberOfLines={multiline ? 4 : 1}
+        focusBorderColor={APPOINTMENT_ACCENT}
+        focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
       />
+    </View>
+  );
+}
+
+function SmallHeaderAction({ label, icon, color, onPress }) {
+  return (
+    <View style={styles.iconActionCol}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.iconActionBtn,
+          pressed && styles.iconActionPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <Ionicons name={icon} size={18} color={color} />
+      </Pressable>
+      <Text style={[styles.iconActionLabel, { color }]}>{label}</Text>
     </View>
   );
 }
@@ -824,8 +891,44 @@ const styles = StyleSheet.create({
     color: colors.body,
     fontWeight: '600',
   },
+  stepTitle: {
+    ...typography.titleSmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  detailPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  notesPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
   detailRow: {
     gap: spacing.xxs,
+  },
+  readOnlyDetailRow: {
+    flex: 1,
+    minWidth: moderateScale(130),
+  },
+  editDetailRow: {
+    gap: spacing.xxs,
+  },
+  editNotesRow: {
+    marginBottom: spacing.sm,
   },
   detailLabel: {
     ...typography.bodySmall,
@@ -847,13 +950,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 0,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  iconActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  iconActionCol: {
+    alignItems: 'center',
+    gap: spacing.xxs || 2,
+  },
+  iconActionLabel: {
+    ...typography.bodySmall,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footerActionsRow: {
     marginTop: spacing.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  closeButton: {
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  closeButtonText: {
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
+  closeButtonPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
   },
   footerButton: {
     flex: 1,

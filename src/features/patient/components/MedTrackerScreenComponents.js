@@ -284,9 +284,7 @@ function StatusBadge({ statusStyle }) {
     numericBaseFontSize = baseFontSize;
   }
 
-  // Dynamic scale down for long status badge pills (e.g. "Completed", "Skipped")
-  const dynamicFontSize = label.length > 7 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = getFontSize(numericBaseFontSize);
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>

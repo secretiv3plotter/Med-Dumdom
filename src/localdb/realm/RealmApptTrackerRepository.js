@@ -39,8 +39,6 @@ const scheduledDateTime = (entry) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
-
 const statusResolvedAt = (entry) => {
   if (entry.isCompleted) {
     return toNullableDate(entry.completedAt);
@@ -59,6 +57,18 @@ const getHistoryStatus = (entry, now = new Date()) => {
   if (model.isSkipped) return 'skipped';
   if (model.isMissed(now, now)) return 'missed';
   return 'deleted';
+};
+
+const nextMidnightAfterSchedule = (entry) => {
+  const scheduled = scheduledDateTime(entry);
+  if (!scheduled) {
+    return null;
+  }
+
+  const nextMidnight = new Date(scheduled.getTime());
+  nextMidnight.setDate(nextMidnight.getDate() + 1);
+  nextMidnight.setHours(0, 0, 0, 0);
+  return nextMidnight;
 };
 
 const toApptEntryModel = (entry) =>
@@ -163,36 +173,38 @@ export default class RealmApptTrackerRepository {
   }
 
   snapshotHistory(userId, entry, finalStatus = null, resolvedAt = new Date()) {
-    const normalizedUserId = normalizeUserId(userId);
-    const model = entry instanceof ApptEntry ? entry : toApptEntryModel(entry);
-    const status = finalStatus || getHistoryStatus(model, resolvedAt);
-    const resolvedDate = toNullableDate(resolvedAt) || new Date();
-    const historyId = `${normalizedUserId}-${model.apptEntryId}-${status}`;
+    return this.write(() => {
+      const normalizedUserId = normalizeUserId(userId);
+      const model = entry instanceof ApptEntry ? entry : toApptEntryModel(entry);
+      const status = finalStatus || getHistoryStatus(model, resolvedAt);
+      const resolvedDate = toNullableDate(resolvedAt) || new Date();
+      const historyId = `${normalizedUserId}-${model.apptEntryId}-${status}`;
 
-    this.realm.create(
-      'ApptTrackerHistory',
-      {
-        historyId,
-        patientUserId: normalizedUserId,
-        apptEntryId: model.apptEntryId,
-        concern: model.concern,
-        address: model.address,
-        doctorName: model.doctorName || '',
-        contactNumber: model.contactNumber || '',
-        dateSched: model.dateSched,
-        timeSched: model.timeSched,
-        note: model.note || '',
-        finalStatus: status,
-        completedAt: status === 'completed' ? toNullableDate(model.completedAt || resolvedDate) : null,
-        skippedAt: status === 'skipped' ? toNullableDate(model.skippedAt || resolvedDate) : null,
-        missedAt: status === 'missed' ? scheduledDateTime(model) || resolvedDate : null,
-        deletedAt: status === 'deleted' ? resolvedDate : null,
-        isDeleted: false,
-        recordDeletedAt: null,
-        createdAt: new Date(),
-      },
-      'modified',
-    );
+      this.realm.create(
+        'ApptTrackerHistory',
+        {
+          historyId,
+          patientUserId: normalizedUserId,
+          apptEntryId: model.apptEntryId,
+          concern: model.concern,
+          address: model.address,
+          doctorName: model.doctorName || '',
+          contactNumber: model.contactNumber || '',
+          dateSched: model.dateSched,
+          timeSched: model.timeSched,
+          note: model.note || '',
+          finalStatus: status,
+          completedAt: status === 'completed' ? toNullableDate(model.completedAt || resolvedDate) : null,
+          skippedAt: status === 'skipped' ? toNullableDate(model.skippedAt || resolvedDate) : null,
+          missedAt: status === 'missed' ? scheduledDateTime(model) || resolvedDate : null,
+          deletedAt: status === 'deleted' ? resolvedDate : null,
+          isDeleted: false,
+          recordDeletedAt: null,
+          createdAt: new Date(),
+        },
+        'modified',
+      );
+    });
   }
 
   snapshotFinalizedEntriesIfNeeded(userId, now = new Date()) {
@@ -206,7 +218,8 @@ export default class RealmApptTrackerRepository {
 
         if (model.isCompleted) {
           const resolvedAt = statusResolvedAt(model);
-          if (!resolvedAt || currentDateTime.getTime() - resolvedAt.getTime() < RECENT_STATUS_HOLD_MS) {
+          const finalizeAt = nextMidnightAfterSchedule(model);
+          if (!resolvedAt || !finalizeAt || currentDateTime < finalizeAt) {
             return;
           }
 
@@ -214,7 +227,8 @@ export default class RealmApptTrackerRepository {
           snapshotTime = resolvedAt;
         } else if (model.isSkipped) {
           const resolvedAt = statusResolvedAt(model);
-          if (!resolvedAt || currentDateTime.getTime() - resolvedAt.getTime() < RECENT_STATUS_HOLD_MS) {
+          const finalizeAt = nextMidnightAfterSchedule(model);
+          if (!resolvedAt || !finalizeAt || currentDateTime < finalizeAt) {
             return;
           }
 

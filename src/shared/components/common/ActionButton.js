@@ -7,6 +7,7 @@ export default function ActionButton({
   onPress,
   variant = 'solid',
   style,
+  pressedStyle,
   textStyle,
   disabled = false,
   preserveFontSize = false,
@@ -49,6 +50,7 @@ export default function ActionButton({
         styles.button,
         outline ? styles.outlineButton : styles.solidButton,
         pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
+        pressed && !disabled && pressedStyle,
         disabled && styles.disabled,
         style,
       ]}

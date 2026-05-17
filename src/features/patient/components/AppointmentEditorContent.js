@@ -6,6 +6,10 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { APPOINTMENT_EDITOR_STEPS } from '../constants/apptTrackerEditorSteps';
 import { startOfToday } from '../utils/apptTrackerUtils';
 
+const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_SOFT = '#E9F8F1';
+const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
+
 export function AppointmentEditorContent({
   editorStep,
   formState,
@@ -29,28 +33,38 @@ export function AppointmentEditorContent({
             placeholder="Concern"
             value={formState.concern}
             onChangeText={(value) => setFormState((current) => ({ ...current, concern: value }))}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
           />
           <InputBar
             placeholder="Address"
             value={formState.address}
             onChangeText={(value) => setFormState((current) => ({ ...current, address: value }))}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
           />
           <InputBar
             placeholder="Doctor name (optional)"
             value={formState.doctorName}
             onChangeText={(value) => setFormState((current) => ({ ...current, doctorName: value }))}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
           />
           <InputBar
             placeholder="Contact number (optional)"
             value={formState.contactNumber}
             onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
           />
           <InputBar
-            placeholder="Note (optional)"
+            placeholder="Notes"
             value={formState.note}
             onChangeText={(value) => setFormState((current) => ({ ...current, note: value }))}
             multiline
             numberOfLines={4}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
           />
         </View>
       ) : (
@@ -62,6 +76,9 @@ export function AppointmentEditorContent({
             value={formState.dateSched}
             onChange={(value) => setFormState((current) => ({ ...current, dateSched: value }))}
             minimumDate={startOfToday()}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
+            focusTextColor={APPOINTMENT_ACCENT_TEXT}
           />
           <NativeDateTimeField
             mode="time"
@@ -70,6 +87,9 @@ export function AppointmentEditorContent({
             accessibilityLabel="Time scheduled"
             value={formState.timeSched}
             onChange={(value) => setFormState((current) => ({ ...current, timeSched: value }))}
+            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
+            focusTextColor={APPOINTMENT_ACCENT_TEXT}
           />
         </View>
       )}
@@ -77,17 +97,38 @@ export function AppointmentEditorContent({
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
       <View style={styles.footerActionsRow}>
-        <ActionButton label="Cancel" variant="outline" onPress={onCancel} style={styles.footerButton} />
+        <ActionButton
+          label="Cancel"
+          variant="outline"
+          onPress={onCancel}
+          style={[styles.footerButton, styles.appointmentOutlineButton]}
+          textStyle={styles.appointmentOutlineButtonText}
+          pressedStyle={styles.appointmentOutlineButtonPressed}
+        />
         {isDetailsStep ? (
-          <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
+          <ActionButton
+            label="Next"
+            variant="solid"
+            onPress={onNextStep}
+            style={[styles.footerButton, styles.appointmentSolidButton]}
+            pressedStyle={styles.appointmentSolidButtonPressed}
+          />
         ) : (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
+            <ActionButton
+              label="Back"
+              variant="outline"
+              onPress={onPreviousStep}
+              style={[styles.footerButton, styles.appointmentOutlineButton]}
+              textStyle={styles.appointmentOutlineButtonText}
+              pressedStyle={styles.appointmentOutlineButtonPressed}
+            />
             <ActionButton
               label="Add Appointment"
               variant="solid"
               onPress={onSaveAppointment}
-              style={styles.footerButton}
+              style={[styles.footerButton, styles.appointmentSolidButton]}
+              pressedStyle={styles.appointmentSolidButtonPressed}
               preserveFontSize
             />
           </>
@@ -129,5 +170,23 @@ const styles = StyleSheet.create({
   footerButton: {
     flex: 1,
     minWidth: 100,
+  },
+  appointmentOutlineButton: {
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  appointmentOutlineButtonText: {
+    color: '#1B6B4A',
+  },
+  appointmentOutlineButtonPressed: {
+    backgroundColor: '#B7E4C7',
+    borderColor: '#1B6B4A',
+  },
+  appointmentSolidButton: {
+    backgroundColor: APPOINTMENT_ACCENT,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  appointmentSolidButtonPressed: {
+    backgroundColor: '#1B6B4A',
+    borderColor: '#1B6B4A',
   },
 });
