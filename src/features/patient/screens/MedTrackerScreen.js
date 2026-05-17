@@ -8,12 +8,14 @@ import {
   MedicineEditorPopup,
   MedicineListSection,
   MedTrackerHeader,
+  MedTrackerHeaderContent,
 } from '../components/MedTrackerScreenLayout';
 import { MEDICINE_EDITOR_STEPS, MEDICINE_SCHEDULE_TYPES } from '../constants/medTrackerEditorSteps';
 import medTrackerService from '../../../domain/services/MedTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 import {
   buildFormStateFromMedicine,
   buildMedicineSearchText,
@@ -108,6 +110,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [searchQuery, setSearchQuery] = useState('');
   const [footerNavHeight, setFooterNavHeight] = useState(0);
   const [observedNow, setObservedNow] = useState(() => new Date());
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const activeMedTrackerService = useMemo(
     () => (realm ? new RealmMedTrackerRepository(realm) : trackerService),
@@ -734,6 +738,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       <MedTrackerHeader
         onBack={() => navigation?.navigate?.(ROUTES.HOME)}
         onCreate={openCreateEditor}
+        pinHeader={pinHeader}
       />
 
       <MedicineListSection
@@ -749,6 +754,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         }}
         onReviewRecords={() => navigation?.navigate?.(ROUTES.MED_TRACKER_HISTORY)}
         onScheduleStatusChange={requestScheduleStatusChange}
+        headerContent={!pinHeader ? <MedTrackerHeaderContent onCreate={openCreateEditor} /> : null}
       />
 
       <MedicineDetailsPopup

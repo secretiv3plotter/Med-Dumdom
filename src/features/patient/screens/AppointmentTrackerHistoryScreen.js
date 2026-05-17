@@ -17,6 +17,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 
 const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
@@ -250,6 +251,8 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
   const [selectedDayKey, setSelectedDayKey] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [pressedRecordId, setPressedRecordId] = useState(null);
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : apptTrackerService),
@@ -355,17 +358,22 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
     return () => subscription.remove();
   }, [selectedDayKey, selectedMonth, selectedYear]);
 
+  const headerBlock = (
+    <View style={styles.headerTextWrap}>
+      <Text style={styles.title}>Previous Records</Text>
+      <Text style={styles.subtitle}>Completed, skipped, and missed appointments are here.</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <BackButton onPress={handleBack} />
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.title}>Previous Records</Text>
-          <Text style={styles.subtitle}>Completed, skipped, and missed appointments are here.</Text>
-        </View>
+        {pinHeader ? headerBlock : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {!pinHeader ? headerBlock : null}
         <InputBar
           placeholder="Search previous records"
           accessibilityLabel="Search previous records"
@@ -668,6 +676,9 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: {
     gap: spacing.xs,
+  },
+  headerBlock: {
+    marginBottom: spacing.sm,
   },
   title: {
     ...typography.title,

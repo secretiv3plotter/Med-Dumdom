@@ -13,6 +13,7 @@ import NavigationBar from '../../../shared/components/common/NavigationBar';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 import {
   BreadcrumbButton,
   DayRecordCard,
@@ -50,6 +51,8 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   const [selectedWeekKey, setSelectedWeekKey] = useState(null);
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const historyRecords = useMemo(() => {
     if (!realm) {
@@ -203,17 +206,22 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
     return () => subscription.remove();
   }, [selectedWeekKey, selectedMonth, selectedYear, selectedMedKey]);
 
+  const headerBlock = (
+    <View style={styles.headerTextBlock}>
+      <Text style={styles.title}>Previous Records</Text>
+      <Text style={styles.subtitle}>Medicine schedule history from latest to oldest.</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <BackButton onPress={handleBack} />
-        <View style={styles.headerTextBlock}>
-          <Text style={styles.title}>Previous Records</Text>
-          <Text style={styles.subtitle}>Medicine schedule history from latest to oldest.</Text>
-        </View>
+        {pinHeader ? headerBlock : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {!pinHeader ? headerBlock : null}
         {historyRecords.length ? (
           <>
             <View style={styles.searchWrap}>
@@ -481,6 +489,9 @@ const styles = StyleSheet.create({
   },
   headerTextBlock: {
     gap: spacing.xxs,
+  },
+  headerBlock: {
+    marginBottom: spacing.sm,
   },
   title: {
     ...typography.title,

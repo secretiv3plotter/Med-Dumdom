@@ -14,20 +14,35 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { MedTrackerEditorContent } from './MedTrackerEditorContent';
 import { MedicineDetailsContent, MedicinePreviewCard } from './MedTrackerScreenComponents';
 
-export function MedTrackerHeader({ onBack, onCreate }) {
+export function MedTrackerHeader({ onBack, onCreate, pinHeader = true }) {
+  const headerRow = (
+    <View style={styles.headerRow}>
+      <View style={styles.headerTextWrap}>
+        <Text style={styles.title}>Medicines</Text>
+        <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
+      </View>
+      <AddButton onPress={onCreate} />
+    </View>
+  );
+
   return (
     <View style={styles.topHeader}>
       <View style={styles.backButtonRow}>
         <BackButton onPress={onBack} />
       </View>
+      {pinHeader ? headerRow : null}
+    </View>
+  );
+}
 
-      <View style={styles.headerRow}>
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.title}>Medicines</Text>
-          <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
-        </View>
-        <AddButton onPress={onCreate} />
+export function MedTrackerHeaderContent({ onCreate }) {
+  return (
+    <View style={styles.headerRow}>
+      <View style={styles.headerTextWrap}>
+        <Text style={styles.title}>Medicines</Text>
+        <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
+      <AddButton onPress={onCreate} />
     </View>
   );
 }
@@ -42,9 +57,11 @@ export function MedicineListSection({
   onOpenMedicine,
   onReviewRecords,
   onScheduleStatusChange,
+  headerContent = null,
 }) {
   return (
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+      {headerContent ? <View style={styles.headerBlock}>{headerContent}</View> : null}
       <View style={styles.searchWrap}>
         <InputBar
           placeholder="Search medicines"
@@ -241,6 +258,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  headerBlock: {
+    marginBottom: spacing.sm,
   },
   backButtonRow: {
     alignItems: 'flex-start',

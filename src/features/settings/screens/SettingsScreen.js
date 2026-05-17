@@ -13,7 +13,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, radius, spacing, typography } from '../../../shared/theme';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
-import { scaleLayoutValue } from '../../../shared/theme/textScale';
+import { scaleLayoutValue, useTextScale } from '../../../shared/theme/textScale';
 
 const SETTINGS_ITEMS = [
   {
@@ -33,6 +33,8 @@ const TAB_KEY_TO_ROUTE = {
 
 export default function SettingsScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || null;
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -68,19 +70,24 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-    <View style={styles.stickyTop}>
-      <BackButton
-        onPress={() => navigation?.navigate?.(ROUTES.HOME)}
-      />
-    </View>
+      <View style={styles.stickyTop}>
+        <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
+      </View>
 
-    <View style={styles.headerBlock}>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>Manage your account and app preferences.</Text>
-     </View>
+      {pinHeader ? (
+        <View style={styles.headerBlock}>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Manage your account and app preferences.</Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        
+        {!pinHeader ? (
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.subtitle}>Manage your account and app preferences.</Text>
+          </View>
+        ) : null}
 
         <View style={styles.sectionCard}>
           {SETTINGS_ITEMS.map((item, index) => (

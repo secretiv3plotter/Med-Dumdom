@@ -18,6 +18,7 @@ import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 import { AppointmentDetailsContent, AppointmentPreviewCard } from '../components/AppointmentTrackerComponents';
 import { APPOINTMENT_EDITOR_STEPS } from '../constants/apptTrackerEditorSteps';
 import { AppointmentEditorContent } from '../components/AppointmentEditorContent';
@@ -127,6 +128,8 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   const [observedNow, setObservedNow] = useState(() => new Date());
   const [pendingDeleteAppointment, setPendingDeleteAppointment] = useState(null);
   const [pendingRevertAppointment, setPendingRevertAppointment] = useState(null);
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : trackerService),
@@ -216,6 +219,21 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     setEditorStep(APPOINTMENT_EDITOR_STEPS.DETAILS);
     setEditorMode('create');
   };
+
+  const headerBlock = (
+    <View style={styles.headerRow}>
+      <View style={styles.headerTextWrap}>
+        <Text style={styles.title}>Appointments</Text>
+        <Text style={styles.subtitle}>Manage all your appointments and meetings in one place.</Text>
+      </View>
+      <AddButton
+        onPress={handleAddAppointment}
+        circleStyle={styles.appointmentAddCircle}
+        textStyle={styles.appointmentAddText}
+        pressedStyle={styles.appointmentAddPressed}
+      />
+    </View>
+  );
 
   const goToScheduleStep = () => {
     const requiredFields = [
@@ -369,22 +387,11 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         <View style={styles.backButtonRow}>
           <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
-
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextWrap}>
-            <Text style={styles.title}>Appointments</Text>
-            <Text style={styles.subtitle}>Manage all your appointments and meetings in one place.</Text>
-          </View>
-          <AddButton
-            onPress={handleAddAppointment}
-            circleStyle={styles.appointmentAddCircle}
-            textStyle={styles.appointmentAddText}
-            pressedStyle={styles.appointmentAddPressed}
-          />
-        </View>
+        {pinHeader ? headerBlock : null}
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+        {!pinHeader ? <View style={styles.headerBlock}>{headerBlock}</View> : null}
         <View style={styles.searchWrap}>
           <InputBar
             placeholder="Search appointments"
@@ -749,6 +756,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: spacing.xs,
+  },
+  headerBlock: {
+    marginBottom: spacing.sm,
   },
   backButtonRow: {
     alignItems: 'flex-start',

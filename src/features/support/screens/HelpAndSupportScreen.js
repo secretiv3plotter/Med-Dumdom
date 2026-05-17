@@ -14,6 +14,7 @@ import TextCard from '../../../shared/components/common/TextCard';
 import faqService from '../../../domain/services/FaqService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -22,6 +23,8 @@ const TAB_KEY_TO_ROUTE = {
 };
 export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -46,13 +49,22 @@ export default function HelpAndSupportScreen({ navigation }) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.stickyTop}>
         <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
-        <View style={styles.headerBlock}>
-          <Text style={styles.title}>Help and Support</Text>
-          <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
-        </View>
+        {pinHeader ? (
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>Help and Support</Text>
+            <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {!pinHeader ? (
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>Help and Support</Text>
+            <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
+          </View>
+        ) : null}
+
         <InputBar
           placeholder="Search FAQs"
           accessibilityLabel="Search FAQs"

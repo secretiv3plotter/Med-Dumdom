@@ -28,6 +28,7 @@ import NativeDateTimeField from '../../../shared/components/common/NativeDateTim
 import TextCard from '../../../shared/components/common/TextCard';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 
 const CURRENT_USER_ID = 'current-user';
 
@@ -70,6 +71,8 @@ const formatBirthDate = (birthDate) => {
 
 export default function ProfileScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
+  const { textScale } = useTextScale();
+  const pinHeader = textScale < 1.5;
 
   const [profile, setProfile] = useState(() => {
     const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
@@ -158,14 +161,15 @@ export default function ProfileScreen({ navigation }) {
       >
         <View style={styles.stickyTop}>
           <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
+          {pinHeader ? (
+            <View style={styles.headerBlock}>
+              <Text style={styles.title}>My Profile</Text>
+              <Text style={styles.subtitle}>
+                View and manage your personal information.
+              </Text>
+            </View>
+          ) : null}
         </View>
-
-        <View style={styles.headerBlock}>
-            <Text style={styles.title}>My Profile</Text>
-            <Text style={styles.subtitle}>
-              View and manage your personal information.
-            </Text>
-          </View>
 
         <ScrollView
           contentContainerStyle={[
@@ -175,6 +179,15 @@ export default function ProfileScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          {!pinHeader ? (
+            <View style={styles.headerBlock}>
+              <Text style={styles.title}>My Profile</Text>
+              <Text style={styles.subtitle}>
+                View and manage your personal information.
+              </Text>
+            </View>
+          ) : null}
+
           <TextCard cardStyle={styles.profileCardTop}>
             <View style={styles.avatarShell}>
               {displayPicture ? (

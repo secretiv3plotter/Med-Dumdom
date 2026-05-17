@@ -44,6 +44,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
   const { setTextScale } = useTextScale();
+  const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
 
   const initialScale = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0);
   const [sliderValue, setSliderValue] = useState(initialScale);
@@ -92,18 +93,29 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-    <View style={styles.stickyTop}>
-      <BackButton
-        onPress={() => navigation?.navigate?.(ROUTES.SETTINGS)}
-      />
-    </View>
+      <View style={styles.stickyTop}>
+        <BackButton onPress={() => navigation?.navigate?.(ROUTES.SETTINGS)} />
+      </View>
 
-    <View style={styles.headerBlock}>
-      <Text style={styles.title}>Accessibility Settings</Text>
-      <Text style={styles.subtitle}>Adjust the same accessibility options supported by the model layer.</Text>
-     </View>
+      {pinHeader ? (
+        <View style={styles.headerBlock}>
+          <Text style={styles.title}>Accessibility Settings</Text>
+          <Text style={styles.subtitle}>
+            Adjust the same accessibility options supported by the model layer.
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.content}>
+        {!pinHeader ? (
+          <View style={styles.headerBlock}>
+            <Text style={styles.title}>Accessibility Settings</Text>
+            <Text style={styles.subtitle}>
+              Adjust the same accessibility options supported by the model layer.
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Text size</Text>
           <View style={styles.sliderHeader}>
