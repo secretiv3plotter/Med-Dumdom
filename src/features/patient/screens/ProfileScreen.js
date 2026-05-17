@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  TouchableOpacity,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -87,6 +91,7 @@ export default function ProfileScreen({ navigation }) {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [showSavedDialog, setShowSavedDialog] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const timeoutRef = useRef(null);
 
   useEffect(() => {
@@ -102,6 +107,10 @@ export default function ProfileScreen({ navigation }) {
     };
   }, []);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [profile.profilePicture]);
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -113,6 +122,40 @@ export default function ProfileScreen({ navigation }) {
     const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
+  };
+
+  const handleChangeProfilePicture = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please allow photo library access to change your profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const selectedImageUri = result.assets[0]?.uri || '';
+      if (!selectedImageUri) {
+        return;
+      }
+
+      setAvatarLoadFailed(false);
+      setDraft((current) => ({ ...current, profilePicture: selectedImageUri }));
+      if (!isEditing) {
+        setIsEditing(true);
+      }
+    } catch (error) {
+      Alert.alert('Unable to update picture', 'Something went wrong while selecting your profile picture.');
+    }
   };
 
   const confirmSaveChanges = () => {
@@ -132,7 +175,7 @@ export default function ProfileScreen({ navigation }) {
 
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
-      profilePicture: draft.profilePicture.trim(),
+      profilePicture: draft.profilePicture?.trim() || '',
       birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
@@ -151,7 +194,8 @@ export default function ProfileScreen({ navigation }) {
     }, 3000);
   };
 
-  const displayPicture = profile.profilePicture?.trim();
+  const displayPicture = (isEditing ? draft.profilePicture : profile.profilePicture)?.trim();
+  const hasValidDisplayPicture = Boolean(displayPicture) && !avatarLoadFailed;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -190,13 +234,27 @@ export default function ProfileScreen({ navigation }) {
 
           <TextCard cardStyle={styles.profileCardTop}>
             <View style={styles.avatarShell}>
-              {displayPicture ? (
-                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+              {hasValidDisplayPicture ? (
+                <Image
+                  source={{ uri: displayPicture }}
+                  style={styles.profileImage}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
               ) : (
                 <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
+            <View style={styles.photoPickerRow}>
+              <TouchableOpacity
+                onPress={handleChangeProfilePicture}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile picture"
+                style={styles.photoPickerValue}
+              >
+                <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
+              </TouchableOpacity>
+            </View>
           </TextCard>
 
           <TextCard cardStyle={styles.profileCard}>
@@ -232,13 +290,6 @@ export default function ProfileScreen({ navigation }) {
                   value={draft.fullName}
                   onChangeText={(value) => setDraft((current) => ({ ...current, fullName: value }))}
                   placeholder="Enter full name"
-                />
-
-                <Text style={styles.label}>Profile picture URL:</Text>
-                <InputBar
-                  value={draft.profilePicture}
-                  onChangeText={(value) => setDraft((current) => ({ ...current, profilePicture: value }))}
-                  placeholder="Enter profile picture URL or file path"
                 />
 
                 <NativeDateTimeField
@@ -371,6 +422,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileImage: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   profileCard: {
     backgroundColor: colors.surface,
     borderColor: '#C9D6EA',
@@ -382,6 +441,27 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     color: colors.title,
     fontWeight: '700',
+  },
+  photoPickerRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  photoPickerValue: {
+    backgroundColor: colors.surface,
+    width: '72%',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+  },
+  photoPickerValueText: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    textAlign: 'center',
   },
   metaRow: {
     flexDirection: 'row',

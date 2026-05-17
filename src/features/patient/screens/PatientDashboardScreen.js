@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
@@ -5,6 +6,8 @@ import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
+import personalProfileService from '../../../domain/services/PersonalProfileService';
+import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -13,8 +16,45 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 export default function PatientDashboardScreen({ navigation }) {
+  const CURRENT_USER_ID = 'current-user';
   const patientName = navigation?.currentParams?.patientName || 'Patient';
   const patientPossessive = patientName.endsWith('s') ? `${patientName}'` : `${patientName}'s`;
+  const [profilePictureUrl, setProfilePictureUrl] = useState('');
+  const [textSizeLevel, setTextSizeLevel] = useState(1);
+
+  const refreshProfilePicture = () => {
+    const profile = personalProfileService.getProfile(CURRENT_USER_ID);
+    setProfilePictureUrl(profile?.profilePicture?.trim?.() || '');
+  };
+
+  const refreshAccessibilitySettings = () => {
+    const settings = accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID);
+    const nextTextSizeLevel = Number(settings?.textSizeLevel);
+    setTextSizeLevel(Number.isNaN(nextTextSizeLevel) ? 1 : nextTextSizeLevel);
+  };
+
+  useEffect(() => {
+    refreshProfilePicture();
+    refreshAccessibilitySettings();
+
+    const unsubscribeFocus = navigation?.addListener?.('focus', () => {
+      refreshProfilePicture();
+      refreshAccessibilitySettings();
+    });
+
+    return () => {
+      if (typeof unsubscribeFocus === 'function') {
+        unsubscribeFocus();
+      }
+    };
+  }, [navigation]);
+
+  const shouldSplitProgramName = textSizeLevel > 1;
+
+  const profileImageSource = useMemo(
+    () => (profilePictureUrl ? { uri: profilePictureUrl } : null),
+    [profilePictureUrl]
+  );
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -30,11 +70,16 @@ export default function PatientDashboardScreen({ navigation }) {
           onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
           onSettingsPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: ROUTES.HOME })}
           onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE, { returnTo: ROUTES.HOME })}
+          profileImageSource={profileImageSource}
           leftGroupStyle={styles.profileContainer}
           profileContent={
             <View style={styles.profileTitleBlock}>
-              <Text style={styles.patientTitle}>{patientPossessive}</Text>
-              <Text style={styles.patientProgram}>Meddumdom</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.patientTitle}>
+                {patientPossessive}
+              </Text>
+              <Text style={styles.patientProgram}>
+                {shouldSplitProgramName ? 'Med\ndumdom' : 'Meddumdom'}
+              </Text>
             </View>
           }
           style={styles.header}
@@ -66,11 +111,16 @@ const styles = StyleSheet.create({
   },
   profileTitleBlock: {
     flexShrink: 1,
+    flex: 1,
     gap: spacing.xxs,
   },
   profileContainer: {
+    flex: 1,
     flexShrink: 1,
-    maxWidth: '78%',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+    marginTop: spacing.sm,
+    minHeight: 158,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderWidth: 1.5,
@@ -95,6 +145,7 @@ const styles = StyleSheet.create({
     color: colors.brandText,
     fontSize: getFontSize(20),
     lineHeight: getLineHeight(24),
+    width: '100%',
   },
   footerNav: {
     position: 'absolute',

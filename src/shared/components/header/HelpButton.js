@@ -60,6 +60,8 @@ export default function HelpButton({
       </View>
 
       <Text
+        numberOfLines={1}
+        ellipsizeMode="tail"
         style={[
           styles.label,
           { marginTop: -scaleLayoutValue(moderateScale(2)) },

@@ -59,27 +59,29 @@ export default function DialogBox({
 
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-      <View style={[styles.actionsRow, { gap: scaleLayoutValue(spacing.sm) }]}>
-        {normalizedActions.map((action, index) => (
-          <View key={`${action.label || 'action'}-${index}`} style={styles.actionSlot}>
-            <ActionButton
-              label={action.label}
-              onPress={action.onPress}
-              variant={action.variant || 'solid'}
-              disabled={action.disabled}
-              style={[styles.actionButton, action.style]}
-              pressedStyle={action.pressedStyle}
-              textStyle={[
-                styles.actionButtonText,
-                action.variant === 'outline'
-                  ? styles.outlineActionButtonText
-                  : styles.solidActionButtonText,
-                action.textStyle,
-              ]}
-            />
-          </View>
-        ))}
-      </View>
+      {normalizedActions.length ? (
+        <View style={[styles.actionsRow, { gap: scaleLayoutValue(spacing.sm) }]}>
+          {normalizedActions.map((action, index) => (
+            <View key={`${action.label || 'action'}-${index}`} style={styles.actionSlot}>
+              <ActionButton
+                label={action.label}
+                onPress={action.onPress}
+                variant={action.variant || 'solid'}
+                disabled={action.disabled}
+                style={[styles.actionButton, action.style]}
+                pressedStyle={action.pressedStyle}
+                textStyle={[
+                  styles.actionButtonText,
+                  action.variant === 'outline'
+                    ? styles.outlineActionButtonText
+                    : styles.solidActionButtonText,
+                  action.textStyle,
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
