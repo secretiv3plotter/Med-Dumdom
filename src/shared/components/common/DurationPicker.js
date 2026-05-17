@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, moderateScale, radius, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -24,9 +25,9 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, p
   };
 
   return (
-    <View style={styles.unitCell}>
+    <View style={[styles.unitCell, { gap: scaleLayoutValue(spacing.xs) }]}>
       <Text style={styles.unitLabel}>{label}</Text>
-      <View style={styles.controlRow}>
+      <View style={[styles.controlRow, { gap: scaleLayoutValue(spacing.sm) }]}>
         <Pressable
           disabled={disabled}
           unstable_pressDelay={0}
@@ -35,6 +36,10 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, p
           onPress={decrease}
           style={({ pressed }) => [
             styles.stepBtn,
+            {
+              width: scaleLayoutValue(moderateScale(52)),
+              height: scaleLayoutValue(moderateScale(52)),
+            },
             disabled ? styles.stepBtnDisabled : styles.stepBtnActive,
             pressed && !disabled && styles.stepBtnPressed,
           ]}
@@ -47,7 +52,13 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, p
           editable={!disabled}
           keyboardType="number-pad"
           accessibilityLabel={`${label} value`}
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              minWidth: scaleLayoutValue(moderateScale(72)),
+              height: scaleLayoutValue(moderateScale(52)),
+            },
+          ]}
           maxLength={maxLength}
         />
         <Pressable
@@ -58,6 +69,10 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, p
           onPress={increase}
           style={({ pressed }) => [
             styles.stepBtn,
+            {
+              width: scaleLayoutValue(moderateScale(52)),
+              height: scaleLayoutValue(moderateScale(52)),
+            },
             disabled ? styles.stepBtnDisabled : styles.stepBtnActive,
             pressed && !disabled && styles.stepBtnPressed,
           ]}
@@ -71,10 +86,20 @@ function DurationUnit({ label, value, min, max, maxLength, onChange, disabled, p
 
 export default function DurationPicker({ units = [], disabled = false }) {
   return (
-    <View style={[styles.card, disabled && styles.cardDisabled]} pointerEvents={disabled ? 'none' : 'auto'}>
-      <View style={styles.unitsColumn}>
+    <View
+      style={[
+        styles.card,
+        {
+          paddingVertical: scaleLayoutValue(spacing.md),
+          gap: scaleLayoutValue(spacing.sm),
+        },
+        disabled && styles.cardDisabled,
+      ]}
+      pointerEvents={disabled ? 'none' : 'auto'}
+    >
+      <View style={[styles.unitsColumn, { gap: scaleLayoutValue(spacing.sm) }]}>
         {units.map((unit, index) => (
-          <View key={unit.key} style={styles.unitWrap}>
+          <View key={unit.key} style={[styles.unitWrap, { gap: scaleLayoutValue(spacing.sm) }]}>
             <DurationUnit
               label={unit.label}
               value={unit.value}
@@ -99,7 +124,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
-    paddingVertical: spacing.md,
     paddingHorizontal: 0,
     width: '100%',
     alignSelf: 'center',
@@ -108,14 +132,11 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   unitsColumn: {
-    gap: spacing.sm,
   },
   unitWrap: {
-    gap: spacing.sm,
   },
   unitCell: {
     alignItems: 'center',
-    gap: spacing.xs,
   },
   unitDivider: {
     height: 1,
@@ -131,11 +152,8 @@ const styles = StyleSheet.create({
   controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   stepBtn: {
-    width: moderateScale(52),
-    height: moderateScale(52),
     borderWidth: 1,
     borderRadius: radius.sm,
     alignItems: 'center',
@@ -165,8 +183,6 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   input: {
-    minWidth: moderateScale(72),
-    height: moderateScale(52),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.sm,

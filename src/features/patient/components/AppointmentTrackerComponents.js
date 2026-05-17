@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { scaleFontSize } from '../../../shared/theme/textScale';
 import {
   formatDate,
   formatTime,
@@ -29,7 +30,7 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
 
   // Dynamic scale down for long appointment concerns so they never wrap/crop on narrow viewports
   const dynamicFontSize = concern.length > 14 ? Math.max(11, numericBaseFontSize * 0.82) : numericBaseFontSize;
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <Pressable
@@ -156,7 +157,9 @@ function StatusBadge({ statusStyle }) {
     numericBaseFontSize = baseFontSize;
   }
 
-  const finalFontSize = getFontSize(numericBaseFontSize);
+  // Dynamic scale down for long status badge labels inside appointment preview cards
+  const dynamicFontSize = label.length > 7 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>

@@ -4,6 +4,7 @@ import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 're
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
@@ -73,6 +74,7 @@ function useWebViewportLock() {
 
 function AppContent() {
   const realm = useRealm();
+  const { textScale } = useTextScale();
   const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
@@ -117,10 +119,16 @@ function AppContent() {
     currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY
       ? { navigation, realm }
       : { navigation };
+  const screenKey =
+    currentRoute === ROUTES.ACCESSIBILITY_SETTINGS
+      ? currentRoute
+      : `${currentRoute}-${textScale}`;
 
   return (
     <>
-      <CurrentScreen {...screenProps} />
+      <View key={screenKey} style={{ flex: 1 }}>
+        <CurrentScreen {...screenProps} />
+      </View>
       <StatusBar style="dark" />
     </>
   );
@@ -151,9 +159,11 @@ export default function AppRoot() {
   const isWebDesktop = Platform.OS === 'web' && windowWidth > 1025;
 
   const content = (
-    <SafeAreaProvider style={styles.appShell}>
-      <AppContent />
-    </SafeAreaProvider>
+    <TextScaleProvider>
+      <SafeAreaProvider style={styles.appShell}>
+        <AppContent />
+      </SafeAreaProvider>
+    </TextScaleProvider>
   );
 
   if (!fontsLoaded) {

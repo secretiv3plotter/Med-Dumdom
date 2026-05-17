@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
-  BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
-  BACK_HEADER_RESERVED_HEIGHT,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
@@ -15,6 +12,11 @@ import accessibilitySettingsService from '../../../domain/services/Accessibility
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import Slider from '@react-native-community/slider';
+import {
+  MAX_TEXT_SCALE,
+  MIN_TEXT_SCALE,
+  useTextScale,
+} from '../../../shared/theme/textScale';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -41,35 +43,47 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   const [settings, setSettings] = useState(() =>
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
+  const { setTextScale } = useTextScale();
 
-  const [sliderValue, setSliderValue] = useState(1);
-  const [inputValue, setInputValue] = useState('1.0');
+  const initialScale = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0);
+  const [sliderValue, setSliderValue] = useState(initialScale);
+  const [inputValue, setInputValue] = useState(initialScale.toFixed(1));
 
-  const canGoBack =
-    typeof navigation?.canGoBack === 'function'
-      ? navigation.canGoBack()
-      : Boolean(navigation?.canGoBack);
+  useEffect(() => {
+    const nextScale = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0);
+    setSliderValue(nextScale);
+    setInputValue(nextScale.toFixed(1));
+    setTextScale(nextScale);
+  }, [settings.textScale, settings.textSizeLevel, setTextScale]);
+
+  const commitTextScale = (value) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+
+    const clamped = Math.min(
+      MAX_TEXT_SCALE,
+      Math.max(MIN_TEXT_SCALE, Number(parsed.toFixed(1)))
+    );
+
+    const updatedSettings = accessibilitySettingsService.updateTextScale(
+      CURRENT_USER_ID,
+      clamped
+    );
+
+    setSettings(updatedSettings);
+    setSliderValue(clamped);
+    setInputValue(clamped.toFixed(1));
+    setTextScale(clamped);
+  };
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+
     if (targetRoute) {
       navigation?.navigate?.(targetRoute);
     }
-  };
-
-  const textSizeLevel = useMemo(() => {
-    const parsed = Number(settings.textSizeLevel);
-
-    return Number.isNaN(parsed) ? 1 : parsed;
-  }, [settings.textSizeLevel]);
-
-  const setTextSizeLevel = (nextLevel) => {
-    setSettings(
-      accessibilitySettingsService.updateTextSizeLevel(
-        CURRENT_USER_ID,
-        nextLevel
-      )
-    );
   };
 
   const toggleSetting = (toggleMethod) => {
@@ -102,11 +116,9 @@ export default function AccessibilitySettingsScreen({ navigation }) {
               onChangeText={(text) => {
                 setInputValue(text);
 
-                const parsed = parseFloat(text);
-
-                if (!Number.isNaN(parsed)) {
-                  const clamped = Math.min(2.5, Math.max(0.8, parsed));
-                  setSliderValue(clamped);
+                const parsed = Number(text);
+                if (Number.isFinite(parsed)) {
+                  commitTextScale(parsed);
                 }
               }}
               onBlur={() => {
@@ -119,16 +131,11 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
           <Slider
             style={styles.slider}
-            minimumValue={1}
-            maximumValue={2.5}
+            minimumValue={MIN_TEXT_SCALE}
+            maximumValue={MAX_TEXT_SCALE}
             step={0.1}
             value={sliderValue}
-            onValueChange={(value) => {
-              const rounded = Number(value.toFixed(1));
-
-              setSliderValue(rounded);
-              setInputValue(String(rounded));
-            }}
+            onValueChange={commitTextScale}
             minimumTrackTintColor={colors.brand}
             maximumTrackTintColor={colors.border}
             thumbTintColor={colors.brand}

@@ -1,6 +1,7 @@
 //non-clickable card with text content
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 export default function TextCard({
   title = '',
@@ -14,7 +15,16 @@ export default function TextCard({
   footerStyle,
 }) {
   return (
-    <View style={[styles.card, cardStyle]}>
+    <View
+      style={[
+        styles.card,
+        {
+          padding: scaleLayoutValue(spacing.md),
+          gap: scaleLayoutValue(spacing.xs),
+        },
+        cardStyle,
+      ]}
+    >
       {!!title && <Text style={[styles.title, titleStyle]}>{title}</Text>}
       {!!body && (
         <Text style={[styles.body, bodyStyle]} numberOfLines={numberOfBodyLines || undefined}>
@@ -33,8 +43,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, // Crisp 1.5px border for maximum boundary definition
     borderColor: colors.border,
     borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
     // Soft shadow for premium visual depth
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },

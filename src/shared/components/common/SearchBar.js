@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getFontSize, moderateScale, radius, spacing } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 export default function SearchBar({
   placeholder = 'Search',
@@ -13,8 +14,19 @@ export default function SearchBar({
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={[styles.container, isFocused && styles.containerFocused, style]}>
-      <Ionicons name="search" size={moderateScale(18)} color={colors.bodyMuted} />
+    <View
+      style={[
+        styles.container,
+        {
+          minHeight: scaleLayoutValue(moderateScale(48)),
+          paddingHorizontal: scaleLayoutValue(spacing.sm),
+          gap: scaleLayoutValue(spacing.xs),
+        },
+        isFocused && styles.containerFocused,
+        style,
+      ]}
+    >
+      <Ionicons name="search" size={scaleLayoutValue(moderateScale(18))} color={colors.bodyMuted} />
       <TextInput
         placeholder={placeholder}
         placeholderTextColor={colors.placeholder}
@@ -22,7 +34,7 @@ export default function SearchBar({
         onChangeText={onChangeText}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        style={[styles.input, inputStyle]}
+        style={[styles.input, { paddingVertical: scaleLayoutValue(spacing.sm) }, inputStyle]}
       />
     </View>
   );
@@ -30,15 +42,12 @@ export default function SearchBar({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: moderateScale(48),
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
-    paddingHorizontal: spacing.sm,
     borderWidth: 1.5, // Crisp 1.5px border for highly defined input boundaries
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
   },
   containerFocused: {
     borderColor: colors.focusRing,
@@ -53,7 +62,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surface,
     color: colors.title,
-    paddingVertical: spacing.sm,
     fontSize: getFontSize(16),
     outlineStyle: 'none',
   },

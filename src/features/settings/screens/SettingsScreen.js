@@ -5,16 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
-  BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
-  BACK_HEADER_RESERVED_HEIGHT,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
+import { colors, getFontSize, radius, spacing, typography } from '../../../shared/theme';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import { scaleLayoutValue } from '../../../shared/theme/textScale';
 
 const SETTINGS_ITEMS = [
   {
@@ -60,12 +59,12 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const onTabNavigate = (tabKey) => {
-  const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+    const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
 
-  if (targetRoute) {
-    navigation?.navigate?.(targetRoute);
-  }
-};
+    if (targetRoute) {
+      navigation?.navigate?.(targetRoute);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -87,11 +86,19 @@ export default function SettingsScreen({ navigation }) {
           {SETTINGS_ITEMS.map((item, index) => (
             <Pressable
               key={item.key}
-              style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed, index < SETTINGS_ITEMS.length - 1 && styles.optionCardDivider]}
+              style={({ pressed }) => [
+                styles.optionCard,
+                pressed && styles.optionCardPressed,
+                index < SETTINGS_ITEMS.length - 1 && styles.optionCardDivider,
+                {
+                  paddingVertical: scaleLayoutValue(spacing.xxs),
+                  gap: scaleLayoutValue(spacing.lg),
+                },
+              ]}
               onPress={() => navigation?.navigate?.(item.route)}
             >
-              <Ionicons name={item.icon} size={28} color={colors.brandText} />
-              <View style={styles.optionTextBlock}>
+              <Ionicons name={item.icon} size={scaleLayoutValue(28)} color={colors.brandText} />
+              <View style={[styles.optionTextBlock, { gap: scaleLayoutValue(2) }]}>
                 <Text style={styles.optionTitle}>{item.title}</Text>
                 <Text style={styles.optionSubtitle}>{item.subtitle}</Text>
               </View>
@@ -130,9 +137,11 @@ export default function SettingsScreen({ navigation }) {
           />
           <ActionButton
             label="Change Password"
+            variant="outline"
             onPress={handlePasswordChange}
             disabled={!canChangePassword}
             style={styles.sectionButton}
+            textStyle={styles.deleteText}
           />
         </View>
 
@@ -258,7 +267,6 @@ const styles = StyleSheet.create({
   },
   sectionButton: {
     marginTop: spacing.xs,
-    flex: 0,
     alignSelf: 'stretch',
   },
   deleteText: {

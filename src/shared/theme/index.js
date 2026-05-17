@@ -1,13 +1,13 @@
 import { Platform } from 'react-native';
 import { moderateScale, moderateVerticalScale, roundToPixel } from './scaling';
 
-// Dynamic typography scaling helpers to support 200% screen resizing compliance.
-// Web utilizes relative 'rem' units to align with native browser font adjustments, 
-// while Mobile leverages native device pixels alongside dynamic system font scaling.
+// Base typography helpers. Live accessibility scaling is applied at render time
+// by the shared text-scale layer so these values stay stable as a baseline.
 export const getFontSize = (size) => {
   if (Platform.OS === 'web') {
     return `${size / 16}rem`;
   }
+
   return roundToPixel(moderateScale(size));
 };
 
@@ -15,6 +15,7 @@ export const getLineHeight = (lineHeight) => {
   if (Platform.OS === 'web') {
     return `${lineHeight / 16}rem`;
   }
+
   return roundToPixel(moderateVerticalScale(lineHeight));
 };
 

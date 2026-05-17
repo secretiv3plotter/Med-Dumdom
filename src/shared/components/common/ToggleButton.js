@@ -1,6 +1,7 @@
 //variants: default, offLocked
 import { Pressable, StyleSheet, View } from 'react-native';
 import { colors, moderateScale, spacing } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 export default function ToggleButton({
   value = false,
@@ -12,10 +13,10 @@ export default function ToggleButton({
   const t = { ...colors, ...theme };
   const isLockedOff = variant === 'offLocked';
   const isOn = isLockedOff ? false : value;
-  const resolvedSize = typeof size === 'number' ? moderateScale(size) : size;
+  const resolvedSize = typeof size === 'number' ? scaleLayoutValue(moderateScale(size)) : size;
   const background = isOn ? t.brand : t.border;
   const trackColor = isOn ? t.brandText : t.border;
-  const knobSize = resolvedSize - spacing.xs;
+  const knobSize = resolvedSize - scaleLayoutValue(spacing.xs);
   const trackWidth = resolvedSize * 2.2;
   const knobTravel = trackWidth - knobSize - 4;
 
