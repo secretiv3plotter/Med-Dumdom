@@ -46,7 +46,7 @@ const COLOR_BLIND_COLOR_OVERRIDES = Object.freeze({
   dark: {
     success: '#56B4E9',
     warning: '#C084FC',
-    error: '#D97706',
+    error: '#D55E00',
   },
 });
 
@@ -66,9 +66,9 @@ const COLOR_BLIND_VALUE_MAP = Object.freeze({
 
   '#2A1111': '#2C1E12',
   '#991B1B': '#D55E00',
-  '#B91C1C': '#C2410C',
+  '#B91C1C': '#D55E00',
   '#D32F2F': '#D55E00',
-  '#F87171': '#D97706',
+  '#F87171': '#D55E00',
   '#FEE2E2': '#FFEDD5',
   '#FFEBEE': '#FFEDD5',
 });

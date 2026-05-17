@@ -206,6 +206,7 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
   const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
   const initialColorBlindMode = Boolean(initialSettings?.colorBlindModeEnabled);
+  const initialHapticEnabled = initialSettings?.hapticEnabled ?? true;
 
   currentTextScale = initialScale;
   setThemeMode(initialDarkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT);
@@ -213,6 +214,7 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
   const [textScale, setTextScaleState] = useState(initialScale);
   const [darkModeEnabled, setDarkModeEnabledState] = useState(initialDarkMode);
   const [colorBlindModeEnabled, setColorBlindModeEnabledState] = useState(initialColorBlindMode);
+  const [hapticEnabled, setHapticEnabledState] = useState(initialHapticEnabled);
 
   const updateTextScale = useCallback(
     (nextScale) => {
@@ -248,6 +250,19 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
     [userId]
   );
 
+  const updateHapticEnabled = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setHapticEnabledState(nextEnabled);
+
+      const currentSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.hapticEnabled) !== nextEnabled) {
+        accessibilitySettingsService.toggleHaptic(userId);
+      }
+    },
+    [userId]
+  );
+
   const value = useMemo(
     () => ({
       textScale,
@@ -256,8 +271,10 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       setDarkModeEnabled: updateDarkMode,
       colorBlindModeEnabled,
       setColorBlindModeEnabled: updateColorBlindMode,
+      hapticEnabled,
+      setHapticEnabled: updateHapticEnabled,
     }),
-    [textScale, updateTextScale, darkModeEnabled, updateDarkMode, colorBlindModeEnabled, updateColorBlindMode]
+    [textScale, updateTextScale, darkModeEnabled, updateDarkMode, colorBlindModeEnabled, updateColorBlindMode, hapticEnabled, updateHapticEnabled]
   );
 
   return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;
