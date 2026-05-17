@@ -13,19 +13,19 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
-import ToggleButton from '../../../shared/components/common/ToggleButton';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { AppointmentDetailsContent, AppointmentPreviewCard } from '../components/AppointmentTrackerComponents';
+import { APPOINTMENT_EDITOR_STEPS } from '../constants/apptTrackerEditorSteps';
+import { AppointmentEditorContent } from '../components/AppointmentEditorContent';
+import { ConfirmationDialogModal } from '../components/MedTrackerScreenLayout';
 import {
   EMPTY_APPT_FORM,
   buildApptSearchText,
   buildFormStateFromAppointment,
   formatDate,
-  formatIsoDateTime,
-  formatIsoTime,
   formatTime,
   getSortTime,
   normalizeSearchText,
@@ -36,11 +36,35 @@ import {
 const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
+const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
+};
+
+const getResolvedStatusTime = (appointment) => {
+  const statusTime = appointment.isCompleted ? appointment.completedAt : appointment.isSkipped ? appointment.skippedAt : null;
+  if (!statusTime) {
+    return null;
+  }
+
+  const parsed = new Date(statusTime);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isRecentlyResolved = (appointment, now = new Date()) => {
+  if (!appointment?.isCompleted && !appointment?.isSkipped) {
+    return false;
+  }
+
+  const resolvedAt = getResolvedStatusTime(appointment);
+  if (!resolvedAt) {
+    return true;
+  }
+
+  return now.getTime() - resolvedAt.getTime() < RECENT_STATUS_HOLD_MS;
 };
 
 export default function AppointmentTrackerScreen({ navigation, realm = null, trackerService = apptTrackerService }) {
@@ -49,12 +73,15 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editorMode, setEditorMode] = useState(null);
+  const [editorStep, setEditorStep] = useState(APPOINTMENT_EDITOR_STEPS.DETAILS);
   const [formState, setFormState] = useState(EMPTY_APPT_FORM);
   const [formError, setFormError] = useState('');
   const [draftDetails, setDraftDetails] = useState(EMPTY_APPT_FORM);
   const [searchQuery, setSearchQuery] = useState('');
   const [footerNavHeight, setFooterNavHeight] = useState(0);
   const [observedNow, setObservedNow] = useState(() => new Date());
+  const [pendingDeleteAppointment, setPendingDeleteAppointment] = useState(null);
+  const [pendingRevertAppointment, setPendingRevertAppointment] = useState(null);
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : trackerService),
@@ -71,27 +98,29 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     [appointments, selectedAppointmentId]
   );
 
-  const sortedAppointments = useMemo(() => {
+  const visibleAppointments = useMemo(() => {
     const normalizedQuery = normalizeSearchText(searchQuery);
-    const visibleAppointments = normalizedQuery
+    return normalizedQuery
       ? appointments.filter((appointment) => buildApptSearchText(appointment).includes(normalizedQuery))
       : appointments;
-
-    return [...visibleAppointments].sort((left, right) => {
-      const leftStatus = left.isCompleted ? 1 : 0;
-      const rightStatus = right.isCompleted ? 1 : 0;
-
-      if (leftStatus !== rightStatus) {
-        return leftStatus - rightStatus;
-      }
-
-      if (left.isCompleted && right.isCompleted) {
-        return new Date(right.completedAt || 0).getTime() - new Date(left.completedAt || 0).getTime();
-      }
-
-      return getSortTime(left) - getSortTime(right);
-    });
   }, [appointments, searchQuery]);
+
+  const pendingAppointments = useMemo(() => (
+    [...visibleAppointments]
+      .filter((appointment) => !appointment.isCompleted && !appointment.isSkipped)
+      .sort((left, right) => getSortTime(left) - getSortTime(right))
+  ), [visibleAppointments]);
+
+  const recentStatusAppointments = useMemo(() => (
+    [...visibleAppointments]
+      .filter((appointment) => isRecentlyResolved(appointment, observedNow))
+      .sort((left, right) => {
+        const leftTime = getResolvedStatusTime(left)?.getTime() || 0;
+        const rightTime = getResolvedStatusTime(right)?.getTime() || 0;
+
+        return rightTime - leftTime;
+      })
+  ), [visibleAppointments, observedNow]);
 
   const hasActiveSearch = useMemo(() => normalizeSearchText(searchQuery).length > 0, [searchQuery]);
 
@@ -117,10 +146,38 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     setVersion((current) => current + 1);
   };
 
+  const resetEditor = () => {
+    setEditorMode(null);
+    setEditorStep(APPOINTMENT_EDITOR_STEPS.DETAILS);
+    setFormError('');
+    setFormState(EMPTY_APPT_FORM);
+  };
+
   const handleAddAppointment = () => {
     setFormError('');
     setFormState(EMPTY_APPT_FORM);
+    setEditorStep(APPOINTMENT_EDITOR_STEPS.DETAILS);
     setEditorMode('create');
+  };
+
+  const goToScheduleStep = () => {
+    const requiredFields = [
+      formState.concern.trim(),
+      formState.address.trim(),
+    ];
+
+    if (requiredFields.some((field) => !field)) {
+      setFormError('Complete the required appointment details.');
+      return;
+    }
+
+    setFormError('');
+    setEditorStep(APPOINTMENT_EDITOR_STEPS.SCHEDULE);
+  };
+
+  const goToPreviousStep = () => {
+    setFormError('');
+    setEditorStep(APPOINTMENT_EDITOR_STEPS.DETAILS);
   };
 
   const handleEditAppointment = () => {
@@ -137,7 +194,19 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       return;
     }
 
-    activeApptTrackerService.deleteApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId);
+    setPendingDeleteAppointment({
+      apptEntryId: selectedAppointment.apptEntryId,
+      concern: selectedAppointment.concern,
+    });
+  };
+
+  const confirmDeleteAppointment = () => {
+    if (!pendingDeleteAppointment) {
+      return;
+    }
+
+    activeApptTrackerService.deleteApptEntry(CURRENT_USER_ID, pendingDeleteAppointment.apptEntryId);
+    setPendingDeleteAppointment(null);
     setIsEditingDetails(false);
     setIsDetailsVisible(false);
     setSelectedAppointmentId(null);
@@ -162,31 +231,40 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     refresh();
   };
 
-  const handleToggleCompleted = (nextValue) => {
-    if (!selectedAppointment) {
-      return;
-    }
-
-    if (nextValue) {
-      activeApptTrackerService.markApptCompleted(CURRENT_USER_ID, selectedAppointment.apptEntryId, new Date());
-    } else {
-      activeApptTrackerService.undoApptCompleted(CURRENT_USER_ID, selectedAppointment.apptEntryId);
-    }
-
-    refresh();
-  };
-
   const handleScheduleStatusChange = (appointment, targetStatus) => {
     if (!appointment) {
       return;
     }
 
-    if (targetStatus === 'completed') {
+    if (targetStatus === 'clear') {
+      setPendingRevertAppointment({
+        apptEntryId: appointment.apptEntryId,
+        concern: appointment.concern,
+        statusLabel: appointment.isCompleted ? 'done' : 'skipped',
+      });
+      return;
+    } else if (targetStatus === 'completed') {
       activeApptTrackerService.markApptCompleted(CURRENT_USER_ID, appointment.apptEntryId, new Date());
     } else {
       activeApptTrackerService.markApptSkipped(CURRENT_USER_ID, appointment.apptEntryId, new Date());
     }
 
+    refresh();
+  };
+
+  const confirmRevertStatus = () => {
+    if (!pendingRevertAppointment) {
+      return;
+    }
+
+    const appointment = appointments.find((entry) => entry.apptEntryId === pendingRevertAppointment.apptEntryId);
+    if (appointment?.isCompleted) {
+      activeApptTrackerService.undoApptCompleted(CURRENT_USER_ID, pendingRevertAppointment.apptEntryId);
+    } else if (appointment?.isSkipped) {
+      activeApptTrackerService.undoApptSkipped(CURRENT_USER_ID, pendingRevertAppointment.apptEntryId);
+    }
+
+    setPendingRevertAppointment(null);
     refresh();
   };
 
@@ -223,7 +301,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       skippedAt: null,
     });
 
-    setEditorMode(null);
+    resetEditor();
     setSelectedAppointmentId(null);
     refresh();
   };
@@ -255,7 +333,29 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           />
         </View>
         <View style={styles.listSection}>
-          {sortedAppointments.length ? sortedAppointments.map((appointment) => (
+          {pendingAppointments.length ? (
+            <>
+              <Text style={styles.sectionTitle}>Pending appointments</Text>
+              {pendingAppointments.map((appointment) => (
+                <AppointmentPreviewCard
+                  key={appointment.apptEntryId}
+                  appointment={appointment}
+                  observedNow={observedNow}
+                  onOpen={() => {
+                    setSelectedAppointmentId(appointment.apptEntryId);
+                    setDraftDetails(buildFormStateFromAppointment(appointment));
+                    setIsDetailsVisible(true);
+                  }}
+                  onStatusChange={handleScheduleStatusChange}
+                />
+              ))}
+            </>
+          ) : null}
+
+          {recentStatusAppointments.length ? (
+            <>
+              <Text style={styles.sectionTitle}>Recently marked</Text>
+              {recentStatusAppointments.map((appointment) => (
               <AppointmentPreviewCard
                 key={appointment.apptEntryId}
                 appointment={appointment}
@@ -266,8 +366,13 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                   setIsDetailsVisible(true);
                 }}
                 onStatusChange={handleScheduleStatusChange}
+                muted
               />
-          )) : hasActiveSearch ? (
+              ))}
+            </>
+          ) : null}
+
+          {!pendingAppointments.length && !recentStatusAppointments.length && hasActiveSearch ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No appointments found.</Text>
               <Text style={styles.emptyText}>Try another concern, doctor, date, place, or status.</Text>
@@ -306,6 +411,8 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           ) : null
         }
         contentContainerStyle={styles.modalContent}
+        sheetStyle={styles.appointmentModalSheet}
+        headerStyle={styles.appointmentModalHeader}
       >
         {selectedAppointment ? (
           <>
@@ -352,6 +459,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
               label="Note"
               value={isEditingDetails ? draftDetails.note : selectedAppointment.note || '--'}
               editable={isEditingDetails}
+              multiline
               onChangeText={(text) => setDraftDetails((prev) => ({ ...prev, note: text }))}
             />
 
@@ -360,20 +468,9 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                 appointment={selectedAppointment}
                 observedNow={observedNow}
                 onStatusChange={handleScheduleStatusChange}
+                muted={selectedAppointment.isCompleted || selectedAppointment.isSkipped}
               />
             ) : null}
-
-            <View style={styles.toggleRow}>
-              <Text style={styles.detailLabel}>Mark as completed</Text>
-              <ToggleButton
-                value={selectedAppointment.isCompleted}
-                onChange={handleToggleCompleted}
-                size={30}
-              />
-            </View>
-
-            <DetailItem label="Time completed" value={formatIsoTime(selectedAppointment.completedAt)} />
-            <DetailItem label="Date completed" value={formatIsoDateTime(selectedAppointment.completedAt)} />
 
             <View style={styles.footerActionsRow}>
               {isEditingDetails ? (
@@ -398,7 +495,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
 
       <LargePopup
         visible={editorMode === 'create'}
-        onClose={() => setEditorMode(null)}
+        onClose={() => resetEditor()}
         header={
           <View style={styles.detailsHeaderRow}>
             <View style={styles.detailsHeaderTextBlock}>
@@ -407,58 +504,42 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           </View>
         }
         contentContainerStyle={styles.modalContent}
+        sheetStyle={styles.appointmentModalSheet}
+        headerStyle={styles.appointmentModalHeader}
       >
-        <View style={styles.formColumn}>
-          <InputBar
-            placeholder="Concern"
-            value={formState.concern}
-            onChangeText={(value) => setFormState((current) => ({ ...current, concern: value }))}
-          />
-          <InputBar
-            placeholder="Address"
-            value={formState.address}
-            onChangeText={(value) => setFormState((current) => ({ ...current, address: value }))}
-          />
-          <InputBar
-            placeholder="Doctor name (optional)"
-            value={formState.doctorName}
-            onChangeText={(value) => setFormState((current) => ({ ...current, doctorName: value }))}
-          />
-          <InputBar
-            placeholder="Contact number (optional)"
-            value={formState.contactNumber}
-            onChangeText={(value) => setFormState((current) => ({ ...current, contactNumber: value }))}
-          />
-          <NativeDateTimeField
-            label="Date scheduled"
-            placeholder="Select appointment date"
-            accessibilityLabel="Date scheduled"
-            value={formState.dateSched}
-            onChange={(value) => setFormState((current) => ({ ...current, dateSched: value }))}
-            minimumDate={startOfToday()}
-          />
-          <NativeDateTimeField
-            mode="time"
-            label="Time scheduled"
-            placeholder="Select appointment time"
-            accessibilityLabel="Time scheduled"
-            value={formState.timeSched}
-            onChange={(value) => setFormState((current) => ({ ...current, timeSched: value }))}
-          />
-          <InputBar
-            placeholder="Note (optional)"
-            value={formState.note}
-            onChangeText={(value) => setFormState((current) => ({ ...current, note: value }))}
-          />
-        </View>
-
-        {formError ? <Text style={styles.formError}>{formError}</Text> : null}
-
-        <View style={styles.footerActionsRow}>
-          <ActionButton label="Cancel" variant="outline" onPress={() => setEditorMode(null)} />
-          <ActionButton label="Add Appointment" variant="solid" onPress={saveAppointment} />
-        </View>
+        <AppointmentEditorContent
+          editorStep={editorStep}
+          formState={formState}
+          setFormState={setFormState}
+          formError={formError}
+          onCancel={() => resetEditor()}
+          onPreviousStep={goToPreviousStep}
+          onNextStep={goToScheduleStep}
+          onSaveAppointment={saveAppointment}
+        />
       </LargePopup>
+
+      {pendingDeleteAppointment ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Delete appointment?"
+          message={`Are you sure you want to delete ${pendingDeleteAppointment?.concern || 'this appointment'} from your tracker?`}
+          confirmLabel="Delete"
+          onCancel={() => setPendingDeleteAppointment(null)}
+          onConfirm={confirmDeleteAppointment}
+        />
+      ) : null}
+
+      {pendingRevertAppointment ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Revert status?"
+          message={`Revert the status of ${pendingRevertAppointment?.concern || 'this appointment'} back to pending?`}
+          confirmLabel="Revert"
+          onCancel={() => setPendingRevertAppointment(null)}
+          onConfirm={confirmRevertStatus}
+        />
+      ) : null}
 
       <View
         style={styles.footerNav}
@@ -484,7 +565,7 @@ function DetailItem({ label, value }) {
   );
 }
 
-function EditableDetailItem({ label, value, editable, onChangeText, mode = null, minimumDate = null }) {
+function EditableDetailItem({ label, value, editable, onChangeText, mode = null, minimumDate = null, multiline = false }) {
   if (!editable) {
     return <DetailItem label={label} value={value} />;
   }
@@ -507,7 +588,13 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <InputBar value={value} onChangeText={onChangeText} placeholder={label} />
+      <InputBar
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={label}
+        multiline={multiline}
+        numberOfLines={multiline ? 4 : 1}
+      />
     </View>
   );
 }
@@ -553,6 +640,12 @@ const styles = StyleSheet.create({
   listSection: {
     marginTop: 0,
     gap: spacing.sm,
+  },
+  sectionTitle: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   emptyCard: {
     backgroundColor: colors.surface,
@@ -630,6 +723,13 @@ const styles = StyleSheet.create({
   modalContent: {
     paddingBottom: spacing.xl + spacing.sm,
   },
+  appointmentModalSheet: {
+    backgroundColor: '#E5E7EB',
+  },
+  appointmentModalHeader: {
+    backgroundColor: '#E5E7EB',
+    borderBottomColor: '#9CA3AF',
+  },
   detailsTitle: {
     ...typography.titleSmall,
     fontWeight: '700',
@@ -641,7 +741,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: spacing.sm,
-    minHeight: 64,
+    minHeight: 5,
   },
   detailsHeaderTextBlock: {
     flex: 1,
@@ -686,8 +786,31 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  footerButton: {
+    flex: 1,
+    minWidth: 100,
+  },
+  stepTitle: {
+    ...typography.titleSmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
   formColumn: {
     gap: spacing.sm,
+  },
+  scheduleBuilder: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+    marginTop: spacing.sm,
+  },
+  sectionLabel: {
+    ...typography.bodySmall,
+    color: colors.title,
+    fontWeight: '700',
   },
   formError: {
     ...typography.bodySmall,

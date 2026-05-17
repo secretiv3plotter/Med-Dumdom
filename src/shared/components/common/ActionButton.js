@@ -9,6 +9,7 @@ export default function ActionButton({
   style,
   textStyle,
   disabled = false,
+  preserveFontSize = false,
 }) {
   const outline = variant === 'outline';
   const labelLength = label ? label.length : 0;
@@ -25,10 +26,10 @@ export default function ActionButton({
   }
   
   let dynamicFontSize = numericBaseFontSize;
-  if (labelLength > 7) {
+  if (!preserveFontSize && labelLength > 7) {
     dynamicFontSize = Math.max(10, numericBaseFontSize * 0.85);
   }
-  if (labelLength > 10) {
+  if (!preserveFontSize && labelLength > 10) {
     dynamicFontSize = Math.max(9, numericBaseFontSize * 0.75);
   }
 
