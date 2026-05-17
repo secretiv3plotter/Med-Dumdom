@@ -1,3 +1,8 @@
+import { colors } from '../../../shared/theme';
+import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+
+const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+
 export const capitalize = (value) => String(value || '')
   .trim()
   .replace(/^\w/, (char) => char.toUpperCase());
@@ -169,6 +174,18 @@ export const buildHistoryRecordSearchText = (record) => {
 };
 
 export const getStatusStyle = (status) => {
+  if (isDarkMode()) {
+    if (status === 'taken') {
+      return { label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+    }
+
+    if (status === 'skipped') {
+      return { label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+    }
+
+    return { label: 'Missed', bgColor: '#2C1E12', textColor: colors.warning };
+  }
+
   if (status === 'taken') {
     return { label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
   }

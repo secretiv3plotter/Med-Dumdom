@@ -1,6 +1,7 @@
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { colors, spacing } from '../../theme';
+import ThemedScrollView from './ThemedScrollView';
 
 const SHEET_OPEN_DURATION_MS = 280;
 const SHEET_CLOSE_DURATION_MS = 200;
@@ -81,7 +82,7 @@ export default function LargePopup({
           ]}
         >
           {header ? <View style={[styles.header, headerStyle]}>{header}</View> : null}
-          <ScrollView
+          <ThemedScrollView
             pointerEvents="auto"
             contentContainerStyle={[styles.content, { flexGrow: 1 }, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
@@ -89,7 +90,7 @@ export default function LargePopup({
             nestedScrollEnabled
           >
             {children}
-          </ScrollView>
+          </ThemedScrollView>
         </Animated.View>
       </View>
     </Modal>

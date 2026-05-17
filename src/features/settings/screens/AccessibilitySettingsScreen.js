@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -8,6 +8,7 @@ import {
 } from '../../../shared/components/common/backHeaderMetrics';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
@@ -43,7 +44,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   const [settings, setSettings] = useState(() =>
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
-  const { setTextScale } = useTextScale();
+  const { setTextScale, setDarkModeEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
 
   const initialScale = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0);
@@ -55,7 +56,8 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     setSliderValue(nextScale);
     setInputValue(nextScale.toFixed(1));
     setTextScale(nextScale);
-  }, [settings.textScale, settings.textSizeLevel, setTextScale]);
+    setDarkModeEnabled(Boolean(settings.darkModeEnabled));
+  }, [settings.textScale, settings.textSizeLevel, settings.darkModeEnabled, setTextScale, setDarkModeEnabled]);
 
   const commitTextScale = (value) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -88,7 +90,12 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   };
 
   const toggleSetting = (toggleMethod) => {
-    setSettings(accessibilitySettingsService[toggleMethod](CURRENT_USER_ID));
+    const updatedSettings = accessibilitySettingsService[toggleMethod](CURRENT_USER_ID);
+    setSettings(updatedSettings);
+
+    if (toggleMethod === 'toggleDarkMode') {
+      setDarkModeEnabled(updatedSettings.darkModeEnabled);
+    }
   };
 
   return (
@@ -106,7 +113,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
         </View>
       ) : null}
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView contentContainerStyle={styles.content}>
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Accessibility Settings</Text>
@@ -169,7 +176,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
             </View>
           ))}
         </View>
-      </ScrollView>
+      </ThemedScrollView>
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />

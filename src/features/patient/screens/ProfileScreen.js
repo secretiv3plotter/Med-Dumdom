@@ -5,7 +5,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -26,6 +25,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import TextCard from '../../../shared/components/common/TextCard';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
@@ -171,7 +171,7 @@ export default function ProfileScreen({ navigation }) {
           ) : null}
         </View>
 
-        <ScrollView
+        <ThemedScrollView
           contentContainerStyle={[
             styles.content,
             isKeyboardVisible ? styles.contentWithKeyboard : styles.contentWithFooter,
@@ -285,7 +285,7 @@ export default function ProfileScreen({ navigation }) {
               textStyle={styles.saveButtonText}
             />
           ) : null}
-        </ScrollView>
+        </ThemedScrollView>
 
         {!isKeyboardVisible ? (
           <View style={styles.footerNav}>

@@ -154,6 +154,10 @@ class AccessibilitySetting {
   toggleDarkMode() {
     this.darkModeEnabled = !normalizeBoolean(this.darkModeEnabled, 'darkModeEnabled');
   }
+
+  setDarkModeEnabled(enabled) {
+    this.darkModeEnabled = normalizeBoolean(enabled, 'darkModeEnabled');
+  }
 }
 
 export default AccessibilitySetting;

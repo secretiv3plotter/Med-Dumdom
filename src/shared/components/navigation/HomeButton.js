@@ -3,13 +3,12 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 import { scaleLayoutValue } from '../../theme/textScale';
 
-const HOME_NAV_COLOR = '#64748B';
 const HOME_NAV_PRESSED = '#E5E7EB';
 const HOME_NAV_PRESSED_BORDER = '#475569';
 
 export default function HomeButton({ onPress, variant = 'outline' }) {
   const isSolid = variant === 'solid';
-  const iconAndTextColor = HOME_NAV_COLOR;
+  const iconAndTextColor = colors.bodyMuted;
 
   return (
     <Pressable

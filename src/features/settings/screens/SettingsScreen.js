@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
+import { Alert, StyleSheet, Text, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -13,6 +13,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, radius, spacing, typography } from '../../../shared/theme';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { scaleLayoutValue, useTextScale } from '../../../shared/theme/textScale';
 
 const SETTINGS_ITEMS = [
@@ -81,7 +82,7 @@ export default function SettingsScreen({ navigation }) {
         </View>
       ) : null}
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ThemedScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Settings</Text>
@@ -165,7 +166,7 @@ export default function SettingsScreen({ navigation }) {
             textStyle={styles.deleteText}
           />
         </View>
-      </ScrollView>
+      </ThemedScrollView>
         <View style={styles.footerNav}>
           <NavigationBar
             selectedTab="home"
