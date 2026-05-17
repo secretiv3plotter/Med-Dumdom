@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   mutedScheduleCard: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.surface,
     borderColor: colors.border,
   },
   scheduleCardRow: {

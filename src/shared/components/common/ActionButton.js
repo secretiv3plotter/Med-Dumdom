@@ -10,6 +10,7 @@ export default function ActionButton({
   textStyle,
   disabled = false,
   preserveFontSize = false,
+  hitSlop = { top: 8, bottom: 8, left: 8, right: 8 },
 }) {
   const outline = variant === 'outline';
   const labelLength = label ? label.length : 0;
@@ -39,6 +40,7 @@ export default function ActionButton({
   return (
     <Pressable
       disabled={disabled}
+      hitSlop={hitSlop}
       unstable_pressDelay={0}
       onPress={onPress}
       accessible
