@@ -135,7 +135,9 @@ function SchedulePreviewCard({
 }) {
   const isTaken = statusStyle.status === 'taken';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
-  const dayLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
+  const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
+  const dayOfWeekLabel = entry.dayOfWeek ? `on ${entry.dayOfWeek}` : '';
+  const dayLabel = tomorrowLabel && dayOfWeekLabel ? `${tomorrowLabel} (${dayOfWeekLabel})` : (dayOfWeekLabel || tomorrowLabel);
 
   return (
     <View
@@ -200,7 +202,9 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
       <DetailItem label="Prescriber contact" value={medicine.prescriberContact || '--'} />
 
       <View style={styles.scheduleSection}>
-        <Text style={styles.sectionLabel}>Daily schedule</Text>
+        <Text style={styles.sectionLabel}>
+          {(medicine.dailySched || []).some(e => e.dayOfWeek) ? 'Weekly schedule' : 'Daily schedule'}
+        </Text>
         {getSchedulesEarliestToLatest(medicine.dailySched).map(({ entry, index }) => (
           <MedicineDetailsScheduleCard
             key={`${medicine.medEntryId}-schedule-${index}`}
@@ -221,7 +225,9 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const isTaken = scheduleStatus.status === 'taken';
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
-  const dayLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
+  const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
+  const dayOfWeekLabel = entry.dayOfWeek ? `on ${entry.dayOfWeek}` : '';
+  const dayLabel = tomorrowLabel && dayOfWeekLabel ? `${tomorrowLabel} (${dayOfWeekLabel})` : (dayOfWeekLabel || tomorrowLabel);
   const missedDisplayTime = isMissed
     ? getScheduleMissedDisplayTime(medicine, entry, index, observedNow)
     : null;

@@ -36,9 +36,10 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
   );
 }
 
-function InlineScheduleEditor({ entry, index, onSave, onCancel }) {
+function InlineScheduleEditor({ entry, index, isWeekly, onSave, onCancel }) {
   const [doseSize, setDoseSize] = useState(String(entry.doseSize));
   const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
+  const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || 'Monday');
   const [error, setError] = useState('');
 
   const handleSave = () => {
@@ -48,7 +49,7 @@ function InlineScheduleEditor({ entry, index, onSave, onCancel }) {
       return;
     }
     setError('');
-    const errMsg = onSave(index, { doseSize: trimmed, scheduledTime });
+    const errMsg = onSave(index, { doseSize: trimmed, scheduledTime, dayOfWeek });
     if (errMsg) {
       setError(errMsg);
     }
@@ -81,6 +82,21 @@ function InlineScheduleEditor({ entry, index, onSave, onCancel }) {
           />
         </View>
       </View>
+      {isWeekly && (
+        <View style={{ marginBottom: spacing.sm }}>
+          <NativeDateTimeField
+            mode="day"
+            label="Day of week"
+            placeholder="Select day"
+            accessibilityLabel="Day of week"
+            value={dayOfWeek}
+            onChange={(val) => {
+              setDayOfWeek(val);
+              setError('');
+            }}
+          />
+        </View>
+      )}
       {error ? <Text style={styles.inlineErrorText}>{error}</Text> : null}
       <View style={styles.inlineActionsRow}>
         <ActionButton
@@ -257,6 +273,7 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
 
 export function MedicineScheduleStep({
   editorMode,
+  selectedScheduleType,
   formState,
   scheduleDraft,
   scheduleEntries,
@@ -301,6 +318,17 @@ export function MedicineScheduleStep({
           onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
         />
 
+        {Boolean(selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly') && (
+          <NativeDateTimeField
+            mode="day"
+            label="Day of week"
+            placeholder="Select day"
+            accessibilityLabel="Day of week"
+            value={scheduleDraft.dayOfWeek}
+            onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
+          />
+        )}
+
         <NativeDateTimeField
           mode="time"
           label="Time"
@@ -333,7 +361,11 @@ export function MedicineScheduleStep({
                 ]}
               >
                 <View style={styles.scheduleCardRow}>
-                  <ScheduleEntryText entry={entry} unit={formState.unit} />
+                  <ScheduleEntryText
+                    entry={entry}
+                    unit={formState.unit}
+                    dayLabel={entry.dayOfWeek ? `on ${entry.dayOfWeek}` : ''}
+                  />
                   {editingScheduleIndex === null ? (
                     <View style={styles.scheduleEditActions}>
                       <View style={styles.iconActionCol}>
@@ -371,6 +403,7 @@ export function MedicineScheduleStep({
                   <InlineScheduleEditor
                     entry={entry}
                     index={index}
+                    isWeekly={selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly'}
                     onSave={onSaveInlineScheduleEntry}
                     onCancel={onCancelScheduleEdit}
                   />

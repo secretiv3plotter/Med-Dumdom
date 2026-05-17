@@ -33,6 +33,7 @@ const MedDailyScheduleSchema = {
     scheduleIndex: 'int',
     doseSize: 'int',
     scheduledTime: 'string?',
+    dayOfWeek: 'string?',
     instructions: 'string?',
     status: 'string',
     takenAt: 'date?',
@@ -70,6 +71,7 @@ const MedDailyScheduleHistorySchema = {
     scheduleIndex: 'int',
     doseSize: 'int',
     scheduledTime: 'string?',
+    dayOfWeek: 'string?',
     instructions: 'string?',
     finalStatus: 'string',
     takenAt: 'date?',
@@ -163,7 +165,7 @@ export const realmSchemas = [
   ApptTrackerHistorySchema,
 ];
 
-export const REALM_SCHEMA_VERSION = 9;
+export const REALM_SCHEMA_VERSION = 10;
 
 export const realmConfig = {
   schema: realmSchemas,
