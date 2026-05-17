@@ -10,6 +10,7 @@ export default function ActionButton({
   style,
   textStyle,
   disabled = false,
+  preserveFontSize = false,
 }) {
   const outline = variant === 'outline';
   const labelLength = label ? label.length : 0;

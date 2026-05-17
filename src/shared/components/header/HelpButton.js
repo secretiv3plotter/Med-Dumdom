@@ -15,9 +15,10 @@ export default function HelpButton({
   iconWrapStyle,
   circleStyle,
   textStyle,
+  iconColor: iconColorOverride,
   ...pressableProps
 }) {
-  const iconColor = disabled ? colors.bodyMuted : colors.title;
+  const iconColor = disabled ? colors.bodyMuted : iconColorOverride || colors.brand;
 
   return (
     <Pressable
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
+    gap: 0,
   },
   iconWrap: {
     alignItems: 'center',
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   defaultText: {
-    color: colors.title,
+    color: colors.brand,
   },
   disabledText: {
     color: colors.bodyMuted,

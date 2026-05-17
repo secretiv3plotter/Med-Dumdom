@@ -74,6 +74,46 @@ export const normalizeInteger = (value, fieldName, { allowZero = true, optional 
   return numericValue;
 };
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const getDaysForMonth = (monthOfYear) => {
+  const monthIndex = MONTHS.indexOf(monthOfYear);
+  if (monthIndex === -1) {
+    return 31;
+  }
+
+  return new Date(new Date().getFullYear(), monthIndex + 1, 0).getDate();
+};
+
+export const normalizeOptionalMonthOfYear = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+
+  const monthOfYear = normalizeRequiredString(value, fieldName);
+  if (!MONTHS.includes(monthOfYear)) {
+    throw new RangeError(`${fieldName} must be a valid month.`);
+  }
+
+  return monthOfYear;
+};
+
+export const normalizeOptionalDayOfMonth = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const dayOfMonth = normalizeInteger(value, fieldName, { allowZero: false });
+  if (dayOfMonth > 31) {
+    throw new RangeError(`${fieldName} must be between 1 and 31.`);
+  }
+
+  return dayOfMonth;
+};
+
 export const normalizeTime = (value, fieldName) => {
   if (value === undefined || value === null || value === '') {
     return '';
@@ -134,6 +174,97 @@ export const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
 export const toMinutes = (timeValue) => {
   const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+export const getIntervalMinutes = (entry) => {
+  const value = Number(entry?.intervalMinutes || 0);
+  return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
+
+export const getIntervalOccurrenceMinutes = (entry, dateValue = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return null;
+  }
+
+  const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
+  const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
+  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (currentDate.getTime() < firstDueAt.getTime()) {
+    return null;
+  }
+
+  const elapsedIntervals = Math.floor((currentDate.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
+  const occurrenceDate = new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+  return occurrenceDate.getHours() * 60 + occurrenceDate.getMinutes();
+};
+
+export const getIntervalOccurrenceDateTime = (entry, dateValue = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return null;
+  }
+
+  const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
+  const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
+  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (currentDate.getTime() < firstDueAt.getTime()) {
+    return null;
+  }
+
+  const elapsedIntervals = Math.floor((currentDate.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
+  return new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+};
+
+export const getIntervalNextOccurrenceDateTime = (entry, dateValue = new Date()) => {
+  const intervalMinutes = getIntervalMinutes(entry);
+  if (!intervalMinutes) {
+    return null;
+  }
+
+  const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
+  const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
+  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (currentDate.getTime() < firstDueAt.getTime()) {
+    return firstDueAt;
+  }
+
+  const occurrence = getIntervalOccurrenceDateTime(entry, currentDate);
+  return occurrence ? new Date(occurrence.getTime() + intervalMinutes * 60000) : firstDueAt;
+};
+
+export const getIntervalNextOccurrenceMinutes = (entry, dateValue = new Date()) => {
+  const nextOccurrence = getIntervalNextOccurrenceDateTime(entry, dateValue);
+  return nextOccurrence ? nextOccurrence.getHours() * 60 + nextOccurrence.getMinutes() : null;
+};
+
+export const isScheduleDateTimeInCurrentInterval = (entry, dateTimeValue, currentDateTime = new Date()) => {
+  if (!isIntervalScheduleEntry(entry) || !dateTimeValue) {
+    return false;
+  }
+
+  const actionDate = normalizeDate(dateTimeValue, 'dateTimeValue');
+  const currentDate = normalizeDate(currentDateTime, 'currentDateTime') ?? new Date();
+  if (!actionDate) {
+    return false;
+  }
+
+  const actionDay = new Date(actionDate.getTime());
+  const currentDay = new Date(currentDate.getTime());
+  actionDay.setHours(0, 0, 0, 0);
+  currentDay.setHours(0, 0, 0, 0);
+  if (actionDay.getTime() !== currentDay.getTime()) {
+    return false;
+  }
+
+  const occurrenceMinutes = getIntervalOccurrenceMinutes(entry, currentDate);
+  const nextOccurrenceMinutes = getIntervalNextOccurrenceMinutes(entry, currentDate);
+  const actionMinutes = actionDate.getHours() * 60 + actionDate.getMinutes();
+  return occurrenceMinutes !== null &&
+    actionMinutes >= occurrenceMinutes &&
+    (nextOccurrenceMinutes === null || nextOccurrenceMinutes >= 1440 || actionMinutes < nextOccurrenceMinutes);
 };
 
 export const dateTimeAtMinutes = (dateValue, minutes) => {
@@ -208,7 +339,10 @@ export const normalizeScheduleEntry = (entry, index) => {
     return {
       doseSize: 1,
       scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
+      intervalMinutes: null,
       dayOfWeek: '',
+      monthOfYear: '',
+      dayOfMonth: null,
       instructions: '',
       status: 'pending',
       takenAt: null,
@@ -225,6 +359,15 @@ export const normalizeScheduleEntry = (entry, index) => {
     allowZero: false,
   });
   const dayOfWeek = normalizeOptionalString(entry.dayOfWeek, `dailySched[${index}].dayOfWeek`);
+  const monthOfYear = normalizeOptionalMonthOfYear(entry.monthOfYear, `dailySched[${index}].monthOfYear`);
+  const dayOfMonth = normalizeOptionalDayOfMonth(entry.dayOfMonth, `dailySched[${index}].dayOfMonth`);
+  const intervalMinutes = normalizeInteger(entry.intervalMinutes, `dailySched[${index}].intervalMinutes`, { optional: true, allowZero: false });
+  if (monthOfYear && !dayOfMonth) {
+    throw new RangeError(`dailySched[${index}].dayOfMonth is required for monthly schedules.`);
+  }
+  if (monthOfYear && dayOfMonth > getDaysForMonth(monthOfYear)) {
+    throw new RangeError(`dailySched[${index}].dayOfMonth must be valid for ${monthOfYear}.`);
+  }
   const instructions = normalizeOptionalString(entry.instructions, `dailySched[${index}].instructions`);
   const status = normalizeScheduleStatus(entry.status, `dailySched[${index}].status`);
   const takenAt = normalizeOptionalDateTime(entry.takenAt, `dailySched[${index}].takenAt`);
@@ -237,7 +380,10 @@ export const normalizeScheduleEntry = (entry, index) => {
       entry.scheduledTime ?? entry.time ?? entry.mealTime,
       `dailySched[${index}].scheduledTime`
     ),
+    intervalMinutes,
     dayOfWeek,
+    monthOfYear,
+    dayOfMonth,
     instructions,
     status,
     takenAt,

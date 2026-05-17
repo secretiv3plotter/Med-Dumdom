@@ -12,6 +12,8 @@ export default function LargePopup({
   children,
   maxHeight = '82%',
   contentContainerStyle,
+  sheetStyle,
+  headerStyle,
 }) {
   const { height: viewportHeight } = useWindowDimensions();
   const hiddenOffset = Math.max(viewportHeight, 480);
@@ -71,13 +73,14 @@ export default function LargePopup({
         <Animated.View
           style={[
             styles.sheet,
+            sheetStyle,
             {
               maxHeight,
               transform: [{ translateY: slideAnimation }],
             },
           ]}
         >
-          {header ? <View style={styles.header}>{header}</View> : null}
+          {header ? <View style={[styles.header, headerStyle]}>{header}</View> : null}
           <ScrollView
             contentContainerStyle={[styles.content, contentContainerStyle]}
             showsVerticalScrollIndicator={false}

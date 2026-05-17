@@ -18,6 +18,7 @@ export default function CrudButton({
   variant = 'solid',
   disabled = false,
   style,
+  pressedStyle,
   circleStyle,
   textStyle,
   ...pressableProps
@@ -44,6 +45,7 @@ export default function CrudButton({
           gap: scaleLayoutValue(spacing.xxs),
         },
         pressed && !disabled && styles.pressed,
+        pressed && !disabled && pressedStyle,
         style,
       ]}
       {...pressableProps}

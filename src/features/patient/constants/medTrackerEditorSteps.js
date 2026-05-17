@@ -9,6 +9,7 @@ export const MEDICINE_SCHEDULE_TYPES = {
   WEEKLY: 'weekly',
   MONTHLY: 'monthly',
   REGULAR_DAILY: 'regular_daily',
+  REGULAR_HOURLY: 'regular_hourly',
   REGULAR_WEEKLY: 'regular_weekly',
   REGULAR_MONTHLY: 'regular_monthly',
   AS_NEEDED: 'asNeeded',
@@ -23,6 +24,7 @@ export const MEDICINE_SCHEDULE_TYPE_OPTIONS = [
 ];
 
 export const MEDICINE_SUB_INTERVAL_OPTIONS = [
+  { value: MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY, label: 'Hourly', caption: 'Repeats at regular hourly intervals.' },
   { value: MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY, label: 'Daily', caption: 'Repeats at regular daily intervals.' },
   { value: MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY, label: 'Weekly', caption: 'Repeats at regular weekly intervals.' },
   { value: MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY, label: 'Monthly', caption: 'Repeats at regular monthly intervals.' },
