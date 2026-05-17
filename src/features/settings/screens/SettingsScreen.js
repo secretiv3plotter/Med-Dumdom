@@ -155,7 +155,7 @@ export default function SettingsScreen({ navigation }) {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Delete Account</Text>
           <Text style={styles.helperText}>
-            This will remove your account, but it can still be recovered later.
+            You can undo this later if you need access again.
           </Text>
           <ActionButton
             label="Delete Account"
@@ -178,7 +178,7 @@ export default function SettingsScreen({ navigation }) {
           <View style={styles.dialogContainer}>
             <DialogBox
               title="Deactivate account?"
-              message="Are you sure you want to deactivate your account? This is a soft delete."
+              message="Deactivate your account? You can undo this later."
               actions={[
                 {
                   label: 'Cancel',
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 24,
+    borderRadius: radius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,

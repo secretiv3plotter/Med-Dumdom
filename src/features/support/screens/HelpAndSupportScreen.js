@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -21,12 +21,23 @@ const TAB_KEY_TO_ROUTE = {
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
 };
+const HELP_CATEGORY_LABELS = ['Account', 'Meds', 'Appts.', 'Settings'];
+const HELP_CATEGORY_VALUE_MAP = {
+  Account: 'Account',
+  Meds: 'Meds',
+  'Appts.': 'Appts',
+  Settings: 'Settings',
+};
+const APPOINTMENT_GREEN = '#52B788';
+const APPOINTMENT_GREEN_TEXT = '#1B6B4A';
+const APPOINTMENT_GREEN_SOFT = '#E8F7EF';
 export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Account');
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -35,15 +46,22 @@ export default function HelpAndSupportScreen({ navigation }) {
     }
   };
 
-  const { categories, results } = useMemo(() => {
+  const { results } = useMemo(() => {
     const normalizedQuery = searchTerm.trim();
-    const matchedFaqs = normalizedQuery ? faqService.searchFaqs(normalizedQuery) : faqService.getAllFaqs();
+    const selectedCategoryValue = HELP_CATEGORY_VALUE_MAP[selectedCategory] || '';
+    const faqsByCategory = faqService.getFaqsByCategory(selectedCategoryValue);
+    const matchedFaqs = normalizedQuery
+      ? (() => {
+          const matchedIds = new Set(faqService.searchFaqs(normalizedQuery).map((faq) => faq.faqId));
+          return faqsByCategory.filter((faq) => matchedIds.has(faq.faqId));
+        })()
+      : faqsByCategory;
 
     return {
-      categories: faqService.getFaqCategories(),
       results: matchedFaqs,
     };
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategory]);
+  const isAppointmentsSelected = selectedCategory === 'Appts.';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -75,28 +93,56 @@ export default function HelpAndSupportScreen({ navigation }) {
         />
 
         <View style={styles.categoryRow}>
-          {categories.map((category) => (
-            <View key={category} style={styles.categoryChip}>
-              <Text style={styles.categoryChipText}>{category}</Text>
-            </View>
+          {HELP_CATEGORY_LABELS.map((category) => (
+            <Pressable
+              key={category}
+              onPress={() => setSelectedCategory(category)}
+              style={[
+                styles.categoryChip,
+                selectedCategory === category ? styles.categoryChipActive : null,
+                category === 'Appts.' && selectedCategory === category ? styles.apptsCategoryChipActive : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryChipText,
+                  selectedCategory === category ? styles.categoryChipTextActive : null,
+                  category === 'Appts.' ? styles.apptsCategoryChipText : null,
+                  category === 'Appts.' && selectedCategory === category ? styles.apptsCategoryChipTextActive : null,
+                ]}
+              >
+                {category}
+              </Text>
+            </Pressable>
           ))}
         </View>
 
         <View style={styles.faqList}>
-          {results.map((item) => (
-            <View key={item.faqId} style={styles.faqCardWrap}>
-              <View style={styles.questionIconWrap}>
-                <Ionicons name="help-circle-outline" size={24} color={colors.brandText} />
+          {results.length ? (
+            results.map((item) => (
+              <View key={item.faqId} style={styles.faqCardWrap}>
+                <View style={styles.questionIconWrap}>
+                  <Ionicons
+                    name="help-circle-outline"
+                    size={24}
+                    color={isAppointmentsSelected ? APPOINTMENT_GREEN_TEXT : colors.brandText}
+                  />
+                </View>
+                <TextCard
+                  title={item.question}
+                  body={item.answer}
+                  cardStyle={[styles.faqCard, isAppointmentsSelected ? styles.apptsFaqCard : null]}
+                  titleStyle={[styles.faqQuestion, isAppointmentsSelected ? styles.apptsFaqQuestion : null]}
+                  bodyStyle={styles.faqAnswer}
+                />
               </View>
-              <TextCard
-                title={item.question}
-                body={item.answer}
-                cardStyle={styles.faqCard}
-                titleStyle={styles.faqQuestion}
-                bodyStyle={styles.faqAnswer}
-              />
+            ))
+          ) : (
+            <View style={styles.emptyStateCard}>
+              <Text style={styles.emptyStateTitle}>No FAQs found</Text>
+              <Text style={styles.emptyStateBody}>Try a different search keyword in {selectedCategory}.</Text>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
 
@@ -145,10 +191,27 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxs,
     backgroundColor: colors.surface,
   },
+  categoryChipActive: {
+    backgroundColor: colors.brandSoft,
+    borderColor: colors.brand,
+  },
   categoryChipText: {
     ...typography.bodySmall,
     color: colors.body,
     fontWeight: '700',
+  },
+  categoryChipTextActive: {
+    color: colors.brandText,
+  },
+  apptsCategoryChipText: {
+    color: '#000000',
+  },
+  apptsCategoryChipTextActive: {
+    color: '#000000',
+  },
+  apptsCategoryChipActive: {
+    borderColor: APPOINTMENT_GREEN,
+    backgroundColor: APPOINTMENT_GREEN_SOFT,
   },
   faqList: {
     gap: spacing.md,
@@ -170,13 +233,37 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
   faqQuestion: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.brandText,
     fontWeight: '700',
   },
   faqAnswer: {
-    ...typography.subtitle,
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  apptsFaqCard: {
+    borderColor: APPOINTMENT_GREEN,
+    backgroundColor: APPOINTMENT_GREEN_SOFT,
+  },
+  apptsFaqQuestion: {
+    color: '#000000',
+  },
+  emptyStateCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  emptyStateTitle: {
+    ...typography.body,
     color: colors.title,
+    fontWeight: '700',
+  },
+  emptyStateBody: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
   },
   footerNav: {
     position: 'absolute',
