@@ -57,10 +57,10 @@ export default function ActionButton({
           paddingHorizontal: scaleLayoutValue(spacing.xs),
         },
         outline ? styles.outlineButton : styles.solidButton,
+        style,
         pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
         pressed && !disabled && pressedStyle,
         disabled && styles.disabled,
-        style,
       ]}
     >
       <Text 

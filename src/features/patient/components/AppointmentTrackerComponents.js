@@ -117,6 +117,7 @@ export function AppointmentDetailsContent({ appointment, observedNow, onStatusCh
               onPress={() => onStatusChange(appointment, 'clear')}
               variant="outline"
               style={[styles.scheduleActionButton, styles.revertStatusButton]}
+              pressedStyle={styles.revertStatusButtonPressed}
               textStyle={styles.revertStatusButtonText}
               preserveFontSize
             />
@@ -294,6 +295,10 @@ const styles = StyleSheet.create({
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
     borderColor: colors.error,
+  },
+  revertStatusButtonPressed: {
+    backgroundColor: '#FECACA',
+    borderColor: '#B91C1C',
   },
   revertStatusButtonText: {
     color: colors.error,

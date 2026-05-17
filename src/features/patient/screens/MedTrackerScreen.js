@@ -331,7 +331,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     const newUnit = {
       unitId: `unit-${lowercaseName}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      name: cleanName,
+      name: lowercaseName,
       isCustom: true,
     };
 
@@ -347,7 +347,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       DEFAULT_UNITS.push(newUnit);
     }
 
-    setFormState((current) => ({ ...current, unit: cleanName }));
+    setFormState((current) => ({ ...current, unit: lowercaseName }));
     refresh();
   };
 

@@ -26,6 +26,68 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const MONTHLY_MISSED_GRACE_DAYS = 7;
+
+const isDailyScheduleEntry = (scheduleEntry) =>
+  !isIntervalScheduleEntry(scheduleEntry) &&
+  !scheduleEntry?.dayOfWeek &&
+  !scheduleEntry?.monthOfYear &&
+  !scheduleEntry?.dayOfMonth;
+
+const getPreviousWeeklyScheduleDate = (scheduleEntry, currDate = new Date()) => {
+  if (!scheduleEntry?.dayOfWeek || !DAYS_OF_WEEK.includes(scheduleEntry.dayOfWeek)) {
+    return null;
+  }
+
+  const currentDay = normalizeOptionalDate(currDate, 'currDate');
+  if (!currentDay) {
+    return null;
+  }
+
+  currentDay.setHours(0, 0, 0, 0);
+  const targetDayIndex = DAYS_OF_WEEK.indexOf(scheduleEntry.dayOfWeek);
+  const daysSinceTarget = (currentDay.getDay() - targetDayIndex + 7) % 7;
+  if (daysSinceTarget === 0) {
+    return null;
+  }
+
+  const previousScheduleDate = new Date(currentDay.getTime());
+  previousScheduleDate.setDate(previousScheduleDate.getDate() - daysSinceTarget);
+  return previousScheduleDate;
+};
+
+const getPreviousMonthlyScheduleDate = (scheduleEntry, currDate = new Date()) => {
+  const dayOfMonth = Number(scheduleEntry?.dayOfMonth);
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1) {
+    return null;
+  }
+
+  const currentDay = normalizeOptionalDate(currDate, 'currDate');
+  if (!currentDay) {
+    return null;
+  }
+
+  currentDay.setHours(0, 0, 0, 0);
+
+  const monthIndex = scheduleEntry?.monthOfYear ? MONTHS.indexOf(scheduleEntry.monthOfYear) : currentDay.getMonth();
+  if (monthIndex === -1) {
+    return null;
+  }
+
+  const buildDate = (year) => {
+    const date = new Date(year, monthIndex, dayOfMonth);
+    date.setHours(0, 0, 0, 0);
+    return date.getMonth() === monthIndex && date.getDate() === dayOfMonth ? date : null;
+  };
+
+  let previousScheduleDate = buildDate(currentDay.getFullYear());
+  if (!previousScheduleDate || previousScheduleDate >= currentDay) {
+    previousScheduleDate = buildDate(currentDay.getFullYear() - 1);
+  }
+
+  return previousScheduleDate;
+};
+
 export const isScheduleActiveOnDate = (scheduleEntry, currDate = new Date()) => {
   const currentDay = normalizeOptionalDate(currDate, 'currDate');
   if (!currentDay) {
@@ -148,6 +210,29 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
   }
 
   if (!isScheduleActiveOnDate(scheduleEntry, currDate)) {
+    const previousWeeklyScheduleDate = getPreviousWeeklyScheduleDate(scheduleEntry, currDate);
+    if (
+      scheduleEntry.status === 'pending' &&
+      previousWeeklyScheduleDate &&
+      isActiveOnDate(medEntry, previousWeeklyScheduleDate)
+    ) {
+      return 'missed';
+    }
+
+    const previousMonthlyScheduleDate = getPreviousMonthlyScheduleDate(scheduleEntry, currDate);
+    if (
+      scheduleEntry.status === 'pending' &&
+      previousMonthlyScheduleDate &&
+      isActiveOnDate(medEntry, previousMonthlyScheduleDate)
+    ) {
+      const currentDay = normalizeOptionalDate(currDate, 'currDate');
+      currentDay?.setHours(0, 0, 0, 0);
+      const daysSinceMonthlySchedule = currentDay
+        ? Math.floor((currentDay.getTime() - previousMonthlyScheduleDate.getTime()) / 86400000)
+        : 0;
+      return daysSinceMonthlySchedule > MONTHLY_MISSED_GRACE_DAYS ? 'missed' : 'pending';
+    }
+
     return 'upcoming';
   }
 
@@ -167,11 +252,21 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
 
   const currentDay = new Date(currentTime.getTime());
   currentDay.setHours(0, 0, 0, 0);
+  const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
   if (isBeforeCurrentDay(currDate, currentDay)) {
+    if (
+      isDailyScheduleEntry(scheduleEntry) &&
+      currentMinutes !== null &&
+      scheduleMinutes !== null &&
+      currentMinutes < scheduleMinutes
+    ) {
+      return 'pending';
+    }
+
     return 'missed';
   }
 
-  const currentMinutes = toMinutes(normalizeTime(currentTime, 'currTime'));
   if (isIntervalScheduleEntry(scheduleEntry)) {
     const occurrenceMinutes = getIntervalOccurrenceMinutes(scheduleEntry, currentTime);
     if (currentMinutes === null || occurrenceMinutes === null) {
@@ -185,7 +280,6 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
     return currentMinutes >= occurrenceMinutes ? 'due' : 'upcoming';
   }
 
-  const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
   if (currentMinutes === null || scheduleMinutes === null) {
     return 'upcoming';
   }

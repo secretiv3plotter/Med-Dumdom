@@ -202,6 +202,7 @@ function SchedulePreviewCard({
             }}
             variant="outline"
             style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
           />
@@ -323,6 +324,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
             }}
             variant="outline"
             style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
           />
@@ -573,6 +575,10 @@ const styles = StyleSheet.create({
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
     borderColor: colors.error,
+  },
+  revertStatusButtonPressed: {
+    backgroundColor: '#FECACA',
+    borderColor: '#B91C1C',
   },
   revertStatusButtonText: {
     color: colors.error,

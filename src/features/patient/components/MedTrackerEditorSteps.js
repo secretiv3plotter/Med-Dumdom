@@ -9,7 +9,7 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import { SegmentButton } from './MedTrackerScreenComponents';
 import { MEDICINE_SCHEDULE_TYPE_OPTIONS, MEDICINE_SUB_INTERVAL_OPTIONS } from '../constants/medTrackerEditorSteps';
-import { capitalize, getScheduleDayLabel, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
+import { getScheduleDayLabel, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -45,7 +45,7 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
         accessibilityState={{ selected }}
       >
         <Text style={[styles.unitBadgeText, selected && styles.unitBadgeTextSelected]}>
-          {capitalize(label)}
+          {label}
         </Text>
       </Pressable>
       <Pressable
@@ -244,7 +244,7 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
             return (
               <UnitSegmentButton
                 key={unit.unitId}
-                label={unit.name === 'mg' ? 'Mg' : capitalize(unit.name)}
+                label={unit.name}
                 selected={isSelected}
                 onPress={() =>
                   setFormState((current) => ({
@@ -263,7 +263,7 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
             <InputBar
               placeholder="Add custom unit"
               value={customUnitText}
-              onChangeText={setCustomUnitText}
+              onChangeText={(value) => setCustomUnitText(value.toLowerCase())}
             />
           </View>
           <ActionButton
