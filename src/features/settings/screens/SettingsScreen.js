@@ -271,6 +271,9 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   dialogContainer: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
     borderRadius: radius.lg,
     overflow: 'hidden',
   },

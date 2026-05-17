@@ -583,6 +583,6 @@ const styles = StyleSheet.create({
   },
   confirmDialog: {
     width: '100%',
-    maxWidth: moderateScale(420),
+    maxWidth: moderateScale(360),
   },
 });
