@@ -453,7 +453,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
             <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
               <DialogBox
                 title="Delete history records?"
-                message={`Are you sure you want to delete ${pendingDeleteTarget?.label || 'these records'}? This will remove ${pendingDeleteTarget?.count || 0} history ${pendingDeleteTarget?.count === 1 ? 'record' : 'records'}.`}
+                message={`Delete ${pendingDeleteTarget?.label || 'these records'}? You can undo this later.`}
                 actions={[
                   { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
                   { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecords },

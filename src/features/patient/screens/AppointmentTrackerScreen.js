@@ -620,10 +620,16 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         <ConfirmationDialogModal
           visible={true}
           title="Delete appointment?"
-          message={`Are you sure you want to delete ${pendingDeleteAppointment?.concern || 'this appointment'} from your tracker?`}
+          message={`Delete ${pendingDeleteAppointment?.concern || 'this appointment'} from your tracker? You can undo this later.`}
           confirmLabel="Delete"
           onCancel={() => setPendingDeleteAppointment(null)}
           onConfirm={confirmDeleteAppointment}
+          cancelActionStyle={styles.confirmCancelButton}
+          cancelTextStyle={styles.confirmCancelText}
+          cancelPressedStyle={styles.confirmCancelPressed}
+          confirmActionStyle={styles.confirmSolidButton}
+          confirmTextStyle={styles.confirmSolidText}
+          confirmPressedStyle={styles.confirmSolidPressed}
         />
       ) : null}
 
@@ -635,6 +641,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           confirmLabel="Revert"
           onCancel={() => setPendingRevertAppointment(null)}
           onConfirm={confirmRevertStatus}
+          cancelActionStyle={styles.confirmCancelButton}
+          cancelTextStyle={styles.confirmCancelText}
+          cancelPressedStyle={styles.confirmCancelPressed}
+          confirmActionStyle={styles.confirmSolidButton}
+          confirmTextStyle={styles.confirmSolidText}
+          confirmPressedStyle={styles.confirmSolidPressed}
         />
       ) : null}
 
@@ -989,6 +1001,27 @@ const styles = StyleSheet.create({
   },
   closeButtonPressed: {
     backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmCancelButton: {
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  confirmCancelText: {
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmCancelPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmSolidButton: {
+    backgroundColor: APPOINTMENT_ACCENT,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  confirmSolidText: {
+    color: colors.surface,
+  },
+  confirmSolidPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_TEXT,
     borderColor: APPOINTMENT_ACCENT_TEXT,
   },
   footerButton: {

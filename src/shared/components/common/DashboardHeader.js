@@ -14,6 +14,8 @@ export default function DashboardHeader({
   onSettingsPress,
   onProfilePress,
   profileImageSource,
+  profileContent = null,
+  leftGroupStyle,
   helpDisabled = false,
   settingsDisabled = false,
   profileDisabled = false,
@@ -21,25 +23,16 @@ export default function DashboardHeader({
 }) {
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.leftGroup}>
+      <View style={[styles.leftGroup, leftGroupStyle]}>
         <ProfileButton
           onPress={onProfilePress}
           disabled={profileDisabled}
           imageSource={profileImageSource}
         />
+        {profileContent}
       </View>
 
       <View style={styles.rightGroup}>
-        <HelpButton
-          onPress={onHelpPress}
-          disabled={helpDisabled}
-          icon="help-circle"
-          iconSize={HELP_ICON_SIZE}
-          iconColor={HEADER_ACTION_COLOR}
-          style={styles.headerActionButton}
-          iconWrapStyle={[styles.headerActionIconWrap, HEADER_ACTION_ICON_OFFSET]}
-          textStyle={styles.headerActionText}
-        />
         <HelpButton
           label="Settings"
           icon="settings"
@@ -51,6 +44,16 @@ export default function DashboardHeader({
           onPress={onSettingsPress}
           disabled={settingsDisabled}
         />
+        <HelpButton
+          onPress={onHelpPress}
+          disabled={helpDisabled}
+          icon="help-circle"
+          iconSize={HELP_ICON_SIZE}
+          iconColor={HEADER_ACTION_COLOR}
+          style={styles.headerActionButton}
+          iconWrapStyle={[styles.headerActionIconWrap, HEADER_ACTION_ICON_OFFSET]}
+          textStyle={styles.headerActionText}
+        />
       </View>
     </View>
   );
@@ -60,17 +63,18 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     width: '100%',
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   rightGroup: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   headerActionButton: {
     width: HEADER_ACTION_TOUCH_SIZE,

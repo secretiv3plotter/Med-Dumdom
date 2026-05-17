@@ -371,37 +371,40 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
           accessibilityLabel="Search previous records"
           value={searchQuery}
           onChangeText={setSearchQuery}
+          showSearchIcon
           autoComplete="off"
           focusBorderColor={APPOINTMENT_ACCENT}
         />
 
-        <View style={styles.breadcrumbRow}>
-          {selectedYear !== null ? (
-            <BreadcrumbButton
-              label={String(selectedYear)}
-              onPress={() => {
-                setSelectedYear(null);
-                setSelectedMonth(null);
-                setSelectedDayKey(null);
-              }}
-            />
-          ) : null}
-          {selectedMonth !== null ? (
-            <BreadcrumbButton
-              label={monthName(selectedMonth)}
-              onPress={() => {
-                setSelectedMonth(null);
-                setSelectedDayKey(null);
-              }}
-            />
-          ) : null}
-          {selectedDayGroup ? (
-            <BreadcrumbButton
-              label={selectedDayGroup.label}
-              onPress={() => setSelectedDayKey(null)}
-            />
-          ) : null}
-        </View>
+        {selectedYear !== null || selectedMonth !== null || selectedDayGroup ? (
+          <View style={styles.breadcrumbRow}>
+            {selectedYear !== null ? (
+              <BreadcrumbButton
+                label={String(selectedYear)}
+                onPress={() => {
+                  setSelectedYear(null);
+                  setSelectedMonth(null);
+                  setSelectedDayKey(null);
+                }}
+              />
+            ) : null}
+            {selectedMonth !== null ? (
+              <BreadcrumbButton
+                label={monthName(selectedMonth)}
+                onPress={() => {
+                  setSelectedMonth(null);
+                  setSelectedDayKey(null);
+                }}
+              />
+            ) : null}
+            {selectedDayGroup ? (
+              <BreadcrumbButton
+                label={selectedDayGroup.label}
+                onPress={() => setSelectedDayKey(null)}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {groupedRecords.length && selectedYear === null ? (
           <>
@@ -523,10 +526,24 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
             <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
               <DialogBox
                 title="Delete Record"
-                message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? This action cannot be undone.`}
+                message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? You can undo this later.`}
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
-                  { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecord },
+                  {
+                    label: 'Cancel',
+                    variant: 'outline',
+                    onPress: () => setPendingDeleteTarget(null),
+                    style: styles.confirmCancelButton,
+                    textStyle: styles.confirmCancelText,
+                    pressedStyle: styles.confirmCancelPressed,
+                  },
+                  {
+                    label: 'Delete',
+                    variant: 'solid',
+                    onPress: confirmDeleteRecord,
+                    style: styles.confirmSolidButton,
+                    textStyle: styles.confirmSolidText,
+                    pressedStyle: styles.confirmSolidPressed,
+                  },
                 ]}
               />
             </Pressable>
@@ -678,7 +695,8 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   content: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
     paddingBottom: CONTENT_BOTTOM_PADDING,
     gap: spacing.sm,
   },
@@ -982,6 +1000,27 @@ const styles = StyleSheet.create({
   },
   closeButtonPressed: {
     backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmCancelButton: {
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  confirmCancelText: {
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmCancelPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_PRESSED,
+    borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  confirmSolidButton: {
+    backgroundColor: APPOINTMENT_ACCENT,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  confirmSolidText: {
+    color: colors.surface,
+  },
+  confirmSolidPressed: {
+    backgroundColor: APPOINTMENT_ACCENT_TEXT,
     borderColor: APPOINTMENT_ACCENT_TEXT,
   },
   yearSection: {

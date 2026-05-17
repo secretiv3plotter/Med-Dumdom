@@ -67,12 +67,14 @@ export default function DialogBox({
               onPress={action.onPress}
               variant={action.variant || 'solid'}
               disabled={action.disabled}
-              style={styles.actionButton}
+              style={[styles.actionButton, action.style]}
+              pressedStyle={action.pressedStyle}
               textStyle={[
                 styles.actionButtonText,
                 action.variant === 'outline'
                   ? styles.outlineActionButtonText
                   : styles.solidActionButtonText,
+                action.textStyle,
               ]}
             />
           </View>

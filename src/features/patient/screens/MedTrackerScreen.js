@@ -812,7 +812,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         <ConfirmationDialogModal
           visible={true}
           title="Delete medicine?"
-          message={`Are you sure you want to delete ${pendingDeleteMedicine?.medName || 'this medicine'} from your med tracker?`}
+          message={`Delete ${pendingDeleteMedicine?.medName || 'this medicine'} from your med tracker? You can undo this later.`}
           confirmLabel="Delete"
           onCancel={() => setPendingDeleteMedicine(null)}
           onConfirm={confirmDeleteMedicine}
@@ -823,7 +823,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         <ConfirmationDialogModal
           visible={true}
           title="Delete schedule item?"
-          message="Are you sure you want to delete this schedule item?"
+          message="Delete this schedule item? You can undo this later."
           confirmLabel="Delete"
           onCancel={() => setPendingDeleteScheduleIndex(null)}
           onConfirm={confirmDeleteScheduleEntry}

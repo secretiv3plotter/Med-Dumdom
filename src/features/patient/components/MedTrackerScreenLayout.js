@@ -209,6 +209,12 @@ export function ConfirmationDialogModal({
   confirmLabel,
   onCancel,
   onConfirm,
+  cancelActionStyle,
+  cancelTextStyle,
+  cancelPressedStyle,
+  confirmActionStyle,
+  confirmTextStyle,
+  confirmPressedStyle,
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -218,8 +224,22 @@ export function ConfirmationDialogModal({
             title={title}
             message={message}
             actions={[
-              { label: 'Cancel', variant: 'outline', onPress: onCancel },
-              { label: confirmLabel, variant: 'solid', onPress: onConfirm },
+              {
+                label: 'Cancel',
+                variant: 'outline',
+                onPress: onCancel,
+                style: cancelActionStyle,
+                textStyle: cancelTextStyle,
+                pressedStyle: cancelPressedStyle,
+              },
+              {
+                label: confirmLabel,
+                variant: 'solid',
+                onPress: onConfirm,
+                style: confirmActionStyle,
+                textStyle: confirmTextStyle,
+                pressedStyle: confirmPressedStyle,
+              },
             ]}
           />
         </Pressable>
