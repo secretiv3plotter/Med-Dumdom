@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
-import { scaleLayoutValue } from '../../theme/textScale';
+import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 const HOME_NAV_PRESSED = '#E5E7EB';
 const HOME_NAV_PRESSED_BORDER = '#475569';
 
 export default function HomeButton({ onPress, variant = 'outline' }) {
   const isSolid = variant === 'solid';
+  const { darkModeEnabled } = useTextScale();
   const iconAndTextColor = colors.bodyMuted;
+  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#E5E7EB';
+  const pressedBorderColor = darkModeEnabled ? colors.border : '#475569';
 
   return (
     <Pressable
@@ -28,7 +31,13 @@ export default function HomeButton({ onPress, variant = 'outline' }) {
           paddingVertical: scaleLayoutValue(spacing.xs),
         },
         isSolid ? styles.solidButton : styles.outlineButton,
+        { backgroundColor: isSolid ? colors.pageBg : colors.surface },
         pressed && styles.pressed,
+        pressed && {
+          backgroundColor: pressedBackgroundColor,
+          borderWidth: 1,
+          borderColor: pressedBorderColor,
+        },
       ]}
     >
       <Ionicons

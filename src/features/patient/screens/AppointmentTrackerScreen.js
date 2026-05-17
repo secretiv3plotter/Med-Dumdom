@@ -228,6 +228,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       </View>
       <AddButton
         onPress={handleAddAppointment}
+        iconOnly
         circleStyle={styles.appointmentAddCircle}
         textStyle={styles.appointmentAddText}
         pressedStyle={styles.appointmentAddPressed}
@@ -383,7 +384,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.topHeader}>
+      <View style={[styles.topHeader, { backgroundColor: colors.pageBg }]}>
         <View style={styles.backButtonRow}>
           <BackButton onPress={() => navigation?.navigate?.(ROUTES.HOME)} />
         </View>
@@ -658,7 +659,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       ) : null}
 
       <View
-        style={styles.footerNav}
+        style={[styles.footerNav, { backgroundColor: colors.pageBg }]}
         onLayout={(event) => {
           const nextHeight = Math.ceil(event.nativeEvent.layout.height);
           setFooterNavHeight((currentHeight) => (

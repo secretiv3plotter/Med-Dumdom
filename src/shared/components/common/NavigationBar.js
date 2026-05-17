@@ -4,6 +4,7 @@ import { colors, radius, spacing } from '../../theme';
 import AppointmentTrackerButton from '../navigation/AppointmentTrackerButton';
 import HomeButton from '../navigation/HomeButton';
 import MedTrackerButton from '../navigation/MedTrackerButton';
+import { useTextScale } from '../../theme/textScale';
 
 export default function NavigationBar({
   medDisabled = false,
@@ -12,6 +13,7 @@ export default function NavigationBar({
   onNavigate,
   showPressAlert = true,
 }) {
+  const { darkModeEnabled } = useTextScale();
   const [internalSelectedTab, setInternalSelectedTab] = useState('home');
   const selectedTab = selectedTabProp ?? internalSelectedTab;
 
@@ -26,7 +28,7 @@ export default function NavigationBar({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: darkModeEnabled ? 'rgba(0, 0, 0, 0.9)' : '#0284C7' }]}>
       <MedTrackerButton
         variant={selectedTab === 'med' ? 'solid' : 'outline'}
         onPress={() => onTabPress('med', 'Med')}

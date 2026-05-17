@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
-import { scaleLayoutValue } from '../../theme/textScale';
+import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 export default function BackButton({
   onPress = () => {},
@@ -12,6 +12,8 @@ export default function BackButton({
   iconStyle,
   labelStyle,
 }) {
+  const { darkModeEnabled } = useTextScale();
+
   return (
     <Pressable
       onPress={onPress}
@@ -27,6 +29,9 @@ export default function BackButton({
           minWidth: scaleLayoutValue(BUTTON_HEIGHT),
         },
         pressed && !disabled && styles.pressed,
+        pressed && !disabled && {
+          backgroundColor: darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF',
+        },
         disabled && styles.disabled,
         style,
       ]}

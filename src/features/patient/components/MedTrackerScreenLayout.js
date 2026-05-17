@@ -12,22 +12,24 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 import { MedTrackerEditorContent } from './MedTrackerEditorContent';
 import { MedicineDetailsContent, MedicinePreviewCard } from './MedTrackerScreenComponents';
 
 export function MedTrackerHeader({ onBack, onCreate, pinHeader = true }) {
+  const { darkModeEnabled } = useTextScale();
   const headerRow = (
     <View style={styles.headerRow}>
       <View style={styles.headerTextWrap}>
         <Text style={styles.title}>Medicines</Text>
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
-      <AddButton onPress={onCreate} />
+      <AddButton onPress={onCreate} iconOnly />
     </View>
   );
 
   return (
-    <View style={styles.topHeader}>
+    <View style={[styles.topHeader, { backgroundColor: colors.pageBg, borderBottomColor: darkModeEnabled ? colors.border : 'transparent' }]}>
       <View style={styles.backButtonRow}>
         <BackButton onPress={onBack} />
       </View>
@@ -43,7 +45,7 @@ export function MedTrackerHeaderContent({ onCreate }) {
         <Text style={styles.title}>Medicines</Text>
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
-      <AddButton onPress={onCreate} />
+      <AddButton onPress={onCreate} iconOnly />
     </View>
   );
 }
@@ -130,8 +132,8 @@ export function MedicineDetailsPopup({
         ) : null
       }
       contentContainerStyle={styles.modalContent}
-      sheetStyle={styles.medModalSheet}
-      headerStyle={styles.medModalHeader}
+      sheetStyle={[styles.medModalSheet, { backgroundColor: colors.surface }]}
+      headerStyle={[styles.medModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
     >
       {medicine ? (
         <>
@@ -188,8 +190,8 @@ export function MedicineEditorPopup({
         </View>
       }
       contentContainerStyle={styles.modalContent}
-      sheetStyle={styles.medModalSheet}
-      headerStyle={styles.medModalHeader}
+      sheetStyle={[styles.medModalSheet, { backgroundColor: colors.surface }]}
+      headerStyle={[styles.medModalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
     >
       <MedTrackerEditorContent
         editorMode={editorMode}
@@ -402,7 +404,6 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   topHeader: {
-    backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
     paddingTop: BACK_HEADER_TOP_OFFSET,
     paddingBottom: BACK_HEADER_BOTTOM_PADDING,

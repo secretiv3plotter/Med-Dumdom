@@ -110,9 +110,11 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
     position: 'relative',
+    backgroundColor: colors.pageBg,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: colors.pageBg,
   },
   content: {
     flexGrow: 1,

@@ -159,7 +159,7 @@ export default function ProfileScreen({ navigation }) {
         style={styles.keyboardWrap}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.stickyTop}>
+        <View style={[styles.stickyTop, { backgroundColor: colors.pageBg }]}>
           <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
           {pinHeader ? (
             <View style={styles.headerBlock}>
@@ -288,7 +288,7 @@ export default function ProfileScreen({ navigation }) {
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
-          <View style={styles.footerNav}>
+          <View style={[styles.footerNav, { backgroundColor: colors.pageBg }]}>
             <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
           </View>
         ) : null}

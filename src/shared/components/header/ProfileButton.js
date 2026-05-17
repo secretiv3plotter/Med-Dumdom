@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
-import { scaleLayoutValue } from '../../theme/textScale';
+import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 const PROFILE_BUTTON_SIZE = accessibility.minTouchTarget + spacing.xs;
 
@@ -18,7 +18,9 @@ export default function ProfileButton({
   textStyle,
   ...pressableProps
 }) {
+  const { darkModeEnabled } = useTextScale();
   const iconColor = disabled ? colors.bodyMuted : colors.title;
+  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
 
   return (
     <Pressable
@@ -35,6 +37,7 @@ export default function ProfileButton({
           gap: scaleLayoutValue(spacing.xxs),
         },
         pressed && !disabled && styles.pressed,
+        pressed && !disabled && { backgroundColor: pressedBackgroundColor },
         style,
       ]}
       {...pressableProps}

@@ -1,7 +1,7 @@
 //text based button (currently only solid and outline variants)
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, radius, spacing, typography } from '../../theme';
-import { scaleFontSize, scaleLayoutValue } from '../../theme/textScale';
+import { scaleFontSize, scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 export default function ActionButton({
   label = '',
@@ -14,6 +14,7 @@ export default function ActionButton({
   preserveFontSize = false,
   hitSlop = { top: 8, bottom: 8, left: 8, right: 8 },
 }) {
+  const { darkModeEnabled } = useTextScale();
   const outline = variant === 'outline';
   const labelLength = label ? label.length : 0;
   
@@ -38,6 +39,7 @@ export default function ActionButton({
 
   // Format using platform-specific helper (rem on Web, scaled px on Mobile)
   const finalFontSize = scaleFontSize(dynamicFontSize);
+  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
 
   return (
     <Pressable
@@ -57,7 +59,9 @@ export default function ActionButton({
           paddingHorizontal: scaleLayoutValue(spacing.xs),
         },
         outline ? styles.outlineButton : styles.solidButton,
+        outline ? { backgroundColor: colors.surface, borderColor: colors.brand } : { backgroundColor: colors.brand },
         pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
+        pressed && !disabled && (outline ? { backgroundColor: pressedBackgroundColor, borderColor: colors.brandText } : null),
         pressed && !disabled && pressedStyle,
         disabled && styles.disabled,
         style,
