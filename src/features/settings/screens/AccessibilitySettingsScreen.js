@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -14,6 +14,7 @@ import ToggleButton from '../../../shared/components/common/ToggleButton';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
+import Slider from '@react-native-community/slider';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -22,8 +23,6 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 const CURRENT_USER_ID = 'current-user';
-
-const TEXT_SIZE_OPTIONS = ['small', 'medium', 'large'];
 
 const ACCESSIBILITY_TOGGLES = [
   { key: 'highContrastEnabled', label: 'High contrast', toggle: 'toggleHighContrast' },
@@ -43,6 +42,8 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
 
+  const [sliderValue, setSliderValue] = useState(1);
+
   const canGoBack =
     typeof navigation?.canGoBack === 'function'
       ? navigation.canGoBack()
@@ -55,10 +56,23 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     }
   };
 
-  const textSizeLabel = useMemo(() => settings.textSizeLevel || 'medium', [settings.textSizeLevel]);
+  const textSizeLevel = useMemo(() => {
+    const parsed = Number(settings.textSizeLevel);
+
+    return Number.isNaN(parsed) ? 1 : parsed;
+  }, [settings.textSizeLevel]);
+
+  useEffect(() => {
+    setSliderValue(textSizeLevel);
+  }, [textSizeLevel]);
 
   const setTextSizeLevel = (nextLevel) => {
-    setSettings(accessibilitySettingsService.updateTextSizeLevel(CURRENT_USER_ID, nextLevel));
+    setSettings(
+      accessibilitySettingsService.updateTextSizeLevel(
+        CURRENT_USER_ID,
+        nextLevel
+      )
+    );
   };
 
   const toggleSetting = (toggleMethod) => {
@@ -66,29 +80,46 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyTop}>
-        <BackButton onPress={() => canGoBack && navigation?.goBack?.()} disabled={!canGoBack} showLabel={false} />
-      </View>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <View style={styles.stickyTop}>
+      <BackButton
+        onPress={() => navigation?.navigate?.(ROUTES.SETTINGS)}
+      />
+    </View>
+
+    <View style={styles.headerBlock}>
+      <Text style={styles.title}>Accessibility Settings</Text>
+      <Text style={styles.subtitle}>Adjust the same accessibility options supported by the model layer.</Text>
+     </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Accessibility Settings</Text>
-        <Text style={styles.subtitle}>Adjust the same accessibility options supported by the model layer.</Text>
-
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Text size</Text>
-          <View style={styles.textSizeRow}>
-            {TEXT_SIZE_OPTIONS.map((option) => (
-              <ActionButton
-                key={option}
-                label={option.charAt(0).toUpperCase() + option.slice(1)}
-                variant={textSizeLabel === option ? 'solid' : 'outline'}
-                onPress={() => setTextSizeLevel(option)}
-                style={styles.textSizeButton}
-              />
-            ))}
+          <View style={styles.sliderHeader}>
+            <Text style={styles.sliderLabel}>A</Text>
+
+            <Text style={styles.sliderValue}>
+              {sliderValue.toFixed(1)}x
+            </Text>
+
+            <Text style={styles.sliderLabelLarge}>A</Text>
           </View>
+
+          <Slider
+            style={styles.slider}
+            minimumValue={0.8}
+            maximumValue={1.5}
+            step={0.1}
+            value={sliderValue}
+            onValueChange={setSliderValue}
+            onSlidingComplete={setTextSizeLevel}
+            minimumTrackTintColor={colors.brand}
+            maximumTrackTintColor={colors.border}
+            thumbTintColor={colors.brand}
+          />
         </View>
+
+        
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Accessibility toggles</Text>
@@ -128,8 +159,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingTop: BACK_HEADER_RESERVED_HEIGHT,
-    paddingBottom: 150,
+    paddingBottom: 140,
     gap: spacing.sm,
   },
   title: {
@@ -141,7 +171,7 @@ const styles = StyleSheet.create({
     color: colors.bodyMuted,
   },
   sectionCard: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xxs,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -153,15 +183,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.title,
     fontWeight: '700',
-  },
-  textSizeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  textSizeButton: {
-    flexBasis: 92,
-    minWidth: 0,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -186,14 +207,46 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 30,
+    elevation: 12,
+    backgroundColor: colors.pageBg,
   },
-  stickyTop: {
-    position: 'absolute',
-    top: BACK_HEADER_TOP_OFFSET,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    stickyTop: {
+    backgroundColor: colors.pageBg,
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
-    paddingBottom: BACK_HEADER_BOTTOM_PADDING,
   },
+  headerBlock: {
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: spacing.xxs,
+  },
+  sliderHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  },
+
+  sliderLabel: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+
+  sliderLabelLarge: {
+    ...typography.titleSmall,
+    color: colors.title,
+  },
+
+  sliderValue: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+  },
+
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+
 });

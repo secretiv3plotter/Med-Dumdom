@@ -75,11 +75,13 @@ export default function SettingsScreen({ navigation }) {
       />
     </View>
 
+    <View style={styles.headerBlock}>
+      <Text style={styles.title}>Settings</Text>
+      <Text style={styles.subtitle}>Manage your account and app preferences.</Text>
+     </View>
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.headerBlock}>
-          <Text style={styles.title}>Settings</Text>
-          <Text style={styles.subtitle}>Open the settings screens backed by the current services.</Text>
-        </View>
+        
 
         <View style={styles.sectionCard}>
           {SETTINGS_ITEMS.map((item, index) => (
@@ -135,9 +137,9 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Soft Delete Account</Text>
+          <Text style={styles.sectionTitle}>Delete Account</Text>
           <Text style={styles.helperText}>
-            This will deactivate the app account, not permanently erase it.
+            This will remove your account, but it can still be recovered later.
           </Text>
           <ActionButton
             label="Delete Account"
@@ -191,14 +193,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
   },
   content: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxs,
     paddingBottom: 140,
     gap: spacing.md,
   },
   headerBlock: {
     alignItems: 'flex-start',
-    gap: spacing.xs,
-    marginTop: -18,
+    gap: spacing.xxs,
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: spacing.xxs,
   },
   title: {
     ...typography.title,
@@ -211,11 +217,21 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   sectionCard: {
+    marginTop: spacing.sm,
     backgroundColor: colors.surface,
-    borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
+    borderColor: colors.border,
+    borderRadius: 24,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.md,
+
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: getFontSize(18),
