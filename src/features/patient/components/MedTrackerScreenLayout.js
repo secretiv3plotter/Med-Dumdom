@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   },
   confirmDialog: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 360,
   },
   topHeader: {
     backgroundColor: colors.pageBg,

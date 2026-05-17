@@ -480,6 +480,9 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   dialogWrap: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
