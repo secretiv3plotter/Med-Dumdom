@@ -1,6 +1,7 @@
 //text based button (currently only solid and outline variants)
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { accessibility, colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, radius, spacing, typography } from '../../theme';
+import { scaleFontSize, scaleLayoutValue } from '../../theme/textScale';
 
 export default function ActionButton({
   label = '',
@@ -33,7 +34,7 @@ export default function ActionButton({
   }
 
   // Format using platform-specific helper (rem on Web, scaled px on Mobile)
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <Pressable
@@ -46,6 +47,11 @@ export default function ActionButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,
+        {
+          minHeight: scaleLayoutValue(accessibility.minTouchTarget),
+          paddingVertical: scaleLayoutValue(spacing.sm),
+          paddingHorizontal: scaleLayoutValue(spacing.xs),
+        },
         outline ? styles.outlineButton : styles.solidButton,
         pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
         disabled && styles.disabled,

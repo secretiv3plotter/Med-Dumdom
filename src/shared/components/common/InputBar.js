@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { accessibility, colors, radius, spacing, typography, moderateScale } from '../../theme';
 import { Ionicons } from '@expo/vector-icons';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 const PASSWORD_PAIR_REGISTRY = {
   currentValue: '',
@@ -233,6 +234,11 @@ export default function InputBar({
       <View
         style={[
           styles.container,
+          {
+            minHeight: scaleLayoutValue(accessibility.minTouchTarget),
+            paddingHorizontal: scaleLayoutValue(spacing.sm),
+            paddingVertical: scaleLayoutValue(spacing.sm),
+          },
           multiline && styles.multilineContainer,
           isFocused && !hasError && styles.containerFocused,
           hasError && styles.containerError,
@@ -263,10 +269,22 @@ export default function InputBar({
             setIsFocused(false);
             onBlur();
           }}
-          style={[styles.input, multiline && styles.multilineInput]}
+          style={[
+            styles.input,
+            multiline && styles.multilineInput,
+            { paddingRight: scaleLayoutValue(spacing.sm) },
+            multiline && { minHeight: scaleLayoutValue(56) },
+          ]}
         />
         {resolvedReserveRightSlot ? (
-          <View style={styles.rightAccessory}>{accessoryContent}</View>
+          <View
+            style={[
+              styles.rightAccessory,
+              { minWidth: scaleLayoutValue(accessibility.minTouchTarget) },
+            ]}
+          >
+            {accessoryContent}
+          </View>
         ) : (
           accessoryContent
         )}
@@ -298,11 +316,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
     borderWidth: 1.5,
     borderColor: colors.border,
-    minHeight: accessibility.minTouchTarget,
   },
   containerFocused: {
     borderColor: colors.focusRing,
@@ -322,7 +337,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     ...typography.body,
     color: colors.title,
-    paddingRight: spacing.sm,
     paddingVertical: 0,
   },
   errorIcon: {
@@ -333,7 +347,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightAccessory: {
-    minWidth: accessibility.minTouchTarget,
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
@@ -341,7 +354,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   multilineInput: {
-    minHeight: 56,
     textAlignVertical: 'top',
     paddingTop: spacing.xs,
     paddingBottom: spacing.xs,

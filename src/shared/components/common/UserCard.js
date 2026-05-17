@@ -1,6 +1,7 @@
 // A reusable user card component for displaying user information with primary and secondary actions.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, getFontSize, getLineHeight, moderateScale, radius, spacing } from '../../theme';
+import { accessibility, colors, getFontSize, moderateScale, radius, spacing } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 function getInitials(name = '') {
   return name
@@ -22,9 +23,26 @@ export default function UserCard({
   onSecondaryAction = () => {},
 }) {
   return (
-    <View style={styles.card}>
-      <View style={styles.topRow}>
-        <View style={styles.avatar}>
+    <View
+      style={[
+        styles.card,
+        {
+          padding: scaleLayoutValue(spacing.md),
+          gap: scaleLayoutValue(spacing.md),
+        },
+      ]}
+    >
+      <View style={[styles.topRow, { gap: scaleLayoutValue(spacing.sm) }]}>
+        <View
+          style={[
+            styles.avatar,
+            {
+              width: scaleLayoutValue(moderateScale(48)),
+              height: scaleLayoutValue(moderateScale(48)),
+              borderRadius: scaleLayoutValue(moderateScale(24)),
+            },
+          ]}
+        >
           <Text style={styles.avatarText}>{getInitials(name)}</Text>
         </View>
 
@@ -35,10 +53,15 @@ export default function UserCard({
         </View>
       </View>
 
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, { gap: scaleLayoutValue(spacing.sm) }]}>
         <Pressable
           style={({ pressed }) => [
             styles.button,
+            {
+              minHeight: scaleLayoutValue(accessibility.minTouchTarget),
+              flexBasis: scaleLayoutValue(moderateScale(120)),
+              paddingHorizontal: scaleLayoutValue(spacing.sm),
+            },
             styles.secondaryButton,
             pressed && styles.secondaryButtonPressed,
           ]}
@@ -53,6 +76,11 @@ export default function UserCard({
         <Pressable
           style={({ pressed }) => [
             styles.button,
+            {
+              minHeight: scaleLayoutValue(accessibility.minTouchTarget),
+              flexBasis: scaleLayoutValue(moderateScale(120)),
+              paddingHorizontal: scaleLayoutValue(spacing.sm),
+            },
             styles.primaryButton,
             pressed && styles.primaryButtonPressed,
           ]}
@@ -74,18 +102,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.md,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   avatar: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(24),
     backgroundColor: colors.brandSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -117,16 +139,12 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   button: {
     flexGrow: 1,
     flexShrink: 1,
-    flexBasis: moderateScale(120),
-    minHeight: accessibility.minTouchTarget,
     minWidth: 0,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

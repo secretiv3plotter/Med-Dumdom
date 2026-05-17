@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { scaleFontSize } from '../../../shared/theme/textScale';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import {
   completedScheduleStyle,
@@ -37,7 +38,7 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
 
   // Dynamic font sizing: scale down long medicine names so they fit on narrower screen viewports
   const dynamicFontSize = medName.length > 14 ? Math.max(11, numericBaseFontSize * 0.82) : numericBaseFontSize;
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <Pressable
@@ -285,7 +286,7 @@ function StatusBadge({ statusStyle }) {
 
   // Dynamic scale down for long status badge pills (e.g. "Completed", "Skipped")
   const dynamicFontSize = label.length > 7 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>
@@ -326,7 +327,7 @@ export function SegmentButton({ label = '', selected, onPress }) {
 
   // Dynamic scale down for segmented button text labels
   const dynamicFontSize = label.length > 8 ? Math.max(9, numericBaseFontSize * 0.82) : numericBaseFontSize;
-  const finalFontSize = getFontSize(dynamicFontSize);
+  const finalFontSize = scaleFontSize(dynamicFontSize);
 
   return (
     <Pressable

@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 const PROFILE_BUTTON_SIZE = accessibility.minTouchTarget + spacing.xs;
 
@@ -29,23 +30,44 @@ export default function ProfileButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,
+        {
+          minWidth: scaleLayoutValue(PROFILE_BUTTON_SIZE),
+          gap: scaleLayoutValue(spacing.xxs),
+        },
         pressed && !disabled && styles.pressed,
         style,
       ]}
       {...pressableProps}
     >
-      <View style={[styles.iconWrap, iconWrapStyle]}>
+      <View
+        style={[
+          styles.iconWrap,
+          {
+            width: scaleLayoutValue(PROFILE_BUTTON_SIZE),
+            height: scaleLayoutValue(PROFILE_BUTTON_SIZE),
+          },
+          iconWrapStyle,
+        ]}
+      >
         {imageSource ? (
           <Image
             source={imageSource}
-            style={[styles.profileImage, { width: iconSize, height: iconSize, borderRadius: iconSize / 2 }, imageStyle]}
+            style={[
+              styles.profileImage,
+              {
+                width: scaleLayoutValue(iconSize),
+                height: scaleLayoutValue(iconSize),
+                borderRadius: scaleLayoutValue(iconSize / 2),
+              },
+              imageStyle,
+            ]}
             accessibilityElementsHidden
             importantForAccessibility="no"
           />
         ) : (
           <Ionicons
             name={icon}
-            size={iconSize}
+            size={scaleLayoutValue(iconSize)}
             color={iconColor}
             accessibilityElementsHidden
             importantForAccessibility="no"
@@ -53,7 +75,14 @@ export default function ProfileButton({
         )}
       </View>
 
-      <Text style={[styles.label, disabled ? styles.disabledText : styles.defaultText, textStyle]}>
+      <Text
+        style={[
+          styles.label,
+          { marginTop: -scaleLayoutValue(moderateScale(2)) },
+          disabled ? styles.disabledText : styles.defaultText,
+          textStyle,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -62,15 +91,11 @@ export default function ProfileButton({
 
 const styles = StyleSheet.create({
   container: {
-    minWidth: PROFILE_BUTTON_SIZE,
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
-    gap: spacing.xxs,
   },
   iconWrap: {
-    width: PROFILE_BUTTON_SIZE,
-    height: PROFILE_BUTTON_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

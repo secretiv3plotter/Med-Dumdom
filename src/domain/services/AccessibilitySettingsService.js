@@ -50,8 +50,6 @@
 
 import AccessibilitySetting from '../models/AccessibilitySettingModel';
 
-const TEXT_SIZE_LEVELS = new Set(['small', 'medium', 'large']);
-
 const normalizeUserId = (userId) => {
   if (typeof userId === 'string') {
     const trimmedUserId = userId.trim();
@@ -69,22 +67,9 @@ const normalizeUserId = (userId) => {
   throw new TypeError('userId must be a non-empty string or a finite number.');
 };
 
-const normalizeTextSizeLevel = (value) => {
-  if (typeof value !== 'string') {
-    throw new TypeError('textSizeLevel must be a string.');
-  }
-
-  const normalizedValue = value.trim().toLowerCase();
-  if (!TEXT_SIZE_LEVELS.has(normalizedValue)) {
-    throw new RangeError(`textSizeLevel must be one of: ${Array.from(TEXT_SIZE_LEVELS).join(', ')}.`);
-  }
-
-  return normalizedValue;
-};
-
 const cloneSettings = (settings) =>
   new AccessibilitySetting(
-    settings.textSizeLevel,
+    settings.textScale ?? settings.textSizeLevel ?? 1.0,
     settings.highContrastEnabled,
     settings.reducedMotionEnabled,
     settings.screenReaderSupportEnabled,
@@ -104,7 +89,7 @@ const toSettingsModel = (settings) => {
 
   if (settings && typeof settings === 'object') {
     return new AccessibilitySetting(
-      settings.textSizeLevel,
+      settings.textScale ?? settings.textSizeLevel ?? 1.0,
       settings.highContrastEnabled,
       settings.reducedMotionEnabled,
       settings.screenReaderSupportEnabled,
@@ -143,11 +128,14 @@ export class AccessibilitySettingsService {
     return cloneSettings(this._getStoredSettings(userId));
   }
 
-  updateTextSizeLevel(userId, level) {
+  updateTextScale(userId, scale) {
     const settings = this._getStoredSettings(userId);
-    const normalizedLevel = normalizeTextSizeLevel(level);
-    settings.updateTextSizeLevel(normalizedLevel);
+    settings.updateTextScale(scale);
     return cloneSettings(settings);
+  }
+
+  updateTextSizeLevel(userId, level) {
+    return this.updateTextScale(userId, level);
   }
 
   toggleHighContrast(userId) {

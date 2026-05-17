@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 const BUTTON_VISUAL_SIZE = accessibility.minTouchTarget + spacing.xs;
 
@@ -28,22 +29,43 @@ export default function HelpButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,
+        {
+          minWidth: scaleLayoutValue(BUTTON_VISUAL_SIZE),
+          gap: scaleLayoutValue(spacing.xxs),
+        },
         pressed && !disabled && styles.pressed,
         style,
       ]}
       {...pressableProps}
     >
-      <View style={[styles.iconWrap, iconWrapStyle, circleStyle]}>
+      <View
+        style={[
+          styles.iconWrap,
+          {
+            width: scaleLayoutValue(BUTTON_VISUAL_SIZE),
+            height: scaleLayoutValue(BUTTON_VISUAL_SIZE),
+          },
+          iconWrapStyle,
+          circleStyle,
+        ]}
+      >
         <Ionicons
           name={icon}
-          size={iconSize}
+          size={scaleLayoutValue(iconSize)}
           color={iconColor}
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
       </View>
 
-      <Text style={[styles.label, disabled ? styles.disabledText : styles.defaultText, textStyle]}>
+      <Text
+        style={[
+          styles.label,
+          { marginTop: -scaleLayoutValue(moderateScale(2)) },
+          disabled ? styles.disabledText : styles.defaultText,
+          textStyle,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -52,15 +74,11 @@ export default function HelpButton({
 
 const styles = StyleSheet.create({
   container: {
-    minWidth: BUTTON_VISUAL_SIZE,
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
-    gap: spacing.xxs,
   },
   iconWrap: {
-    width: BUTTON_VISUAL_SIZE,
-    height: BUTTON_VISUAL_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },

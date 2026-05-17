@@ -3,6 +3,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 const CIRCLE_SIZE = accessibility.minTouchTarget + spacing.xs;
 const DEFAULT_ICON_SIZE = spacing.lg;
@@ -38,24 +39,32 @@ export default function CrudButton({
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,
+        {
+          minWidth: scaleLayoutValue(CIRCLE_SIZE),
+          gap: scaleLayoutValue(spacing.xxs),
+        },
         pressed && !disabled && styles.pressed,
         style,
       ]}
       {...pressableProps}
     >
-      <View
-        style={[
-          styles.circle,
-          solid && styles.solidButton,
-          outline && styles.outlineButton,
-          redSolid && styles.redSolidButton,
-          disabled && !outline && styles.disabledCircle,
-          circleStyle,
+        <View
+          style={[
+            styles.circle,
+            {
+              width: scaleLayoutValue(CIRCLE_SIZE),
+              height: scaleLayoutValue(CIRCLE_SIZE),
+            },
+            solid && styles.solidButton,
+            outline && styles.outlineButton,
+            redSolid && styles.redSolidButton,
+            disabled && !outline && styles.disabledCircle,
+            circleStyle,
         ]}
       >
         <Ionicons
           name={icon}
-          size={effectiveIconSize}
+          size={scaleLayoutValue(effectiveIconSize)}
           color={iconColor}
           accessibilityElementsHidden
           importantForAccessibility="no"
@@ -80,15 +89,11 @@ export default function CrudButton({
 
 const styles = StyleSheet.create({
   container: {
-    minWidth: CIRCLE_SIZE,
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
-    gap: spacing.xxs,
   },
   circle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -144,8 +149,8 @@ export function EditButton(props) {
       icon="create-outline"
       variant="outline"
       iconSize={EDIT_ICON_SIZE}
-      circleStyle={[{ paddingLeft: moderateScale(4) }, props.circleStyle]}
-      textStyle={[{ marginTop: -LABEL_LIFT }, props.textStyle]}
+      circleStyle={[{ paddingLeft: scaleLayoutValue(moderateScale(4)) }, props.circleStyle]}
+      textStyle={[{ marginTop: -scaleLayoutValue(LABEL_LIFT) }, props.textStyle]}
     />
   );
 }
@@ -158,7 +163,7 @@ export function CancelButton(props) {
       icon="close-outline"
       variant="outline"
       iconSize={EDIT_ICON_SIZE}
-      textStyle={[{ marginTop: -LABEL_LIFT }, props.textStyle]}
+      textStyle={[{ marginTop: -scaleLayoutValue(LABEL_LIFT) }, props.textStyle]}
     />
   );
 }

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 export default function BackButton({
   onPress = () => {},
@@ -21,17 +22,29 @@ export default function BackButton({
       hitSlop={spacing.xs}
       style={({ pressed }) => [
         styles.button,
+        {
+          minHeight: scaleLayoutValue(BUTTON_HEIGHT),
+          minWidth: scaleLayoutValue(BUTTON_HEIGHT),
+        },
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}
     >
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          {
+            minHeight: scaleLayoutValue(BUTTON_HEIGHT),
+            gap: scaleLayoutValue(spacing.xxs),
+          },
+        ]}
+      >
         <Ionicons
           name="chevron-back"
-          size={ICON_SIZE}
+          size={scaleLayoutValue(ICON_SIZE)}
           color={colors.brandText}
-          style={[styles.icon, iconStyle]}
+          style={[styles.icon, { marginLeft: scaleLayoutValue(-5) }, iconStyle]}
         />
         {showLabel ? <Text style={[styles.label, labelStyle]}>{label}</Text> : null}
       </View>
@@ -52,12 +65,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginLeft: moderateScale(-8),
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 0,
     minHeight: BUTTON_HEIGHT,
   },
   icon: {

@@ -2,6 +2,7 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import ActionButton from './ActionButton';
 import { colors, moderateScale, radius, spacing, typography } from '../../theme';
+import { scaleLayoutValue } from '../../theme/textScale';
 
 export default function DialogBox({
   title = 'Are you Sure?',
@@ -22,11 +23,20 @@ export default function DialogBox({
   });
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        {
+          paddingHorizontal: scaleLayoutValue(spacing.md),
+          paddingVertical: scaleLayoutValue(spacing.md),
+          gap: scaleLayoutValue(spacing.xs),
+        },
+      ]}
+    >
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
 
-      <View style={styles.fieldsContainer}>
+      <View style={[styles.fieldsContainer, { gap: scaleLayoutValue(spacing.sm) }]}>
         {fields.map((field, index) => (
           <TextInput
             key={`${field.label || 'field'}-${index}`}
@@ -35,7 +45,13 @@ export default function DialogBox({
             placeholder={field.placeholder || ''}
             secureTextEntry={field.secureTextEntry || false}
             keyboardType={field.keyboardType || 'default'}
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                paddingHorizontal: scaleLayoutValue(spacing.sm),
+                paddingVertical: scaleLayoutValue(spacing.sm),
+              },
+            ]}
             placeholderTextColor={colors.placeholder}
           />
         ))}
@@ -43,7 +59,7 @@ export default function DialogBox({
 
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, { gap: scaleLayoutValue(spacing.sm) }]}>
         {normalizedActions.map((action, index) => (
           <View key={`${action.label || 'action'}-${index}`} style={styles.actionSlot}>
             <ActionButton
@@ -70,9 +86,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#E8EFF1',
     borderRadius: moderateScale(16),
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
   },
   title: {
     ...typography.titleSmall,
@@ -94,8 +107,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
     color: colors.body,
     outlineStyle: 'none',
   },
@@ -107,7 +118,6 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
     marginTop: spacing.xs,
   },
   actionSlot: {

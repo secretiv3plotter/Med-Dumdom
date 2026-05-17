@@ -3,7 +3,8 @@
 
 import React from 'react';
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
-import { accessibility, colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../theme';
+import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
+import { scaleFontSize, scaleLineHeight, scaleLayoutValue } from '../../theme/textScale';
 
 function isBoldStyle(style) {
   const flattened = StyleSheet.flatten(style);
@@ -119,8 +120,8 @@ export default function ClickableCard({
   }
 
   // Format final styles using relative rem on Web or raw pixels on Mobile
-  const finalFontSize = getFontSize(dynamicFontSize);
-  const finalLineHeight = getLineHeight(
+  const finalFontSize = scaleFontSize(dynamicFontSize);
+  const finalLineHeight = scaleLineHeight(
     baseTitleStyle?.lineHeight 
       ? Math.round(baseTitleStyle.lineHeight * (dynamicFontSize / baseFontSize)) 
       : Math.round(dynamicFontSize * 1.25)
@@ -130,25 +131,31 @@ export default function ClickableCard({
     <View
       style={[
         styles.content,
-        isLandscape ? styles.landscapeContent : styles.portraitContent,
+        {
+          padding: scaleLayoutValue(spacing.lg),
+          gap: scaleLayoutValue(spacing.sm),
+        },
+        isLandscape
+          ? { minHeight: scaleLayoutValue(moderateScale(140)) }
+          : { minHeight: scaleLayoutValue(moderateScale(190)) },
         hasImage && styles.withImageContent,
         contentStyle,
       ]}
     >
       {!!leftSlot || !!icon || !!rightSlot ? (
-        <View style={styles.topRow}>
-          <View style={styles.slot}>
+        <View style={[styles.topRow, { gap: scaleLayoutValue(spacing.xxs) }]}>
+          <View style={[styles.slot, { minHeight: scaleLayoutValue(24), minWidth: scaleLayoutValue(24) }]}>
             {!!leftSlot ? (
               forcedLeftSlot
             ) : (
               !!icon && <Text style={[styles.icon, iconStyle, styles.iconLock]}>{icon}</Text>
             )}
           </View>
-          <View style={styles.slot}>{rightSlot}</View>
+          <View style={[styles.slot, { minHeight: scaleLayoutValue(24), minWidth: scaleLayoutValue(24) }]}>{rightSlot}</View>
         </View>
       ) : null}
 
-      <View style={styles.textBlock}>
+      <View style={[styles.textBlock, { gap: scaleLayoutValue(spacing.xs) }]}>
         {!!title && (
           <Text
             style={[
@@ -181,6 +188,9 @@ export default function ClickableCard({
       accessibilityState={{ disabled: isDisabled }}
       style={({ pressed }) => [
         styles.base,
+        {
+          minHeight: scaleLayoutValue(accessibility.minTouchTarget),
+        },
         isLandscape ? styles.landscape : styles.portrait,
         isGhost ? styles.ghost : styles.solid,
         cardStyle,
@@ -205,16 +215,11 @@ export default function ClickableCard({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: accessibility.minTouchTarget,
     overflow: 'hidden',
     position: 'relative',
   },
-  portrait: {
-    minHeight: moderateScale(190),
-  },
-  landscape: {
-    minHeight: moderateScale(140),
-  },
+  portrait: {},
+  landscape: {},
   solid: {
     backgroundColor: colors.brandSoft,
   },
@@ -233,8 +238,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: spacing.lg,
-    gap: spacing.sm,
   },
   withImageContent: {
     justifyContent: 'space-between',
@@ -260,8 +263,8 @@ const styles = StyleSheet.create({
     minWidth: 24,
   },
   icon: {
-    fontSize: getFontSize(32),
-    lineHeight: getLineHeight(34),
+    fontSize: 32,
+    lineHeight: 34,
     color: colors.brandText,
   },
   iconLock: {
@@ -278,8 +281,8 @@ const styles = StyleSheet.create({
   },
   boldText: {
     color: colors.brandText,
-    fontSize: getFontSize(18),
-    lineHeight: getLineHeight(24),
+    fontSize: 18,
+    lineHeight: 24,
   },
   subtitle: {
     ...typography.bodySmall,
