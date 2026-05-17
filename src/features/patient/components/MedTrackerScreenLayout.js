@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -6,7 +7,7 @@ import {
   BACK_HEADER_HORIZONTAL_PADDING,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
-import { AddButton, DeleteButton, EditButton } from '../../../shared/components/common/CrudButton';
+import { AddButton } from '../../../shared/components/common/CrudButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
@@ -129,8 +130,18 @@ export function MedicineDetailsPopup({
               <Text style={styles.detailsMedicineName}>{medicine.medName}</Text>
             </View>
             <View style={styles.detailActionsTop}>
-              <EditButton onPress={onEdit} />
-              <DeleteButton onPress={onDelete} />
+              <SmallHeaderAction
+                label="Edit"
+                icon="create-outline"
+                color={colors.brand}
+                onPress={onEdit}
+              />
+              <SmallHeaderAction
+                label="Delete"
+                icon="trash-outline"
+                color={colors.error || '#D32F2F'}
+                onPress={onDelete}
+              />
             </View>
           </View>
         ) : null
@@ -153,6 +164,25 @@ export function MedicineDetailsPopup({
         </>
       ) : null}
     </LargePopup>
+  );
+}
+
+function SmallHeaderAction({ label, icon, color, onPress }) {
+  return (
+    <View style={styles.iconActionCol}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.iconActionBtn,
+          pressed && styles.iconActionPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+      >
+        <Ionicons name={icon} size={18} color={color} />
+      </Pressable>
+      <Text style={[styles.iconActionLabel, { color }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -388,7 +418,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 0,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  iconActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  iconActionCol: {
+    alignItems: 'center',
+    gap: spacing.xxs || 2,
+  },
+  iconActionLabel: {
+    ...typography.bodySmall,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footerActionsRow: {
     marginTop: spacing.sm,

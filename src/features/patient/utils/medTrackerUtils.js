@@ -136,11 +136,21 @@ export const getIntervalMinutes = (entry) => {
   return Number.isInteger(value) && value > 0 ? value : null;
 };
 
-export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
+export const isIntervalScheduleEntry = (entry) =>
+  getIntervalMinutes(entry) !== null || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
 
-export const formatIntervalMinutes = (intervalMinutes) => {
+export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
   const minutes = Number(intervalMinutes || 0);
   if (!Number.isInteger(minutes) || minutes <= 0) {
+    return '';
+  }
+
+  if (intervalUnit === 'weeks' && minutes >= 10080 && minutes % 10080 === 0) {
+    const weeksPart = minutes / 10080;
+    return `${weeksPart} week${weeksPart === 1 ? '' : 's'}`;
+  }
+
+  if (intervalUnit === 'months') {
     return '';
   }
 
@@ -164,6 +174,10 @@ export const formatIntervalMinutes = (intervalMinutes) => {
 };
 
 export const getIntervalScheduleTime = (entry, now = new Date()) => {
+  if (entry?.intervalUnit === 'months') {
+    return formatTime(entry.scheduledTime);
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return '';
@@ -204,6 +218,36 @@ export const getIntervalOccurrenceMinutes = (entry, now = new Date()) => {
 };
 
 const getMinutesUntilNextIntervalOccurrence = (entry, now = new Date()) => {
+  if (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0) {
+    const currentDate = now instanceof Date ? now : new Date(now);
+    const activatedAt = entry?.activatedAt ? new Date(entry.activatedAt) : currentDate;
+    if (Number.isNaN(currentDate.getTime()) || Number.isNaN(activatedAt.getTime())) {
+      return null;
+    }
+
+    const intervalCount = Number(entry.intervalCount);
+    const dayOfMonth = Number(entry.dayOfMonth || 1);
+    const [hours = 0, minutes = 0] = String(entry.scheduledTime || '00:00').split(':').map(Number);
+    const buildDate = (monthOffset) => {
+      const monthIndex = activatedAt.getFullYear() * 12 + activatedAt.getMonth() + monthOffset;
+      const year = Math.floor(monthIndex / 12);
+      const month = monthIndex % 12;
+      const day = Math.min(dayOfMonth, new Date(year, month + 1, 0).getDate());
+      const nextDate = new Date(year, month, day);
+      nextDate.setHours(hours || 0, minutes || 0, 0, 0);
+      return nextDate;
+    };
+
+    let elapsedMonths = (currentDate.getFullYear() - activatedAt.getFullYear()) * 12 + currentDate.getMonth() - activatedAt.getMonth();
+    elapsedMonths = Math.max(0, Math.floor(elapsedMonths / intervalCount) * intervalCount);
+    let nextDate = buildDate(elapsedMonths);
+    if (nextDate <= currentDate || nextDate <= activatedAt) {
+      nextDate = buildDate(elapsedMonths + intervalCount);
+    }
+
+    return Math.max(0, Math.ceil((nextDate.getTime() - currentDate.getTime()) / 60000));
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return null;
@@ -266,6 +310,10 @@ export const getScheduleDayLabel = (entry) => {
 
   if (entry?.monthOfYear) {
     return entry.dayOfMonth ? `on ${entry.monthOfYear} ${entry.dayOfMonth}` : `in ${entry.monthOfYear}`;
+  }
+
+  if (entry?.intervalUnit === 'months' && entry?.dayOfMonth) {
+    return `on day ${entry.dayOfMonth}`;
   }
 
   return '';
@@ -352,7 +400,10 @@ export const formatScheduleEntry = (entry, unit = '') => {
     const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
       ? `\nAt ${formatTime(entry.scheduledTime)}`
       : '';
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${scheduledTimeText}`;
+    const intervalText = entry.intervalUnit === 'months'
+      ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+      : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit);
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${intervalText}${scheduledTimeText}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
@@ -387,7 +438,9 @@ export const buildScheduleDraftFromEntry = (entry) => ({
   scheduledTime: entry.scheduledTime || '',
   intervalHours: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
   intervalMinutes: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Number(entry.intervalMinutes) % 60 : '',
-  intervalDays: entry.intervalMinutes && Number(entry.intervalMinutes) >= 1440 ? Math.floor(Number(entry.intervalMinutes) / 1440) : '',
+  intervalDays: entry.intervalMinutes && entry.intervalUnit !== 'weeks' && Number(entry.intervalMinutes) >= 1440 ? Math.floor(Number(entry.intervalMinutes) / 1440) : '',
+  intervalWeeks: entry.intervalMinutes && entry.intervalUnit === 'weeks' ? Math.floor(Number(entry.intervalMinutes) / 10080) : '',
+  intervalMonths: entry.intervalUnit === 'months' && entry.intervalCount ? String(entry.intervalCount) : '',
   dayOfWeek: entry.dayOfWeek || '',
   monthOfYear: entry.monthOfYear || '',
   dayOfMonth: entry.dayOfMonth ? String(entry.dayOfMonth) : '',
@@ -767,12 +820,16 @@ export const getScheduleDuplicateKey = (entry) => {
     return [
       'interval',
       normalizeDuplicateKey(entry.intervalMinutes || ''),
+      normalizeDuplicateKey(entry.intervalUnit || ''),
+      normalizeDuplicateKey(entry.intervalCount || ''),
       normalizeDuplicateKey(entry.activatedAt || ''),
     ].join('|');
   }
   return [
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
     normalizeDuplicateKey(entry.intervalMinutes || ''),
+    normalizeDuplicateKey(entry.intervalUnit || ''),
+    normalizeDuplicateKey(entry.intervalCount || ''),
     normalizeDuplicateKey(entry.dayOfWeek || ''),
     normalizeDuplicateKey(entry.monthOfYear || ''),
     normalizeDuplicateKey(entry.dayOfMonth || ''),

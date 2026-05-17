@@ -23,7 +23,6 @@ import {
   getLastActionMessage,
   getIntervalScheduleTime,
   formatDoseWithUnit,
-  getCalculatedDailyAmount,
   formatTime,
 } from '../utils/medTrackerUtils';
 
@@ -230,8 +229,11 @@ function SchedulePreviewCard({
 
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
   const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
+  const monthlyIntervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalUnit === 'months');
   const sectionLabelText = intervalEntry
-    ? `${Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Weekly interval' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
+    ? `${intervalEntry.intervalUnit === 'weeks' ? 'Weekly interval' : Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Every few days' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes, intervalEntry.intervalUnit)})`
+    : monthlyIntervalEntry
+    ? `Monthly interval schedule (Every ${monthlyIntervalEntry.intervalCount} month${Number(monthlyIntervalEntry.intervalCount) === 1 ? '' : 's'})`
     : (medicine.dailySched || []).some(e => e.monthOfYear)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
@@ -240,13 +242,20 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
 
   return (
     <>
-      <DetailItem label="Medication name" value={medicine.medName} />
-      <DetailItem label="Unit strength" value={medicine.unitStrength || '--'} />
-      <DetailItem label="Total daily amount" value={`${getCalculatedDailyAmount(medicine)} ${medicine.unit}`} />
-      <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
-      <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
-      <DetailItem label="Instructions" value={medicine.instructions || '--'} />
-      <DetailItem label="Prescriber contact" value={medicine.prescriberContact || '--'} />
+      <View style={styles.detailPanel}>
+        <DetailItem label="Medication name" value={medicine.medName} />
+        <View style={styles.detailGrid}>
+          <DetailItem label="Instructions" value={medicine.instructions} />
+          <DetailItem label="Prescriber contact" value={medicine.prescriberContact} />
+        </View>
+      </View>
+
+      <View style={styles.detailPanel}>
+        <View style={styles.detailGrid}>
+          <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
+          <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
+        </View>
+      </View>
 
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>
@@ -381,10 +390,17 @@ function StatusBadge({ statusStyle }) {
 }
 
 function DetailItem({ label, value }) {
+  const displayValue = value == null ? '' : String(value);
+  const accessibleValue = displayValue.trim() ? displayValue : 'blank';
+
   return (
-    <View style={styles.detailRow}>
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${accessibleValue}`}
+      style={[styles.detailRow, styles.readOnlyDetailRow]}
+    >
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={styles.detailValue}>{displayValue}</Text>
     </View>
   );
 }
@@ -483,8 +499,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#C7DBFF',
     borderColor: colors.brandText,
   },
+  detailPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   detailRow: {
     gap: spacing.xxs,
+  },
+  readOnlyDetailRow: {
+    flex: 1,
+    minWidth: moderateScale(130),
   },
   detailLabel: {
     ...typography.bodySmall,

@@ -8,6 +8,9 @@ export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
   const scheduleTimeText = isInterval
     ? getIntervalScheduleTime(entry)
     : formatTime(entry.scheduledTime);
+  const intervalText = entry.intervalUnit === 'months'
+    ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+    : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit);
 
   return (
     <Text style={styles.scheduleCardTitle}>
@@ -16,7 +19,7 @@ export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
       <Text style={styles.scheduleTextStrong}>{scheduleTimeText}</Text>{scheduleDayLabel}
       {isInterval ? (
         <>
-          {'\n'}Every <Text style={styles.scheduleTextStrong}>{formatIntervalMinutes(entry.intervalMinutes)}</Text>
+          {'\n'}Every <Text style={styles.scheduleTextStrong}>{intervalText}</Text>
         </>
       ) : null}
     </Text>

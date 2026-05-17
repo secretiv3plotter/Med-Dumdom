@@ -1,6 +1,7 @@
 import MedEntry from '../../domain/models/MedEntryModel';
 
 const DEFAULT_PATIENT_EMAIL = 'current-user@local.invalid';
+const STALE_MARKED_SCHEDULE_MS = 24 * 60 * 60 * 1000;
 
 const normalizeUserId = (userId) => {
   const normalizedUserId = String(userId || '').trim();
@@ -32,6 +33,9 @@ const toNullableDate = (value) => {
   const date = toDate(value);
   return date && !Number.isNaN(date.getTime()) ? date : null;
 };
+
+const sumScheduleDoseSizes = (dailySched = []) =>
+  Array.from(dailySched || []).reduce((total, entry) => total + Number(entry?.doseSize || 0), 0);
 
 const dateKey = (date) => {
   const normalizedDate = toNullableDate(date) ?? new Date();
@@ -75,6 +79,8 @@ const toRealmScheduleEntry = (entry, index) => ({
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime ?? null,
   intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) : null,
+  intervalUnit: entry.intervalUnit ?? '',
+  intervalCount: entry.intervalCount ? Number(entry.intervalCount) : null,
   dayOfWeek: entry.dayOfWeek ?? '',
   monthOfYear: entry.monthOfYear ?? '',
   dayOfMonth: entry.dayOfMonth ? Number(entry.dayOfMonth) : null,
@@ -89,6 +95,8 @@ const toModelScheduleEntry = (entry) => ({
   doseSize: entry.doseSize,
   scheduledTime: entry.scheduledTime || null,
   intervalMinutes: entry.intervalMinutes || null,
+  intervalUnit: entry.intervalUnit || '',
+  intervalCount: entry.intervalCount || null,
   dayOfWeek: entry.dayOfWeek || '',
   monthOfYear: entry.monthOfYear || '',
   dayOfMonth: entry.dayOfMonth || null,
@@ -121,6 +129,8 @@ const toHistoryScheduleEntry = (entry, index = 0) => ({
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime ?? null,
   intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) : null,
+  intervalUnit: entry.intervalUnit ?? '',
+  intervalCount: entry.intervalCount ? Number(entry.intervalCount) : null,
   dayOfWeek: entry.dayOfWeek ?? '',
   monthOfYear: entry.monthOfYear ?? '',
   dayOfMonth: entry.dayOfMonth ? Number(entry.dayOfMonth) : null,
@@ -137,6 +147,8 @@ const toHistoryModelScheduleEntry = (entry) => ({
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime || null,
   intervalMinutes: entry.intervalMinutes || null,
+  intervalUnit: entry.intervalUnit || '',
+  intervalCount: entry.intervalCount || null,
   dayOfWeek: entry.dayOfWeek || '',
   monthOfYear: entry.monthOfYear || '',
   dayOfMonth: entry.dayOfMonth || null,
@@ -147,6 +159,20 @@ const toHistoryModelScheduleEntry = (entry) => ({
   activatedAt: entry.activatedAt || null,
   resolvedAt: entry.resolvedAt || null,
 });
+
+const isIntervalScheduleEntry = (entry) =>
+  !!entry?.intervalMinutes || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
+
+const getMarkedScheduleDate = (entry) => toNullableDate(entry?.takenAt || entry?.skippedAt);
+
+const isStaleMarkedSchedule = (entry, now) => {
+  if (entry?.status !== 'taken' && entry?.status !== 'skipped') {
+    return false;
+  }
+
+  const markedAt = getMarkedScheduleDate(entry);
+  return !!markedAt && now.getTime() - markedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+};
 
 const toHistoryModel = (entry) => ({
   historyId: entry.historyId,
@@ -178,6 +204,22 @@ const hasSameDayStatus = (entry, currentDayKey) =>
   Array.from(entry.dailySched || []).some((scheduleEntry) => {
     const statusDate = scheduleEntry.takenAt || scheduleEntry.skippedAt;
     return statusDate && dateKey(statusDate) === currentDayKey;
+  });
+
+const hasFreshMarkedScheduleForDate = (entry, scheduleDate, now) =>
+  Array.from(entry.dailySched || []).some((scheduleEntry) => {
+    if (!isScheduleEntryForDate(scheduleEntry, scheduleDate)) {
+      return false;
+    }
+
+    if (scheduleEntry.status !== 'taken' && scheduleEntry.status !== 'skipped') {
+      return false;
+    }
+
+    const markedAt = getMarkedScheduleDate(scheduleEntry);
+    return !!markedAt &&
+      dateKey(markedAt) === dateKey(scheduleDate) &&
+      now.getTime() - markedAt.getTime() < STALE_MARKED_SCHEDULE_MS;
   });
 
 const toMinutes = (timeValue) => {
@@ -310,20 +352,122 @@ export default class RealmMedTrackerRepository {
     );
   }
 
+  snapshotMarkedScheduleHistory(userId, entry, scheduleItems, historyDate = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
+    const historyDateKey = dateKey(historyDate);
+    const historyId = `${normalizedUserId}-${entry.medEntryId}-${historyDateKey}`;
+    const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
+    const scheduleByIndex = new Map(
+      existingHistory
+        ? Array.from(existingHistory.dailySchedFinalStatuses || [])
+            .map(toHistoryModelScheduleEntry)
+            .map((scheduleEntry) => [Number(scheduleEntry.scheduleIndex || 0), scheduleEntry])
+        : []
+    );
+
+    scheduleItems.forEach(({ scheduleEntry, scheduleIndex }) => {
+      scheduleByIndex.set(
+        Number(scheduleIndex),
+        toHistoryScheduleEntry({ ...scheduleEntry, scheduleIndex }, scheduleIndex)
+      );
+    });
+
+    const dailySchedFinalStatuses = Array.from(scheduleByIndex.values())
+      .sort((firstEntry, secondEntry) => Number(firstEntry.scheduleIndex || 0) - Number(secondEntry.scheduleIndex || 0));
+
+    if (!dailySchedFinalStatuses.length) {
+      return null;
+    }
+
+    return this.realm.create(
+      'MedTrackerDailyHistory',
+      {
+        historyId,
+        patientUserId: normalizedUserId,
+        medEntryId: entry.medEntryId,
+        historyDate: historyDateKey,
+        medName: entry.medName,
+        unitStrength: entry.unitStrength || '',
+        unit: entry.unit,
+        totalDailyAmount: entry.totalDailyAmount,
+        startDate: entry.startDate,
+        endDate: entry.endDate,
+        instructions: entry.instructions || '',
+        prescriberContact: entry.prescriberContact || '',
+        dailySchedFinalStatuses,
+        completedAllSchedules: dailySchedFinalStatuses.every((scheduleEntry) => scheduleEntry.finalStatus === 'taken'),
+        isDeleted: false,
+        deletedAt: null,
+        createdAt: existingHistory?.createdAt || new Date(),
+      },
+      'modified',
+    );
+  }
+
+  archiveStaleMarkedSchedules(userId, entryModel, existingCreatedAt = null, now = new Date()) {
+    const staleScheduleItems = entryModel.dailySched
+      .map((scheduleEntry, scheduleIndex) => ({ scheduleEntry, scheduleIndex, markedAt: getMarkedScheduleDate(scheduleEntry) }))
+      .filter(({ scheduleEntry }) => isStaleMarkedSchedule(scheduleEntry, now));
+
+    if (!staleScheduleItems.length) {
+      return null;
+    }
+
+    const schedulesByDate = new Map();
+    staleScheduleItems.forEach((item) => {
+      const markedDateKey = dateKey(item.markedAt);
+      const group = schedulesByDate.get(markedDateKey) || [];
+      group.push(item);
+      schedulesByDate.set(markedDateKey, group);
+    });
+
+    schedulesByDate.forEach((items, markedDateKey) => {
+      this.snapshotMarkedScheduleHistory(userId, entryModel, items, new Date(`${markedDateKey}T00:00:00`));
+    });
+
+    const staleIndexes = new Set(staleScheduleItems.map(({ scheduleIndex }) => scheduleIndex));
+    const hasNonStaleSchedule = entryModel.dailySched.some((_, scheduleIndex) => !staleIndexes.has(scheduleIndex));
+
+    entryModel.dailySched = entryModel.dailySched.flatMap((scheduleEntry, scheduleIndex) => {
+      if (!staleIndexes.has(scheduleIndex)) {
+        return [scheduleEntry];
+      }
+
+      if (isIntervalScheduleEntry(scheduleEntry) && hasNonStaleSchedule) {
+        return [];
+      }
+
+      return [{
+        ...scheduleEntry,
+        status: 'pending',
+        takenAt: null,
+        skippedAt: null,
+      }];
+    });
+
+    entryModel.totalDailyAmount = sumScheduleDoseSizes(entryModel.dailySched);
+    entryModel.amount = entryModel.totalDailyAmount;
+    entryModel.syncTakenStatusFromSchedule?.();
+    this.persistMedEntry(userId, entryModel, existingCreatedAt);
+    return entryModel;
+  }
+
   persistResetIfNeeded(userId, entry, now = new Date()) {
     const currentDayKey = dateKey(now);
     const yesterday = previousDay(now);
     const yesterdayKey = dateKey(yesterday);
-    const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', `${normalizeUserId(userId)}-${entry.medEntryId}-${yesterdayKey}`);
-    const entryModel = toMedEntryModel(entry);
+    const archivedModel = this.archiveStaleMarkedSchedules(userId, toMedEntryModel(entry), entry.createdAt, now);
+    const entryModel = archivedModel || toMedEntryModel(entry);
+    const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', `${normalizeUserId(userId)}-${entryModel.medEntryId}-${yesterdayKey}`);
     const shouldSnapshotYesterday =
       !existingHistory &&
       entryModel.isActiveOnDate(yesterday) &&
-      shouldRunDailyRollover(entry, now) &&
-      (hasPreviousDayStatus(entry, currentDayKey) || !hasSameDayStatus(entry, currentDayKey));
+      shouldRunDailyRollover(entryModel, now) &&
+      !hasFreshMarkedScheduleForDate(entryModel, yesterday, now) &&
+      (hasPreviousDayStatus(entryModel, currentDayKey) || !hasSameDayStatus(entryModel, currentDayKey));
 
     if (shouldSnapshotYesterday) {
-      this.snapshotDailyHistory(userId, entry, yesterday);
+      this.snapshotDailyHistory(userId, entryModel, yesterday);
     }
 
     const model = entryModel;

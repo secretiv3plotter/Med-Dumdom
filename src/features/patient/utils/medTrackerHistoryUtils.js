@@ -77,9 +77,18 @@ export const formatDoseWithUnit = (doseSize, unit) => {
   return normalizedUnit ? `${doseSize} ${normalizedUnit}` : String(doseSize);
 };
 
-export const formatIntervalMinutes = (intervalMinutes) => {
+export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
   const minutes = Number(intervalMinutes || 0);
   if (!Number.isInteger(minutes) || minutes <= 0) {
+    return '';
+  }
+
+  if (intervalUnit === 'weeks' && minutes >= 10080 && minutes % 10080 === 0) {
+    const weeksPart = minutes / 10080;
+    return `${weeksPart} week${weeksPart === 1 ? '' : 's'}`;
+  }
+
+  if (intervalUnit === 'months') {
     return '';
   }
 
@@ -91,7 +100,8 @@ export const formatIntervalMinutes = (intervalMinutes) => {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 };
 
-export const isIntervalScheduleEntry = (entry) => Number(entry?.intervalMinutes || 0) > 0;
+export const isIntervalScheduleEntry = (entry) =>
+  Number(entry?.intervalMinutes || 0) > 0 || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
 
 export const getTakenAmountForRecord = (record) =>
   (record.dailySchedFinalStatuses || []).reduce(
@@ -157,7 +167,10 @@ export const formatScheduleText = (entry, unit) => {
     const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
       ? `\nAt ${formatTime(entry.scheduledTime)}`
       : '';
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${scheduledTimeText}${dayLabel}`;
+    const intervalText = entry.intervalUnit === 'months'
+      ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+      : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit);
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${intervalText}${scheduledTimeText}${dayLabel}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}${dayLabel}`;

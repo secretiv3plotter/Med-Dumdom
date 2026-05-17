@@ -4,8 +4,8 @@ import {
   dateTimeAtMinutes,
   ensureScheduleIndex,
   getScheduleDateTime,
+  getIntervalOccurrenceDateTime,
   getIntervalNextOccurrenceDateTime,
-  getIntervalOccurrenceMinutes,
   isIntervalScheduleEntry,
   isScheduleDateTimeInCurrentInterval,
   isBeforeCurrentDay,
@@ -209,7 +209,7 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
     return 'upcoming';
   }
 
-  if (!isScheduleActiveOnDate(scheduleEntry, currDate)) {
+  if (!isIntervalScheduleEntry(scheduleEntry) && !isScheduleActiveOnDate(scheduleEntry, currDate)) {
     const previousWeeklyScheduleDate = getPreviousWeeklyScheduleDate(scheduleEntry, currDate);
     if (
       scheduleEntry.status === 'pending' &&
@@ -268,16 +268,18 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
   }
 
   if (isIntervalScheduleEntry(scheduleEntry)) {
-    const occurrenceMinutes = getIntervalOccurrenceMinutes(scheduleEntry, currentTime);
-    if (currentMinutes === null || occurrenceMinutes === null) {
+    const occurrenceDateTime = getIntervalOccurrenceDateTime(scheduleEntry, currentTime);
+    if (!occurrenceDateTime) {
       return 'upcoming';
     }
 
-    if (currentMinutes >= occurrenceMinutes + DUE_NOW_GRACE_MINUTES) {
+    const dueTime = occurrenceDateTime.getTime();
+    const currentTimeMs = currentTime.getTime();
+    if (currentTimeMs >= dueTime + DUE_NOW_GRACE_MINUTES * 60000) {
       return 'pending';
     }
 
-    return currentMinutes >= occurrenceMinutes ? 'due' : 'upcoming';
+    return currentTimeMs >= dueTime ? 'due' : 'upcoming';
   }
 
   if (currentMinutes === null || scheduleMinutes === null) {
@@ -337,7 +339,7 @@ export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = ne
     return false;
   }
 
-  if (!isScheduleActiveOnDate(medEntry.dailySched[scheduleIndex], currDate)) {
+  if (!isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex]) && !isScheduleActiveOnDate(medEntry.dailySched[scheduleIndex], currDate)) {
     return false;
   }
 
