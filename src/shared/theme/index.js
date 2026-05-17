@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { moderateScale, moderateVerticalScale, roundToPixel } from './scaling';
+import { getThemeColors } from './palette';
 
 // Base typography helpers. Live accessibility scaling is applied at render time
 // by the shared text-scale layer so these values stay stable as a baseline.
@@ -19,24 +20,28 @@ export const getLineHeight = (lineHeight) => {
   return roundToPixel(moderateVerticalScale(lineHeight));
 };
 
-export const colors = {
-  // Ultra high-contrast neutrals and action colors satisfying WCAG AA standards.
-  pageBg: '#F8FAFC',       // Clean, slate-tinted background
-  surface: '#FFFFFF',      // Pure white surface
-  title: '#0F172A',        // Dark slate-900 for ultra-crisp title headings (contrast ratio 15.0+)
-  body: '#334155',         // Slate-700 for highly legible body copy (contrast ratio 6.0+)
-  bodyMuted: '#475569',    // Slate-600 for subtext and captions (passes WCAG AA, contrast ratio 4.7+)
-  brand: '#0284C7',        // Sky-600: Punchy, accessible brand blue (passes WCAG AA against white text)
-  brandSoft: '#F0F9FF',    // Sky-50: Softer, clean light blue card tint
-  brandText: '#0369A1',    // Sky-700: Dark blue active text highlights
-  brandSubText: '#075985', // Sky-800: Strong dark blue text
-  border: '#64748B',       // Slate-500: Deep slate-500 to guarantee 100% WCAG AA border compliance (contrast 4.0+)
-  placeholder: '#64748B',  // Slate-500: Legible placeholder text (passes WCAG AA)
-  focusRing: '#0284C7',    // Sky-600 active border rings
-  success: '#166534',      // Deep forest green for positive states (high contrast)
-  warning: '#9A3412',      // Warm rust amber for alert states (high contrast)
-  error: '#991B1B',        // Rich crimson red for critical states (high contrast)
-};
+export const colors = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (typeof prop === 'symbol') {
+        return undefined;
+      }
+
+      return getThemeColors()[prop];
+    },
+    ownKeys() {
+      return Reflect.ownKeys(getThemeColors());
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      const descriptor = Object.getOwnPropertyDescriptor(getThemeColors(), prop);
+      if (descriptor) {
+        descriptor.configurable = true;
+      }
+      return descriptor;
+    },
+  }
+);
 
 export const spacing = {
   xxs: roundToPixel(moderateScale(4)),

@@ -1,13 +1,12 @@
 import { StyleSheet, View } from 'react-native';
 import HelpButton from '../header/HelpButton';
 import ProfileButton from '../header/ProfileButton';
-import { accessibility, moderateScale, spacing } from '../../theme';
+import { accessibility, colors, moderateScale, spacing } from '../../theme';
 
 const HEADER_ACTION_ICON_SIZE = moderateScale(30);
 const HELP_ICON_SIZE = moderateScale(34);
 const HEADER_ACTION_TOUCH_SIZE = accessibility.minTouchTarget + spacing.xs;
 const HEADER_ACTION_ICON_OFFSET = { marginBottom: moderateScale(-6) };
-const HEADER_ACTION_COLOR = '#000000';
 
 export default function DashboardHeader({
   onHelpPress,
@@ -21,6 +20,8 @@ export default function DashboardHeader({
   profileDisabled = false,
   style,
 }) {
+  const headerActionColor = colors.title;
+
   return (
     <View style={[styles.container, style]}>
       <View style={[styles.leftGroup, leftGroupStyle]}>
@@ -37,7 +38,7 @@ export default function DashboardHeader({
           label="Settings"
           icon="settings"
           iconSize={HEADER_ACTION_ICON_SIZE}
-          iconColor={HEADER_ACTION_COLOR}
+          iconColor={headerActionColor}
           style={styles.headerActionButton}
           iconWrapStyle={[styles.headerActionIconWrap, HEADER_ACTION_ICON_OFFSET]}
           textStyle={styles.headerActionText}
@@ -49,7 +50,7 @@ export default function DashboardHeader({
           disabled={helpDisabled}
           icon="help-circle"
           iconSize={HELP_ICON_SIZE}
-          iconColor={HEADER_ACTION_COLOR}
+          iconColor={headerActionColor}
           style={styles.headerActionButton}
           iconWrapStyle={[styles.headerActionIconWrap, HEADER_ACTION_ICON_OFFSET]}
           textStyle={styles.headerActionText}
@@ -86,6 +87,6 @@ const styles = StyleSheet.create({
     height: HEADER_ACTION_TOUCH_SIZE,
   },
   headerActionText: {
-    color: HEADER_ACTION_COLOR,
+    color: colors.title,
   },
 });

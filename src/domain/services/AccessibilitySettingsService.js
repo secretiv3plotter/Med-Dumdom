@@ -198,6 +198,12 @@ export class AccessibilitySettingsService {
     return cloneSettings(settings);
   }
 
+  setDarkModeEnabled(userId, enabled) {
+    const settings = this._getStoredSettings(userId);
+    settings.setDarkModeEnabled(enabled);
+    return cloneSettings(settings);
+  }
+
   _getStoredSettings(userId) {
     const normalizedUserId = normalizeUserId(userId);
     const storedSettings = this.settingsByUserId.get(normalizedUserId);

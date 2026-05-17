@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ActionButton from '../../../shared/components/common/ActionButton';
@@ -14,6 +14,7 @@ import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
@@ -39,9 +40,8 @@ const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
-const APPOINTMENT_ACCENT = '#52B788';
-const APPOINTMENT_ACCENT_SOFT = '#E9F8F1';
-const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
+const APPOINTMENT_ACCENT = colors.success;
+const APPOINTMENT_ACCENT_TEXT = colors.success;
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 const SEEDED_MOCK_APPOINTMENT_USERS = new Set();
 
@@ -390,7 +390,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+      <ThemedScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
         {!pinHeader ? <View style={styles.headerBlock}>{headerBlock}</View> : null}
         <View style={styles.searchWrap}>
           <InputBar
@@ -400,7 +400,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             onChangeText={setSearchQuery}
             showSearchIcon
             autoComplete="off"
-            focusBorderColor={APPOINTMENT_ACCENT}
+            focusBorderColor={colors.success}
           />
         </View>
         <View style={styles.listSection}>
@@ -459,7 +459,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             <Text style={styles.historyBarText}>Review previous records</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </ThemedScrollView>
 
       <LargePopup
         visible={isDetailsVisible && Boolean(selectedAppointment)}
@@ -479,7 +479,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                   <SmallHeaderAction
                     label="Edit"
                     icon="create-outline"
-                    color={APPOINTMENT_ACCENT_TEXT}
+                    color={colors.success}
                     onPress={handleEditAppointment}
                   />
                   <SmallHeaderAction
@@ -703,9 +703,9 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
           onChange={onChangeText}
           accessibilityLabel={label}
           minimumDate={minimumDate}
-          focusBorderColor={APPOINTMENT_ACCENT}
-          focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
-          focusTextColor={APPOINTMENT_ACCENT_TEXT}
+          focusBorderColor={colors.success}
+          focusBackgroundColor={colors.brandSoft}
+          focusTextColor={colors.success}
         />
       </View>
     );
@@ -720,8 +720,8 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
         placeholder={label}
         multiline={multiline}
         numberOfLines={multiline ? 4 : 1}
-        focusBorderColor={APPOINTMENT_ACCENT}
-        focusBackgroundColor={APPOINTMENT_ACCENT_SOFT}
+        focusBorderColor={colors.success}
+        focusBackgroundColor={colors.brandSoft}
       />
     </View>
   );

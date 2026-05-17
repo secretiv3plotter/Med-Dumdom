@@ -1,4 +1,7 @@
 import { colors } from '../../../shared/theme';
+import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+
+const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
 
 export const capitalize = (value) => String(value || '')
   .trim()
@@ -384,6 +387,30 @@ export const buildScheduleDraftFromEntry = (entry) => ({
 export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
   const status = medicine.getScheduleStatus(scheduleIndex, now, now);
 
+  if (isDarkMode()) {
+    if (status === 'taken') {
+      return { status, label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+    }
+
+    if (status === 'missed') {
+      return { status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error };
+    }
+
+    if (status === 'skipped') {
+      return { status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+    }
+
+    if (status === 'due') {
+      return { status, label: 'Due now', bgColor: '#0F2A1B', textColor: colors.success };
+    }
+
+    if (status === 'pending') {
+      return { status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning };
+    }
+
+    return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body };
+  }
+
   // Accessible color palette conforming to standard WCAG AA contrast ratio requirements
   if (status === 'taken') {
     return { status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }; // Sky Blue on Navy (contrast 6.3+)
@@ -699,7 +726,7 @@ export const getMedicinePreviewState = (medicine, now = new Date()) => {
             status: 'upcoming',
             label: 'Upcoming',
             bgColor: colors.surface,
-            textColor: '#374151',
+            textColor: isDarkMode() ? colors.body : '#374151',
           },
         },
       ],

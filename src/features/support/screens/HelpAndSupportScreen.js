@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -11,6 +11,7 @@ import {
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import InputBar from '../../../shared/components/common/InputBar';
 import TextCard from '../../../shared/components/common/TextCard';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import faqService from '../../../domain/services/FaqService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
@@ -28,9 +29,8 @@ const HELP_CATEGORY_VALUE_MAP = {
   'Appts.': 'Appts',
   Settings: 'Settings',
 };
-const APPOINTMENT_GREEN = '#52B788';
-const APPOINTMENT_GREEN_TEXT = '#1B6B4A';
-const APPOINTMENT_GREEN_SOFT = '#E8F7EF';
+const APPOINTMENT_GREEN = colors.success;
+const APPOINTMENT_GREEN_SOFT = colors.brandSoft;
 export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
@@ -75,7 +75,7 @@ export default function HelpAndSupportScreen({ navigation }) {
         ) : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView contentContainerStyle={styles.content}>
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Help and Support</Text>
@@ -125,7 +125,7 @@ export default function HelpAndSupportScreen({ navigation }) {
                   <Ionicons
                     name="help-circle-outline"
                     size={24}
-                    color={isAppointmentsSelected ? APPOINTMENT_GREEN_TEXT : colors.brandText}
+                    color={isAppointmentsSelected ? colors.success : colors.brandText}
                   />
                 </View>
                 <TextCard
@@ -144,7 +144,7 @@ export default function HelpAndSupportScreen({ navigation }) {
             </View>
           )}
         </View>
-      </ScrollView>
+      </ThemedScrollView>
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />

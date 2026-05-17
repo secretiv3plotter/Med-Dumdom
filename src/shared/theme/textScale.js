@@ -2,6 +2,13 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import { StyleSheet, Text, TextInput } from 'react-native';
 import accessibilitySettingsService from '../../domain/services/AccessibilitySettingsService';
 import { roundToPixel } from './scaling';
+import {
+  getThemeMode,
+  setThemeMode,
+  transformThemeValue,
+  THEME_MODE_DARK,
+  THEME_MODE_LIGHT,
+} from './palette';
 
 export const MIN_TEXT_SCALE = 1.0;
 export const MAX_TEXT_SCALE = 2.0;
@@ -12,6 +19,22 @@ const clampTextScale = (value) => Math.min(MAX_TEXT_SCALE, Math.max(MIN_TEXT_SCA
 const layoutScaleFromTextScale = (scale) => 1 + (scale - 1) * 0.7;
 const originalStyleSheetCreate = StyleSheet.create.bind(StyleSheet);
 let styleSheetCreatePatched = false;
+const THEME_STYLE_COLOR_KEYS = new Set([
+  'accentColor',
+  'backgroundColor',
+  'borderBottomColor',
+  'borderColor',
+  'borderLeftColor',
+  'borderRightColor',
+  'borderTopColor',
+  'color',
+  'caretColor',
+  'placeholderTextColor',
+  'shadowColor',
+  'textDecorationColor',
+  'textShadowColor',
+  'tintColor',
+]);
 
 export const normalizeTextScale = (value) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -47,6 +70,31 @@ export const getLayoutScale = () => layoutScaleFromTextScale(currentTextScale);
 
 export const scaleLayoutValue = (value) => roundToPixel(value * getLayoutScale());
 
+const transformThemeStyle = (style) => {
+  if (getThemeMode() !== THEME_MODE_DARK || !style || typeof style !== 'object') {
+    return style;
+  }
+
+  if (Array.isArray(style)) {
+    return style.map((item) => transformThemeStyle(item));
+  }
+
+  const transformed = { ...style };
+
+  Object.entries(transformed).forEach(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      transformed[key] = transformThemeStyle(value);
+      return;
+    }
+
+    if (THEME_STYLE_COLOR_KEYS.has(key)) {
+      transformed[key] = transformThemeValue(value, undefined, key);
+    }
+  });
+
+  return transformed;
+};
+
 const scaleTextStyle = (style) => {
   const flattened = StyleSheet.flatten(style);
 
@@ -81,7 +129,7 @@ const scaleTextStyle = (style) => {
     nextStyle.lineHeight = roundToPixel(resolvedLineHeightBase * currentTextScale);
   }
 
-  return nextStyle;
+  return transformThemeStyle(nextStyle);
 };
 
 const createScaledStyleProxy = (styles) =>
@@ -152,12 +200,14 @@ export const installTextScaling = () => {
 const TextScaleContext = createContext(null);
 
 export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
-  const initialScale = normalizeTextScale(
-    accessibilitySettingsService.getAccessibilitySettings(userId)?.textSizeLevel ?? MIN_TEXT_SCALE
-  );
+  const initialSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+  const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
+  const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
 
   currentTextScale = initialScale;
+  setThemeMode(initialDarkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT);
   const [textScale, setTextScaleState] = useState(initialScale);
+  const [darkModeEnabled, setDarkModeEnabledState] = useState(initialDarkMode);
 
   const updateTextScale = useCallback(
     (nextScale) => {
@@ -169,12 +219,24 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
     [userId]
   );
 
+  const updateDarkMode = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setThemeMode(nextEnabled ? THEME_MODE_DARK : THEME_MODE_LIGHT);
+      setDarkModeEnabledState(nextEnabled);
+      accessibilitySettingsService.setDarkModeEnabled(userId, nextEnabled);
+    },
+    [userId]
+  );
+
   const value = useMemo(
     () => ({
       textScale,
       setTextScale: updateTextScale,
+      darkModeEnabled,
+      setDarkModeEnabled: updateDarkMode,
     }),
-    [textScale, updateTextScale]
+    [textScale, updateTextScale, darkModeEnabled, updateDarkMode]
   );
 
   return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;

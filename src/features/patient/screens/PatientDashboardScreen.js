@@ -1,7 +1,8 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
 
@@ -40,7 +41,7 @@ export default function PatientDashboardScreen({ navigation }) {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.container} />
+      <ThemedScrollView contentContainerStyle={styles.container} />
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />

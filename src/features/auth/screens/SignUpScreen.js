@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
 import { useRealm } from '../../../localdb/realm/RealmContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 
 export default function SignUpScreen({ navigation }) {
   const realm = useRealm();
@@ -37,7 +38,7 @@ export default function SignUpScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
+      <ThemedScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
@@ -77,7 +78,7 @@ export default function SignUpScreen({ navigation }) {
             <Text style={styles.loginLink}>Log In</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </ThemedScrollView>
     </SafeAreaView>
   );
 }

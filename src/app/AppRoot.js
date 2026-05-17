@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
+import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
@@ -74,7 +75,7 @@ function useWebViewportLock() {
 
 function AppContent() {
   const realm = useRealm();
-  const { textScale } = useTextScale();
+  const { textScale, darkModeEnabled } = useTextScale();
   const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
@@ -129,7 +130,7 @@ function AppContent() {
       <View key={screenKey} style={{ flex: 1 }}>
         <CurrentScreen {...screenProps} />
       </View>
-      <StatusBar style="dark" />
+      <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
   );
 }
@@ -160,7 +161,7 @@ export default function AppRoot() {
 
   const content = (
     <TextScaleProvider>
-      <SafeAreaProvider style={styles.appShell}>
+      <SafeAreaProvider style={[styles.appShell, { backgroundColor: colors.pageBg }]}>
         <AppContent />
       </SafeAreaProvider>
     </TextScaleProvider>
@@ -173,8 +174,13 @@ export default function AppRoot() {
   if (isWebDesktop) {
     return (
       <RealmProvider>
-        <View style={styles.webDesktopBackground}>
-          <View style={styles.phoneFrame}>
+        <View style={[styles.webDesktopBackground, { backgroundColor: colors.pageBg }]}>
+          <View
+            style={[
+              styles.phoneFrame,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             {content}
           </View>
         </View>
@@ -198,7 +204,6 @@ const styles = StyleSheet.create({
   },
   webDesktopBackground: {
     flex: 1,
-    backgroundColor: '#0F172A', // Sleek dark slate
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
@@ -212,7 +217,6 @@ const styles = StyleSheet.create({
     borderWidth: 10,
     borderColor: '#1E293B', // Border bezel matching phone body
     overflow: 'hidden',
-    backgroundColor: '#ECEFF4',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,

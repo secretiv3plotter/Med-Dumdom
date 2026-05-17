@@ -1,4 +1,7 @@
 import { colors } from '../../../shared/theme';
+import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+
+const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
 
 export const startOfToday = () => {
   const today = new Date();
@@ -86,6 +89,26 @@ export const getApptStatusStyle = (appointment, now = new Date()) => {
   const status = typeof appointment.getStatus === 'function'
     ? appointment.getStatus(now, now)
     : 'upcoming';
+
+  if (isDarkMode()) {
+    if (status === 'completed' || status === 'due') {
+      return { status, label: status === 'due' ? 'Due now' : 'Completed', bgColor: '#0F2A1B', textColor: '#86EFAC' };
+    }
+
+    if (status === 'skipped') {
+      return { status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+    }
+
+    if (status === 'missed') {
+      return { status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error };
+    }
+
+    if (status === 'pending') {
+      return { status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning };
+    }
+
+    return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body };
+  }
 
   // Accessible color palette conforming to WCAG AA contrast ratio requirements
   if (status === 'completed') {

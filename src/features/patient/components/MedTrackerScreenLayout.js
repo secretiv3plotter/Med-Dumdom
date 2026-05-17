@@ -1,4 +1,4 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -10,6 +10,7 @@ import { AddButton, DeleteButton, EditButton } from '../../../shared/components/
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { MedTrackerEditorContent } from './MedTrackerEditorContent';
 import { MedicineDetailsContent, MedicinePreviewCard } from './MedTrackerScreenComponents';
@@ -60,7 +61,7 @@ export function MedicineListSection({
   headerContent = null,
 }) {
   return (
-    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+    <ThemedScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
       {headerContent ? <View style={styles.headerBlock}>{headerContent}</View> : null}
       <View style={styles.searchWrap}>
         <InputBar
@@ -97,7 +98,7 @@ export function MedicineListSection({
           <Text style={styles.historyBarText}>Review previous records</Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </ThemedScrollView>
   );
 }
 

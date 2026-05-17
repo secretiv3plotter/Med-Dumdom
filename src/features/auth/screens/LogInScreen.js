@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -10,6 +10,7 @@ import {
 } from '../../../shared/components/common/backHeaderMetrics';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { useRealm } from '../../../localdb/realm/RealmContext';
 
 export default function LogInScreen({ navigation }) {
@@ -45,7 +46,7 @@ export default function LogInScreen({ navigation }) {
       <View style={styles.header}>
         <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
       </View>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ThemedScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Welcome back!</Text>
           <Text style={styles.subtitle}>Log in to continue.</Text>
@@ -82,7 +83,7 @@ export default function LogInScreen({ navigation }) {
             <Text style={styles.signupLink}>Sign Up</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </ThemedScrollView>
     </SafeAreaView>
   );
 }

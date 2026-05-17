@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -13,6 +13,7 @@ import NavigationBar from '../../../shared/components/common/NavigationBar';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { useTextScale } from '../../../shared/theme/textScale';
 import {
   BreadcrumbButton,
@@ -220,7 +221,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView contentContainerStyle={styles.content}>
         {!pinHeader ? headerBlock : null}
         {historyRecords.length ? (
           <>
@@ -444,7 +445,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
             <Text style={styles.emptyText}>Daily medicine history will appear here after a schedule day is completed.</Text>
           </View>
         )}
-      </ScrollView>
+      </ThemedScrollView>
 
       <View style={styles.footerNav}>
         <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />

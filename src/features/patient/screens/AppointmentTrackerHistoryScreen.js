@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ROUTES } from '../../../app/navigation/routes';
@@ -16,6 +16,7 @@ import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
@@ -372,7 +373,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView contentContainerStyle={styles.content}>
         {!pinHeader ? headerBlock : null}
         <InputBar
           placeholder="Search previous records"
@@ -521,7 +522,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
             <Text style={styles.emptyTitle}>No previous records yet.</Text>
           </View>
         ) : null}
-      </ScrollView>
+      </ThemedScrollView>
 
       {pendingDeleteTarget ? (
         <Modal
