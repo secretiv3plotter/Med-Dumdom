@@ -39,6 +39,20 @@ const scheduledDateTime = (entry) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
+
+const statusResolvedAt = (entry) => {
+  if (entry.isCompleted) {
+    return toNullableDate(entry.completedAt);
+  }
+
+  if (entry.isSkipped) {
+    return toNullableDate(entry.skippedAt);
+  }
+
+  return null;
+};
+
 const getHistoryStatus = (entry, now = new Date()) => {
   const model = entry instanceof ApptEntry ? entry : toApptEntryModel(entry);
   if (model.isCompleted) return 'completed';
@@ -183,32 +197,39 @@ export default class RealmApptTrackerRepository {
 
   snapshotFinalizedEntriesIfNeeded(userId, now = new Date()) {
     const normalizedUserId = normalizeUserId(userId);
+    const currentDateTime = toNullableDate(now) || new Date();
     Array.from(this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == false', normalizedUserId))
       .forEach((entry) => {
         const model = toApptEntryModel(entry);
-        // Only snapshot if past midnight of next day (appointment is finalized)
-        if (!model.isMissed(now, now)) {
+        let finalStatus = 'missed';
+        let snapshotTime = scheduledDateTime(model) || currentDateTime;
+
+        if (model.isCompleted) {
+          const resolvedAt = statusResolvedAt(model);
+          if (!resolvedAt || currentDateTime.getTime() - resolvedAt.getTime() < RECENT_STATUS_HOLD_MS) {
+            return;
+          }
+
+          finalStatus = 'completed';
+          snapshotTime = resolvedAt;
+        } else if (model.isSkipped) {
+          const resolvedAt = statusResolvedAt(model);
+          if (!resolvedAt || currentDateTime.getTime() - resolvedAt.getTime() < RECENT_STATUS_HOLD_MS) {
+            return;
+          }
+
+          finalStatus = 'skipped';
+          snapshotTime = resolvedAt;
+        } else if (!model.isMissed(currentDateTime, currentDateTime)) {
           return;
         }
 
-        // Determine final status: completed > skipped > missed
-        let finalStatus = 'missed';
-        let snapshotTime = scheduledDateTime(model) || now;
-
-        if (model.isCompleted) {
-          finalStatus = 'completed';
-          snapshotTime = model.completedAt || snapshotTime;
-        } else if (model.isSkipped) {
-          finalStatus = 'skipped';
-          snapshotTime = model.skippedAt || snapshotTime;
-        }
-
-        // Check if this status is already snapshotted
         const historyId = `${normalizedUserId}-${model.apptEntryId}-${finalStatus}`;
         if (!this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId)) {
           this.snapshotHistory(normalizedUserId, model, finalStatus, snapshotTime);
-          this.realm.delete(entry);
         }
+
+        this.realm.delete(entry);
       });
   }
 
