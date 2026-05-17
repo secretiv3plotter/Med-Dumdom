@@ -9,7 +9,9 @@ import {
 } from '../../../shared/components/common/backHeaderMetrics';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
+import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
+import ActionButton from '../../../shared/components/common/ActionButton';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
@@ -19,16 +21,17 @@ import { useTextScale } from '../../../shared/theme/textScale';
 import {
   BreadcrumbButton,
   DayRecordCard,
-  MedicineDetailsCard,
   OptionCard,
 } from '../components/MedTrackerHistoryComponents';
 import {
   buildHistoryRecordSearchText,
   buildMedGroups,
   formatDate,
-  formatTakenAmount,
+  formatDateTime,
+  formatDoseWithUnit,
+  formatScheduleText,
   getRecordDate,
-  groupRecordsByWeek,
+  getStatusStyle,
   monthName,
   normalizeSearchText,
   uniqueDescending,
@@ -38,6 +41,7 @@ const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
 const FOOTER_NAV_Z_INDEX = 30;
 const SEEDED_MOCK_HISTORY_USERS = new Set();
+const MOCK_HISTORY_SEED_KEY = `${CURRENT_USER_ID}-med-history-v2`;
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -161,13 +165,30 @@ const createMockPreviousMedRecords = () => [
   },
 ];
 
+const dateKey = (date) => date.toISOString().slice(0, 10);
+
+const buildDayGroups = (records) =>
+  Object.values(records.reduce((groups, record) => {
+    const recordDate = getRecordDate(record);
+    const dayKey = record.historyDate || dateKey(recordDate);
+    const existingGroup = groups[dayKey] || {
+      dayKey,
+      label: formatDate(dayKey),
+      records: [],
+    };
+
+    existingGroup.records.push(record);
+    groups[dayKey] = existingGroup;
+    return groups;
+  }, {})).sort((firstDay, secondDay) => String(secondDay.dayKey).localeCompare(String(firstDay.dayKey)));
+
 export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   const [version, setVersion] = useState(0);
-  const [isCleanupMode, setIsCleanupMode] = useState(false);
   const [selectedMedKey, setSelectedMedKey] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(null);
-  const [selectedWeekKey, setSelectedWeekKey] = useState(null);
+  const [selectedDayKey, setSelectedDayKey] = useState(null);
+  const [selectedScheduleRecord, setSelectedScheduleRecord] = useState(null);
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { textScale } = useTextScale();
@@ -179,23 +200,20 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
       return [];
     }
 
-    return new RealmMedTrackerRepository(realm).listMedTrackerDailyHistory(CURRENT_USER_ID);
-  }, [realm, version]);
-
-  useEffect(() => {
-    if (!realm || historyRecords.length || SEEDED_MOCK_HISTORY_USERS.has(CURRENT_USER_ID)) {
-      return;
+    const repository = new RealmMedTrackerRepository(realm);
+    const records = repository.listMedTrackerDailyHistory(CURRENT_USER_ID);
+    if (!records.length && !SEEDED_MOCK_HISTORY_USERS.has(MOCK_HISTORY_SEED_KEY)) {
+      realm.write(() => {
+        createMockPreviousMedRecords().forEach(({ entry, historyDate }) => {
+          repository.snapshotDailyHistory(CURRENT_USER_ID, entry, historyDate);
+        });
+      });
+      SEEDED_MOCK_HISTORY_USERS.add(MOCK_HISTORY_SEED_KEY);
+      return repository.listMedTrackerDailyHistory(CURRENT_USER_ID);
     }
 
-    const repository = new RealmMedTrackerRepository(realm);
-    realm.write(() => {
-      createMockPreviousMedRecords().forEach(({ entry, historyDate }) => {
-        repository.snapshotDailyHistory(CURRENT_USER_ID, entry, historyDate);
-      });
-    });
-    SEEDED_MOCK_HISTORY_USERS.add(CURRENT_USER_ID);
-    setVersion((current) => current + 1);
-  }, [realm, historyRecords.length]);
+    return records;
+  }, [realm, version]);
 
   const filteredHistoryRecords = useMemo(() => {
     const normalizedQuery = normalizeSearchText(searchQuery);
@@ -229,34 +247,28 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
     () => yearRecords.filter((record) => getRecordDate(record).getMonth() === selectedMonth),
     [yearRecords, selectedMonth]
   );
-  const weekGroups = useMemo(() => groupRecordsByWeek(monthRecords), [monthRecords]);
-  const selectedWeek = useMemo(
-    () => weekGroups.find((week) => week.key === selectedWeekKey) || null,
-    [weekGroups, selectedWeekKey]
-  );
-  const dayRecords = useMemo(
-    () => [...(selectedWeek?.records || [])].sort((firstRecord, secondRecord) =>
-      String(secondRecord.historyDate || '').localeCompare(String(firstRecord.historyDate || ''))
-    ),
-    [selectedWeek]
+  const dayGroups = useMemo(() => buildDayGroups(monthRecords), [monthRecords]);
+  const selectedDayGroup = useMemo(
+    () => dayGroups.find((dayGroup) => dayGroup.dayKey === selectedDayKey) || null,
+    [dayGroups, selectedDayKey]
   );
 
   const selectMed = (medKey) => {
     setSelectedMedKey(medKey);
     setSelectedYear(null);
     setSelectedMonth(null);
-    setSelectedWeekKey(null);
+    setSelectedDayKey(null);
   };
 
   const selectYear = (year) => {
     setSelectedYear(year);
     setSelectedMonth(null);
-    setSelectedWeekKey(null);
+    setSelectedDayKey(null);
   };
 
   const selectMonth = (month) => {
     setSelectedMonth(month);
-    setSelectedWeekKey(null);
+    setSelectedDayKey(null);
   };
 
   const onTabNavigate = (tabKey) => {
@@ -289,31 +301,32 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
       CURRENT_USER_ID,
       pendingDeleteTarget.historyIds
     );
+    setSelectedScheduleRecord((currentRecord) => (
+      currentRecord && pendingDeleteTarget.historyIds.includes(currentRecord.record.historyId) ? null : currentRecord
+    ));
     setPendingDeleteTarget(null);
     if (pendingDeleteTarget.type === 'all' || pendingDeleteTarget.type === 'medicine') {
       setSelectedMedKey(null);
       setSelectedYear(null);
       setSelectedMonth(null);
-      setSelectedWeekKey(null);
+      setSelectedDayKey(null);
     }
     if (pendingDeleteTarget.type === 'year') {
       setSelectedYear(null);
       setSelectedMonth(null);
-      setSelectedWeekKey(null);
+      setSelectedDayKey(null);
     }
     if (pendingDeleteTarget.type === 'month') {
       setSelectedMonth(null);
-      setSelectedWeekKey(null);
-    }
-    if (pendingDeleteTarget.type === 'week') {
-      setSelectedWeekKey(null);
+      setSelectedDayKey(null);
     }
     setVersion((current) => current + 1);
   };
 
   const handleBack = () => {
-    if (selectedWeekKey) {
-      setSelectedWeekKey(null);
+    if (selectedDayKey) {
+      setSelectedScheduleRecord(null);
+      setSelectedDayKey(null);
       return true;
     }
 
@@ -339,7 +352,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack);
     return () => subscription.remove();
-  }, [selectedWeekKey, selectedMonth, selectedYear, selectedMedKey]);
+  }, [selectedDayKey, selectedMonth, selectedYear, selectedMedKey]);
 
   const headerBlock = (
     <View style={styles.headerTextBlock}>
@@ -382,7 +395,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                     setSelectedMedKey(null);
                     setSelectedYear(null);
                     setSelectedMonth(null);
-                    setSelectedWeekKey(null);
+                    setSelectedDayKey(null);
                   }}
                 />
               ) : null}
@@ -392,7 +405,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                   onPress={() => {
                     setSelectedYear(null);
                     setSelectedMonth(null);
-                    setSelectedWeekKey(null);
+                    setSelectedDayKey(null);
                   }}
                 />
               ) : null}
@@ -401,62 +414,32 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                   label={monthName(selectedMonth)}
                   onPress={() => {
                     setSelectedMonth(null);
-                    setSelectedWeekKey(null);
+                    setSelectedDayKey(null);
                   }}
                 />
               ) : null}
-              {selectedWeek ? (
+              {selectedDayGroup ? (
                 <BreadcrumbButton
-                  label={`${formatDate(selectedWeek.startDate)} - ${formatDate(selectedWeek.endDate)}`}
-                  onPress={() => setSelectedWeekKey(null)}
+                  label={selectedDayGroup.label}
+                  onPress={() => setSelectedDayKey(null)}
                 />
               ) : null}
             </View>
 
             {!selectedMed ? (
               <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={isCleanupMode ? 'Done cleaning records' : 'Clean up records'}
-                  unstable_pressDelay={0}
-                  onPress={() => setIsCleanupMode((current) => !current)}
-                  style={({ pressed }) => [
-                    styles.cleanupBar,
-                    isCleanupMode && styles.cleanupBarActive,
-                    pressed && styles.pressedControl,
-                  ]}
-                >
-                  <Text style={[styles.cleanupBarText, isCleanupMode && styles.cleanupBarTextActive]}>
-                    {isCleanupMode ? 'Done cleaning records' : 'Clean up records'}
-                  </Text>
-                </Pressable>
-                {isCleanupMode ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear all records"
-                    unstable_pressDelay={0}
-                    onPress={() => requestDeleteRecords('all', 'all previous records', historyRecords)}
-                    style={({ pressed }) => [styles.clearAllBar, pressed && styles.pressedControl]}
-                  >
-                    <Text style={styles.clearAllBarText}>Clear all records</Text>
-                  </Pressable>
-                ) : null}
                 <Text style={styles.sectionTitle}>Medicines</Text>
                 {medGroups.length ? medGroups.map((group) => (
                   <OptionCard
                     key={group.key}
                     title={group.medName}
-                    subtitle={`${group.unitStrength ? `${group.unitStrength} - ` : ''}Latest record ${formatDate(group.latestDate)} - ${formatTakenAmount(group.records, group.unit, 'Total taken')}`}
+                    subtitle={`${group.records.length} record${group.records.length === 1 ? '' : 's'}`}
                     onPress={() => selectMed(group.key)}
-                    onDelete={
-                      isCleanupMode
-                        ? () => requestDeleteRecords(
-                            'medicine',
-                            `all records for ${group.medName}`,
-                            group.records
-                          )
-                        : null
-                    }
+                    onDelete={() => requestDeleteRecords(
+                      'medicine',
+                      `all records for ${group.medName}`,
+                      group.records
+                    )}
                   />
                 )) : (
                   <View style={styles.emptyCard}>
@@ -469,23 +452,18 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
 
             {selectedMed && !selectedYear ? (
               <>
-                <MedicineDetailsCard medicine={selectedMed} />
                 <Text style={styles.sectionTitle}>Years</Text>
                 {years.length ? years.map((year) => (
                   <OptionCard
                     key={year}
                     title={String(year)}
-                    subtitle={`${selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year).length} records - ${formatTakenAmount(selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year), selectedMed.unit, 'Taken this year')}`}
+                    subtitle={`${selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year).length} records`}
                     onPress={() => selectYear(year)}
-                    onDelete={
-                      isCleanupMode
-                        ? () => requestDeleteRecords(
-                            'year',
-                            `${year} records for ${selectedMed.medName}`,
-                            selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year)
-                          )
-                        : null
-                    }
+                    onDelete={() => requestDeleteRecords(
+                      'year',
+                      `${year} records for ${selectedMed.medName}`,
+                      selectedMed.records.filter((record) => getRecordDate(record).getFullYear() === year)
+                    )}
                   />
                 )) : (
                   <View style={styles.emptyCard}>
@@ -503,17 +481,13 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                   <OptionCard
                     key={month}
                     title={monthName(month)}
-                    subtitle={`${yearRecords.filter((record) => getRecordDate(record).getMonth() === month).length} records - ${formatTakenAmount(yearRecords.filter((record) => getRecordDate(record).getMonth() === month), selectedMed.unit, 'Taken this month')}`}
+                    subtitle={`${yearRecords.filter((record) => getRecordDate(record).getMonth() === month).length} records`}
                     onPress={() => selectMonth(month)}
-                    onDelete={
-                      isCleanupMode
-                        ? () => requestDeleteRecords(
-                            'month',
-                            `${monthName(month)} ${selectedYear} records for ${selectedMed.medName}`,
-                            yearRecords.filter((record) => getRecordDate(record).getMonth() === month)
-                          )
-                        : null
-                    }
+                    onDelete={() => requestDeleteRecords(
+                      'month',
+                      `${monthName(month)} ${selectedYear} records for ${selectedMed.medName}`,
+                      yearRecords.filter((record) => getRecordDate(record).getMonth() === month)
+                    )}
                   />
                 )) : (
                   <View style={styles.emptyCard}>
@@ -524,50 +498,46 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
               </>
             ) : null}
 
-            {selectedMed && selectedYear && selectedMonth !== null && !selectedWeek ? (
+            {selectedMed && selectedYear && selectedMonth !== null && !selectedDayGroup ? (
               <>
-                <Text style={styles.sectionTitle}>Weeks</Text>
-                {weekGroups.length ? weekGroups.map((week) => (
+                <Text style={styles.sectionTitle}>Days</Text>
+                {dayGroups.length ? dayGroups.map((dayGroup) => (
                   <OptionCard
-                    key={week.key}
-                    title={`${formatDate(week.startDate)} - ${formatDate(week.endDate)}`}
-                    subtitle={`${week.records.length} days with records - ${formatTakenAmount(week.records, selectedMed.unit, 'Taken this week')}`}
-                    onPress={() => setSelectedWeekKey(week.key)}
-                    onDelete={
-                      isCleanupMode
-                        ? () => requestDeleteRecords(
-                            'week',
-                            `${formatDate(week.startDate)} - ${formatDate(week.endDate)} records for ${selectedMed.medName}`,
-                            week.records
-                          )
-                        : null
-                    }
+                    key={dayGroup.dayKey}
+                    title={dayGroup.label}
+                    subtitle={`${dayGroup.records.length} record${dayGroup.records.length === 1 ? '' : 's'}`}
+                    onPress={() => setSelectedDayKey(dayGroup.dayKey)}
+                    onDelete={() => requestDeleteRecords(
+                      'day',
+                      `${dayGroup.label} records for ${selectedMed.medName}`,
+                      dayGroup.records
+                    )}
                   />
                 )) : (
                   <View style={styles.emptyCard}>
-                    <Text style={styles.emptyTitle}>No weeks found.</Text>
+                    <Text style={styles.emptyTitle}>No days found.</Text>
                     <Text style={styles.emptyText}>Try adjusting your search.</Text>
                   </View>
                 )}
               </>
             ) : null}
 
-            {selectedWeek ? (
+            {selectedDayGroup ? (
               <>
-                <Text style={styles.sectionTitle}>Days</Text>
-                {dayRecords.length ? dayRecords.map((record) => (
+                <Text style={styles.sectionTitle}>Schedules</Text>
+                {selectedDayGroup.records.length ? selectedDayGroup.records.map((record) => (
                   <DayRecordCard
                     key={record.historyId}
                     record={record}
-                    onDelete={
-                      isCleanupMode
-                        ? (historyRecord) => requestDeleteRecords(
-                            'day',
-                            `${formatDate(historyRecord.historyDate)} record for ${historyRecord.medName}`,
-                            [historyRecord]
-                          )
-                        : null
-                    }
+                    onDelete={(historyRecord) => requestDeleteRecords(
+                      'day',
+                      `${formatDate(historyRecord.historyDate)} record for ${historyRecord.medName}`,
+                      [historyRecord]
+                    )}
+                    onSchedulePress={(historyRecord, scheduleEntry) => setSelectedScheduleRecord({
+                      record: historyRecord,
+                      entry: scheduleEntry,
+                    })}
                   />
                 )) : (
                   <View style={styles.emptyCard}>
@@ -619,7 +589,104 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
           </Pressable>
         </Modal>
       ) : null}
+
+      <LargePopup
+        visible={Boolean(selectedScheduleRecord)}
+        onClose={() => setSelectedScheduleRecord(null)}
+        header={
+          selectedScheduleRecord ? (
+            <View style={styles.detailsHeaderRow}>
+              <View style={styles.detailsHeaderTextBlock}>
+                <Text style={styles.detailsTitle}>Schedule Details</Text>
+                <Text style={styles.detailsMedicineName}>{selectedScheduleRecord.record.medName}</Text>
+              </View>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={styles.modalContent}
+        sheetStyle={styles.medModalSheet}
+        headerStyle={styles.medModalHeader}
+      >
+        {selectedScheduleRecord ? (
+          <ScheduleRecordDetails
+            record={selectedScheduleRecord.record}
+            entry={selectedScheduleRecord.entry}
+            onClose={() => setSelectedScheduleRecord(null)}
+          />
+        ) : null}
+      </LargePopup>
     </SafeAreaView>
+  );
+}
+
+function HistoryDetailItem({ label, value }) {
+  const displayValue = String(value || '').trim();
+  const accessibleValue = displayValue || 'Blank';
+
+  return (
+    <View
+      style={styles.detailRow}
+      accessible
+      accessibilityLabel={`${label}: ${accessibleValue}`}
+    >
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{displayValue}</Text>
+    </View>
+  );
+}
+
+function ScheduleRecordDetails({ record, entry, onClose }) {
+  const statusStyle = getStatusStyle(entry.finalStatus);
+  const resolvedAt = formatDateTime(entry.takenAt || entry.skippedAt || entry.resolvedAt);
+  const statusLabel = statusStyle.label;
+
+  return (
+    <>
+      <Text style={styles.stepTitle}>Schedule Details</Text>
+
+      <View style={styles.detailPanel}>
+        <HistoryDetailItem label="Medication name" value={record.medName} />
+        <HistoryDetailItem label="Schedule" value={formatScheduleText(entry, record.unit)} />
+        <View style={styles.detailGrid}>
+          <HistoryDetailItem label="Dose" value={formatDoseWithUnit(entry.doseSize, record.unit)} />
+          <HistoryDetailItem label="Date" value={formatDate(record.historyDate)} />
+        </View>
+      </View>
+
+      <View style={styles.schedulePanel}>
+        <View style={styles.schedulePanelHeader}>
+          <Text style={[styles.modalStatusText, { color: statusStyle.textColor }]}>
+            {statusLabel}
+          </Text>
+        </View>
+
+        <View style={styles.scheduleTileRow}>
+          <View style={styles.scheduleTile}>
+            <Text style={styles.scheduleTileLabel}>Status</Text>
+            <Text style={styles.scheduleTileValue}>{statusLabel}</Text>
+          </View>
+          <View style={styles.scheduleTile}>
+            <Text style={styles.scheduleTileLabel}>Resolved</Text>
+            <Text style={styles.scheduleTileValue}>{resolvedAt}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.notesPanel}>
+        <HistoryDetailItem label="Instructions" value={entry.instructions || record.instructions} />
+      </View>
+
+      <View style={styles.footerActionsRow}>
+        <ActionButton
+          label="Close"
+          variant="outline"
+          onPress={onClose}
+          style={styles.closeButton}
+          textStyle={styles.closeButtonText}
+          pressedStyle={styles.closeButtonPressed}
+        />
+      </View>
+    </>
   );
 }
 
@@ -666,27 +733,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.title,
     fontWeight: '700',
-  },
-  cleanupBar: {
-    minHeight: moderateScale(48),
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  cleanupBarActive: {
-    backgroundColor: '#FEE2E2',
-  },
-  cleanupBarText: {
-    ...typography.body,
-    color: colors.error,
-    fontWeight: '700',
-  },
-  cleanupBarTextActive: {
-    color: '#991B1B',
   },
   clearAllBar: {
     minHeight: moderateScale(48),
@@ -743,5 +789,138 @@ const styles = StyleSheet.create({
   confirmDialog: {
     width: '100%',
     maxWidth: moderateScale(360),
+  },
+  modalContent: {
+    paddingBottom: spacing.xl + spacing.sm,
+  },
+  medModalSheet: {
+    backgroundColor: colors.surface,
+  },
+  medModalHeader: {
+    borderBottomColor: colors.border,
+  },
+  detailsHeaderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: spacing.sm,
+    minHeight: 5,
+  },
+  detailsHeaderTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+  },
+  detailsTitle: {
+    ...typography.titleSmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  detailsMedicineName: {
+    ...typography.body,
+    color: colors.body,
+    fontWeight: '600',
+  },
+  stepTitle: {
+    ...typography.titleSmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  detailPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
+  notesPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  detailRow: {
+    flex: 1,
+    minWidth: moderateScale(130),
+    gap: spacing.xxs,
+  },
+  detailLabel: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  detailValue: {
+    ...typography.body,
+    color: colors.body,
+  },
+  schedulePanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+    marginBottom: spacing.sm,
+  },
+  schedulePanelHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  modalStatusText: {
+    ...typography.body,
+    fontWeight: '700',
+  },
+  scheduleTileRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  scheduleTile: {
+    flex: 1,
+    minWidth: moderateScale(130),
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
+    gap: spacing.xxs,
+  },
+  scheduleTileLabel: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+  },
+  scheduleTileValue: {
+    ...typography.bodySmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  footerActionsRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  closeButton: {
+    borderColor: colors.brand,
+  },
+  closeButtonText: {
+    color: colors.brandText,
+  },
+  closeButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
   },
 });
