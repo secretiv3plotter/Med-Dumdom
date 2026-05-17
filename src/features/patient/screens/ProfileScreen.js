@@ -264,39 +264,43 @@ export default function ProfileScreen({ navigation }) {
         ) : null}
       </KeyboardAvoidingView>
 
-      <Modal
-        transparent
-        visible={showConfirmSave}
-        animationType="fade"
-        onRequestClose={() => setShowConfirmSave(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
-          <Pressable style={styles.dialogWrap} onPress={() => {}}>
-            <DialogBox
-              title="Are you Sure?"
-              message="You are about to save changes."
-              actions={[
-                { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmSave(false) },
-                { label: 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges },
-              ]}
-            />
+      {showConfirmSave ? (
+        <Modal
+          transparent
+          visible={true}
+          animationType="fade"
+          onRequestClose={() => setShowConfirmSave(false)}
+        >
+          <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
+            <Pressable style={styles.dialogWrap} onPress={() => {}}>
+              <DialogBox
+                title="Are you Sure?"
+                message="You are about to save changes."
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmSave(false) },
+                  { label: 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges },
+                ]}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      ) : null}
 
-      <Modal transparent visible={showSavedDialog} animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.dialogWrap}>
-            <DialogBox
-              title="Changes saved"
-              message=""
-              actions={[]}
-              cardStyle={styles.savedDialogCard}
-              titleStyle={styles.savedDialogTitle}
-            />
+      {showSavedDialog ? (
+        <Modal transparent visible={true} animationType="fade">
+          <View style={styles.overlay}>
+            <View style={styles.dialogWrap}>
+              <DialogBox
+                title="Changes saved"
+                message=""
+                actions={[]}
+                cardStyle={styles.savedDialogCard}
+                titleStyle={styles.savedDialogTitle}
+              />
+            </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }

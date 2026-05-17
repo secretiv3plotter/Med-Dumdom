@@ -195,25 +195,27 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
         )}
       </ScrollView>
 
-      <Modal
-        visible={Boolean(pendingDeleteTarget)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingDeleteTarget(null)}
-      >
-        <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
-          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
-            <DialogBox
-              title="Delete Record"
-              message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? This action cannot be undone.`}
-              actions={[
-                { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
-                { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecord },
-              ]}
-            />
+      {pendingDeleteTarget ? (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPendingDeleteTarget(null)}
+        >
+          <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
+            <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+              <DialogBox
+                title="Delete Record"
+                message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? This action cannot be undone.`}
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
+                  { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecord },
+                ]}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }

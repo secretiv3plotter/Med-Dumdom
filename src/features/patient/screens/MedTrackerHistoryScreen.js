@@ -442,25 +442,27 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
       </View>
 
-      <Modal
-        visible={Boolean(pendingDeleteTarget)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPendingDeleteTarget(null)}
-      >
-        <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
-          <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
-            <DialogBox
-              title="Delete history records?"
-              message={`Are you sure you want to delete ${pendingDeleteTarget?.label || 'these records'}? This will remove ${pendingDeleteTarget?.count || 0} history ${pendingDeleteTarget?.count === 1 ? 'record' : 'records'}.`}
-              actions={[
-                { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
-                { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecords },
-              ]}
-            />
+      {pendingDeleteTarget ? (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPendingDeleteTarget(null)}
+        >
+          <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
+            <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+              <DialogBox
+                title="Delete history records?"
+                message={`Are you sure you want to delete ${pendingDeleteTarget?.label || 'these records'}? This will remove ${pendingDeleteTarget?.count || 0} history ${pendingDeleteTarget?.count === 1 ? 'record' : 'records'}.`}
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
+                  { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecords },
+                ]}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }

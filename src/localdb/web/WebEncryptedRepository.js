@@ -284,6 +284,12 @@ export class WebRealm {
   delete(object) {
     if (!object) return;
     
+    // Handle array or array-like collections (e.g. RealmResults)
+    if (Array.isArray(object) || (object && typeof object.forEach === 'function')) {
+      object.forEach(item => this.delete(item));
+      return;
+    }
+    
     // Find what collection this object belongs to by scanning
     for (const schemaName of Object.keys(this.collections)) {
       const collection = this.collections[schemaName];

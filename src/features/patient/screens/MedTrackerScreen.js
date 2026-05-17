@@ -491,32 +491,38 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         onSaveMedicine={saveMedicine}
       />
 
-      <ConfirmationDialogModal
-        visible={Boolean(pendingScheduleAction)}
-        title="Change schedule status?"
-        message="This schedule item already has a selected status. Confirm to change or clear it."
-        confirmLabel="Confirm"
-        onCancel={() => setPendingScheduleAction(null)}
-        onConfirm={confirmScheduleStatusChange}
-      />
+      {pendingScheduleAction ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Change schedule status?"
+          message="This schedule item already has a selected status. Confirm to change or clear it."
+          confirmLabel="Confirm"
+          onCancel={() => setPendingScheduleAction(null)}
+          onConfirm={confirmScheduleStatusChange}
+        />
+      ) : null}
 
-      <ConfirmationDialogModal
-        visible={Boolean(pendingDeleteMedicine)}
-        title="Delete medicine?"
-        message={`Are you sure you want to delete ${pendingDeleteMedicine?.medName || 'this medicine'} from your med tracker?`}
-        confirmLabel="Delete"
-        onCancel={() => setPendingDeleteMedicine(null)}
-        onConfirm={confirmDeleteMedicine}
-      />
+      {pendingDeleteMedicine ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Delete medicine?"
+          message={`Are you sure you want to delete ${pendingDeleteMedicine?.medName || 'this medicine'} from your med tracker?`}
+          confirmLabel="Delete"
+          onCancel={() => setPendingDeleteMedicine(null)}
+          onConfirm={confirmDeleteMedicine}
+        />
+      ) : null}
 
-      <ConfirmationDialogModal
-        visible={pendingDeleteScheduleIndex !== null}
-        title="Delete schedule item?"
-        message="Are you sure you want to delete this schedule item?"
-        confirmLabel="Delete"
-        onCancel={() => setPendingDeleteScheduleIndex(null)}
-        onConfirm={confirmDeleteScheduleEntry}
-      />
+      {pendingDeleteScheduleIndex !== null ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Delete schedule item?"
+          message="Are you sure you want to delete this schedule item?"
+          confirmLabel="Delete"
+          onCancel={() => setPendingDeleteScheduleIndex(null)}
+          onConfirm={confirmDeleteScheduleEntry}
+        />
+      ) : null}
 
       <View
         style={styles.footerNav}
