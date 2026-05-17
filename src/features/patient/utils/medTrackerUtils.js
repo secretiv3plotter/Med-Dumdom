@@ -208,6 +208,7 @@ export const buildScheduleEntriesFromMedicine = (medicine) =>
 export const buildScheduleDraftFromEntry = (entry) => ({
   doseSize: entry.doseSize ? String(entry.doseSize) : '',
   scheduledTime: entry.scheduledTime || '',
+  dayOfWeek: entry.dayOfWeek || '',
 });
 
 export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()) => {
@@ -520,6 +521,7 @@ export const formatMedicineMeta = (medicine) => {
 export const getScheduleDuplicateKey = (entry) =>
   [
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
+    normalizeDuplicateKey(entry.dayOfWeek || ''),
   ].join('|');
 
 export const hasDuplicateScheduleEntry = (scheduleEntries, nextEntry, editingIndex = null) => {

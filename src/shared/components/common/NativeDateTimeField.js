@@ -63,9 +63,21 @@ const parseTimeValue = (value) => {
   return date;
 };
 
-const parseValue = (value, mode) => (mode === 'time' ? parseTimeValue(value) : parseDateValue(value));
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+const parseValue = (value, mode) => {
+  if (mode === 'day') {
+    return DAYS_OF_WEEK.includes(value) ? value : '';
+  }
+  return (mode === 'time' ? parseTimeValue(value) : parseDateValue(value));
+};
 
 const formatDisplayValue = (value, mode) => {
+  if (mode === 'day') {
+    return value || '';
+  }
   const parsed = parseValue(value, mode);
   if (!parsed) {
     return '';
@@ -111,13 +123,14 @@ export default function NativeDateTimeField({
   }, [minimumDate, mode, value]);
 
   const displayValue = formatDisplayValue(value, mode);
-  const resolvedPlaceholder = placeholder || (mode === 'time' ? 'Select time' : 'Select date');
+  const resolvedPlaceholder = placeholder || (mode === 'day' ? 'Select day' : (mode === 'time' ? 'Select time' : 'Select date'));
   const resolvedLabel = accessibilityLabel || label || resolvedPlaceholder;
 
   // States for Custom Web Scroller Picker Wheel
   const [tempYear, setTempYear] = useState(new Date().getFullYear());
   const [tempMonth, setTempMonth] = useState(new Date().getMonth());
   const [tempDay, setTempDay] = useState(new Date().getDate());
+  const [tempDayOfWeek, setTempDayOfWeek] = useState(DAYS_OF_WEEK[new Date().getDay()]);
 
   const [tempHour, setTempHour] = useState(12);
   const [tempMinute, setTempMinute] = useState(0);
@@ -133,19 +146,23 @@ export default function NativeDateTimeField({
 
   // Sync temp picker states when opening the picker
   useEffect(() => {
-    if (isPickerVisible && Platform.OS === 'web') {
-      const currentVal = parseValue(value, mode) ?? new Date();
-      if (mode === 'date') {
-        setTempYear(currentVal.getFullYear());
-        setTempMonth(currentVal.getMonth());
-        setTempDay(currentVal.getDate());
-      } else {
-        const rawHours = currentVal.getHours();
-        const displayHours = rawHours % 12 || 12;
-        const ampm = rawHours >= 12 ? 'PM' : 'AM';
-        setTempHour(displayHours);
-        setTempMinute(currentVal.getMinutes());
-        setTempAmPm(ampm);
+    if (isPickerVisible && (Platform.OS === 'web' || mode === 'day')) {
+      if (mode === 'day') {
+        setTempDayOfWeek(value || DAYS_OF_WEEK[new Date().getDay()]);
+      } else if (Platform.OS === 'web') {
+        const currentVal = parseValue(value, mode) ?? new Date();
+        if (mode === 'date') {
+          setTempYear(currentVal.getFullYear());
+          setTempMonth(currentVal.getMonth());
+          setTempDay(currentVal.getDate());
+        } else {
+          const rawHours = currentVal.getHours();
+          const displayHours = rawHours % 12 || 12;
+          const ampm = rawHours >= 12 ? 'PM' : 'AM';
+          setTempHour(displayHours);
+          setTempMinute(currentVal.getMinutes());
+          setTempAmPm(ampm);
+        }
       }
     }
   }, [isPickerVisible, value, mode]);
@@ -167,7 +184,9 @@ export default function NativeDateTimeField({
   // Web Picker Confirm Handler with date bounds validation guard
   const handleWebConfirm = () => {
     setPickerVisible(false);
-    if (mode === 'date') {
+    if (mode === 'day') {
+      onChange(tempDayOfWeek);
+    } else if (mode === 'date') {
       let finalDate = new Date(tempYear, tempMonth, tempDay);
       if (minimumDate instanceof Date) {
         const minCompare = new Date(minimumDate.getFullYear(), minimumDate.getMonth(), minimumDate.getDate());
@@ -221,9 +240,16 @@ export default function NativeDateTimeField({
 
   // Dynamic Scroll to Selected active row on mount
   useEffect(() => {
-    if (isPickerVisible && Platform.OS === 'web') {
+    if (isPickerVisible && (Platform.OS === 'web' || mode === 'day')) {
       setTimeout(() => {
-        if (mode === 'date') {
+        if (mode === 'day') {
+          if (dayScrollRef.current) {
+            const idx = DAYS_OF_WEEK.indexOf(tempDayOfWeek);
+            if (idx !== -1) {
+              dayScrollRef.current.scrollTo({ y: idx * 38, animated: false });
+            }
+          }
+        } else if (mode === 'date') {
           if (monthScrollRef.current) {
             monthScrollRef.current.scrollTo({ y: tempMonth * 38, animated: false });
           }
@@ -249,7 +275,7 @@ export default function NativeDateTimeField({
         }
       }, 80);
     }
-  }, [isPickerVisible, mode, tempMonth, tempDay, tempYear, tempHour, tempMinute, tempAmPm, yearsList]);
+  }, [isPickerVisible, mode, tempMonth, tempDay, tempYear, tempHour, tempMinute, tempAmPm, tempDayOfWeek, yearsList]);
 
   // Self-healing effect: shift selected month/day if they fall into disabled/past range
   useEffect(() => {
@@ -315,7 +341,7 @@ export default function NativeDateTimeField({
       </View>
 
       {/* Render Native Picker on Mobile, Custom Scroller Wheel on Web */}
-      {isPickerVisible && Platform.OS !== 'web' && (
+      {isPickerVisible && Platform.OS !== 'web' && mode !== 'day' && (
         <DateTimePicker
           value={selectedDate}
           mode={mode}
@@ -327,7 +353,7 @@ export default function NativeDateTimeField({
       )}
 
       {/* Modern Glassmorphic Wheel Picker Modal for Web */}
-      {isPickerVisible && Platform.OS === 'web' && (
+      {isPickerVisible && (Platform.OS === 'web' || mode === 'day') && (
         <Modal
           transparent
           visible={isPickerVisible}
@@ -338,13 +364,42 @@ export default function NativeDateTimeField({
             <View style={styles.scrollerCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  {mode === 'date' ? 'Select Date' : 'Select Time'}
+                  {mode === 'day' ? 'Select Day' : (mode === 'date' ? 'Select Date' : 'Select Time')}
                 </Text>
               </View>
 
               {/* Scroller Columns Container */}
               <View style={styles.columnsContainer}>
-                {mode === 'date' ? (
+                {mode === 'day' ? (
+                  <View style={styles.columnWrap}>
+                    <Text style={styles.columnLabel}>Day of Week</Text>
+                    <ScrollView
+                      ref={dayScrollRef}
+                      style={styles.columnScroll}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {DAYS_OF_WEEK.map((d) => (
+                        <Pressable
+                          key={d}
+                          onPress={() => setTempDayOfWeek(d)}
+                          style={[
+                            styles.scrollItem,
+                            tempDayOfWeek === d && styles.scrollItemActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.scrollItemText,
+                              tempDayOfWeek === d && styles.scrollItemTextActive,
+                            ]}
+                          >
+                            {d}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                ) : mode === 'date' ? (
                   <>
                     {/* Month Scroll Wheel */}
                     <View style={styles.columnWrap}>

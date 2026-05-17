@@ -58,9 +58,14 @@ const EMPTY_FORM = {
   prescriberContact: '',
 };
 
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
 const EMPTY_SCHEDULE_DRAFT = {
   doseSize: '',
   scheduledTime: '',
+  dayOfWeek: '',
 };
 
 export default function MedTrackerScreen({ navigation, realm = null, trackerService = medTrackerService }) {
@@ -71,7 +76,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [editorStep, setEditorStep] = useState(MEDICINE_EDITOR_STEPS.DETAILS);
   const [selectedScheduleType, setSelectedScheduleType] = useState(MEDICINE_SCHEDULE_TYPES.DAILY);
   const [formState, setFormState] = useState(EMPTY_FORM);
-  const [scheduleDraft, setScheduleDraft] = useState(EMPTY_SCHEDULE_DRAFT);
+  const [scheduleDraft, setScheduleDraft] = useState(() => ({
+    doseSize: '',
+    scheduledTime: '',
+    dayOfWeek: '',
+  }));
   const [scheduleEntries, setScheduleEntries] = useState([]);
   const [editingScheduleIndex, setEditingScheduleIndex] = useState(null);
   const [formError, setFormError] = useState('');
@@ -180,7 +189,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
     setFormError('');
     setFormState(EMPTY_FORM);
-    setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setScheduleDraft({
+      doseSize: '',
+      scheduledTime: '',
+      dayOfWeek: '',
+    });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -189,7 +202,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const openCreateEditor = () => {
     setFormError('');
     setFormState(EMPTY_FORM);
-    setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setScheduleDraft({
+      doseSize: '',
+      scheduledTime: '',
+      dayOfWeek: '',
+    });
     setScheduleEntries([]);
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
@@ -207,13 +224,18 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setFormError('');
     setFormState(buildFormStateFromMedicine(selectedMedicine));
     setScheduleEntries(buildScheduleEntriesFromMedicine(selectedMedicine));
-    setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setScheduleDraft({
+      doseSize: '',
+      scheduledTime: '',
+      dayOfWeek: '',
+    });
     setEditingScheduleIndex(null);
     setPendingDeleteScheduleIndex(null);
     setIsDetailsVisible(false);
     setEditorMode('edit');
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
-    setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
+    const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
+    setSelectedScheduleType(hasWeeklyItem ? MEDICINE_SCHEDULE_TYPES.WEEKLY : MEDICINE_SCHEDULE_TYPES.DAILY);
   };
 
   const onTabNavigate = (tabKey) => {
@@ -369,27 +391,69 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
+    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const dayOfWeek = isWeekly ? scheduleDraft.dayOfWeek : '';
+    if (isWeekly && !dayOfWeek) {
+      setFormError('Select a day of the week for the schedule item.');
+      return;
+    }
+
     const nextEntry = {
       doseSize,
       scheduledTime,
+      dayOfWeek,
       ...scheduleStatusDefaults,
     };
 
-    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, editingScheduleIndex)) {
+    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, null)) {
       setFormError('This schedule item already exists.');
       return;
     }
 
-    setScheduleEntries((current) => {
-      if (editingScheduleIndex === null) {
-        return [...current, nextEntry];
-      }
-
-      return current.map((entry, index) => (index === editingScheduleIndex ? nextEntry : entry));
-    });
+    setScheduleEntries((current) => [...current, nextEntry]);
     setFormError('');
-    setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
+    setScheduleDraft({
+      doseSize: '',
+      scheduledTime: '',
+      dayOfWeek: '',
+    });
+  };
+
+  const saveInlineScheduleEntry = (indexToUpdate, updatedFields) => {
+    const doseSize = parsePositiveInteger(updatedFields.doseSize);
+    if (!doseSize) {
+      return 'Enter a valid dose size.';
+    }
+
+    const scheduledTime = normalizeTimeInput(updatedFields.scheduledTime);
+    if (!scheduledTime) {
+      return 'Enter a valid scheduled time.';
+    }
+
+    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY || selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY;
+    const dayOfWeek = isWeekly ? updatedFields.dayOfWeek : '';
+    if (isWeekly && !dayOfWeek) {
+      return 'Select a day of the week.';
+    }
+
+    const activatedAt = scheduleEntries[indexToUpdate]?.activatedAt || new Date().toISOString();
+    const nextEntry = {
+      ...scheduleEntries[indexToUpdate],
+      doseSize,
+      scheduledTime,
+      dayOfWeek,
+      activatedAt,
+    };
+
+    if (hasDuplicateScheduleEntry(scheduleEntries, nextEntry, indexToUpdate)) {
+      return 'This schedule item already exists.';
+    }
+
+    setScheduleEntries((current) =>
+      current.map((entry, index) => (index === indexToUpdate ? nextEntry : entry))
+    );
     setEditingScheduleIndex(null);
+    return '';
   };
 
   const editScheduleEntry = (indexToEdit) => {
@@ -398,7 +462,6 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    setScheduleDraft(buildScheduleDraftFromEntry(entry));
     setEditingScheduleIndex(indexToEdit);
     setFormError('');
   };
@@ -445,9 +508,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const goToScheduleStep = () => {
     if (
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY &&
-      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.WEEKLY &&
+      selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY
     ) {
-      setFormError('Only daily schedules are available right now.');
+      setFormError('Only daily and weekly schedules are available right now.');
       return;
     }
 
@@ -596,10 +661,10 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           setFormError('');
         }}
         onCancelScheduleEdit={() => {
-          setScheduleDraft(EMPTY_SCHEDULE_DRAFT);
           setEditingScheduleIndex(null);
         }}
         onSaveScheduleEntry={saveScheduleEntry}
+        onSaveInlineScheduleEntry={saveInlineScheduleEntry}
         onEditScheduleEntry={editScheduleEntry}
         onDeleteScheduleEntry={requestDeleteScheduleEntry}
         onCancel={resetEditor}
