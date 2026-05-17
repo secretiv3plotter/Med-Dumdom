@@ -10,6 +10,7 @@ import {
   formatMedicineMeta,
   getLatestTakenAt,
   getMedicinePreviewState,
+  getScheduleDayLabel,
   getScheduleMissedDisplayTime,
   getScheduleStatusStyle,
   getSchedulesEarliestToLatest,
@@ -136,8 +137,8 @@ function SchedulePreviewCard({
   const isTaken = statusStyle.status === 'taken';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
-  const dayOfWeekLabel = entry.dayOfWeek ? `on ${entry.dayOfWeek}` : '';
-  const dayLabel = tomorrowLabel && dayOfWeekLabel ? `${tomorrowLabel} (${dayOfWeekLabel})` : (dayOfWeekLabel || tomorrowLabel);
+  const scheduleDayLabel = getScheduleDayLabel(entry);
+  const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
 
   return (
     <View
@@ -203,7 +204,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
 
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>
-          {(medicine.dailySched || []).some(e => e.dayOfWeek) ? 'Weekly schedule' : 'Daily schedule'}
+          {(medicine.dailySched || []).some(e => e.intervalMinutes) ? 'Hourly interval schedule' : ((medicine.dailySched || []).some(e => e.monthOfYear) ? 'Monthly schedule' : ((medicine.dailySched || []).some(e => e.dayOfWeek) ? 'Weekly schedule' : 'Daily schedule'))}
         </Text>
         {getSchedulesEarliestToLatest(medicine.dailySched).map(({ entry, index }) => (
           <MedicineDetailsScheduleCard
@@ -226,8 +227,8 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
-  const dayOfWeekLabel = entry.dayOfWeek ? `on ${entry.dayOfWeek}` : '';
-  const dayLabel = tomorrowLabel && dayOfWeekLabel ? `${tomorrowLabel} (${dayOfWeekLabel})` : (dayOfWeekLabel || tomorrowLabel);
+  const scheduleDayLabel = getScheduleDayLabel(entry);
+  const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
   const missedDisplayTime = isMissed
     ? getScheduleMissedDisplayTime(medicine, entry, index, observedNow)
     : null;

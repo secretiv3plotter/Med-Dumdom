@@ -14,9 +14,10 @@ export default function HelpButton({
   iconWrapStyle,
   circleStyle,
   textStyle,
+  iconColor: iconColorOverride,
   ...pressableProps
 }) {
-  const iconColor = disabled ? colors.bodyMuted : colors.brand;
+  const iconColor = disabled ? colors.bodyMuted : iconColorOverride || colors.brand;
 
   return (
     <Pressable

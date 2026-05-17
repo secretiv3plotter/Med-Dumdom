@@ -38,10 +38,46 @@ const dateKey = (date) => {
   return normalizedDate.toISOString().slice(0, 10);
 };
 
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const isScheduleEntryForDate = (scheduleEntry, dateValue) => {
+  const date = toNullableDate(dateValue);
+  if (!date) {
+    return false;
+  }
+
+  if (scheduleEntry?.dayOfWeek) {
+    return DAYS_OF_WEEK[date.getDay()] === scheduleEntry.dayOfWeek;
+  }
+
+  if (scheduleEntry?.monthOfYear) {
+    if (MONTHS[date.getMonth()] !== scheduleEntry.monthOfYear) {
+      return false;
+    }
+  }
+
+  if (scheduleEntry?.dayOfMonth) {
+    return date.getDate() === Number(scheduleEntry.dayOfMonth);
+  }
+
+  return true;
+};
+
 const toRealmScheduleEntry = (entry, index) => ({
   scheduleIndex: index,
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime ?? null,
+  intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) : null,
+  dayOfWeek: entry.dayOfWeek ?? '',
+  monthOfYear: entry.monthOfYear ?? '',
+  dayOfMonth: entry.dayOfMonth ? Number(entry.dayOfMonth) : null,
   instructions: entry.instructions ?? '',
   status: entry.status ?? 'pending',
   takenAt: toNullableDate(entry.takenAt),
@@ -52,6 +88,10 @@ const toRealmScheduleEntry = (entry, index) => ({
 const toModelScheduleEntry = (entry) => ({
   doseSize: entry.doseSize,
   scheduledTime: entry.scheduledTime || null,
+  intervalMinutes: entry.intervalMinutes || null,
+  dayOfWeek: entry.dayOfWeek || '',
+  monthOfYear: entry.monthOfYear || '',
+  dayOfMonth: entry.dayOfMonth || null,
   instructions: entry.instructions || '',
   status: entry.status || 'pending',
   takenAt: entry.takenAt || null,
@@ -79,6 +119,10 @@ const toHistoryScheduleEntry = (entry, index = 0) => ({
   scheduleIndex: Number(entry.scheduleIndex ?? index),
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime ?? null,
+  intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) : null,
+  dayOfWeek: entry.dayOfWeek ?? '',
+  monthOfYear: entry.monthOfYear ?? '',
+  dayOfMonth: entry.dayOfMonth ? Number(entry.dayOfMonth) : null,
   instructions: entry.instructions ?? '',
   finalStatus: entry.status === 'taken' ? 'taken' : entry.status === 'skipped' ? 'skipped' : 'missed',
   takenAt: toNullableDate(entry.takenAt),
@@ -91,6 +135,10 @@ const toHistoryModelScheduleEntry = (entry) => ({
   scheduleIndex: Number(entry.scheduleIndex ?? 0),
   doseSize: Number(entry.doseSize || 0),
   scheduledTime: entry.scheduledTime || null,
+  intervalMinutes: entry.intervalMinutes || null,
+  dayOfWeek: entry.dayOfWeek || '',
+  monthOfYear: entry.monthOfYear || '',
+  dayOfMonth: entry.dayOfMonth || null,
   instructions: entry.instructions || '',
   finalStatus: entry.finalStatus || 'missed',
   takenAt: entry.takenAt || null,
@@ -227,6 +275,13 @@ export default class RealmMedTrackerRepository {
     const normalizedUserId = normalizeUserId(userId);
     const historyDateKey = dateKey(historyDate);
     const historyId = `${normalizedUserId}-${entry.medEntryId}-${historyDateKey}`;
+    const activeSchedules = Array.from(entry.dailySched || []).filter((scheduleEntry) =>
+      isScheduleEntryForDate(scheduleEntry, historyDate)
+    );
+
+    if (!activeSchedules.length) {
+      return null;
+    }
 
     this.realm.create(
       'MedTrackerDailyHistory',
@@ -243,8 +298,8 @@ export default class RealmMedTrackerRepository {
         endDate: entry.endDate,
         instructions: entry.instructions || '',
         prescriberContact: entry.prescriberContact || '',
-        dailySchedFinalStatuses: Array.from(entry.dailySched || []).map(toHistoryScheduleEntry),
-        completedAllSchedules: Array.from(entry.dailySched || []).every((scheduleEntry) => scheduleEntry.status === 'taken'),
+        dailySchedFinalStatuses: activeSchedules.map(toHistoryScheduleEntry),
+        completedAllSchedules: activeSchedules.every((scheduleEntry) => scheduleEntry.status === 'taken'),
         isDeleted: false,
         deletedAt: null,
         createdAt: new Date(),

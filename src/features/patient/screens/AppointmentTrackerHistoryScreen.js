@@ -13,9 +13,18 @@ import {
 import DialogBox from '../../../shared/components/common/DialogBox';
 import { DeleteButton } from '../../../shared/components/common/CrudButton';
 import InputBar from '../../../shared/components/common/InputBar';
+import NavigationBar from '../../../shared/components/common/NavigationBar';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 
 const CURRENT_USER_ID = 'current-user';
+const CONTENT_BOTTOM_PADDING = moderateScale(150);
+const FOOTER_NAV_Z_INDEX = 30;
+
+const TAB_KEY_TO_ROUTE = {
+  home: ROUTES.HOME,
+  appointment: ROUTES.APPOINTMENT_TRACKER,
+  med: ROUTES.MED_TRACKER,
+};
 
 const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
 
@@ -145,6 +154,13 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
     setVersion((current) => current + 1);
   };
 
+  const onTabNavigate = (tabKey) => {
+    const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+    if (targetRoute) {
+      navigation?.navigate?.(targetRoute);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -216,6 +232,10 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
           </Pressable>
         </Modal>
       ) : null}
+
+      <View style={styles.footerNav}>
+        <NavigationBar selectedTab="appointment" showPressAlert={false} onNavigate={onTabNavigate} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -245,6 +265,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+    paddingBottom: CONTENT_BOTTOM_PADDING,
     gap: spacing.sm,
   },
   recordCard: {
@@ -320,5 +341,12 @@ const styles = StyleSheet.create({
   confirmDialog: {
     width: '85%',
     maxWidth: 360,
+  },
+  footerNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: FOOTER_NAV_Z_INDEX,
   },
 });

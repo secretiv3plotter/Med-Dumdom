@@ -160,6 +160,13 @@ export default function ProfileScreen({ navigation }) {
           <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
         </View>
 
+        <View style={styles.headerBlock}>
+            <Text style={styles.title}>My Profile</Text>
+            <Text style={styles.subtitle}>
+              View and manage your personal information.
+            </Text>
+          </View>
+
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -168,12 +175,6 @@ export default function ProfileScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
-          <View style={styles.headerBlock}>
-            <Text style={styles.title}>My Profile</Text>
-            <Text style={styles.subtitle}>
-              View and manage your personal information.
-            </Text>
-          </View>
           <TextCard cardStyle={styles.profileCardTop}>
             <View style={styles.avatarShell}>
               {displayPicture ? (
@@ -501,11 +502,13 @@ const styles = StyleSheet.create({
     color: colors.title,
   },
   headerBlock: {
-  alignItems: 'flex-start',
-  gap: spacing.xs,
-  marginBottom: spacing.sm,
+    alignItems: 'flex-start',
+    gap: spacing.xxs,
+    backgroundColor: colors.pageBg,
+    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
+    paddingTop: BACK_HEADER_TOP_OFFSET,
+    paddingBottom: spacing.xxs,
   },
-
   subtitle: {
     ...typography.body,
     color: colors.bodyMuted,

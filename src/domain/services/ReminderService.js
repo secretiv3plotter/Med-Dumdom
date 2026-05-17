@@ -172,6 +172,78 @@ const buildDateKey = (value) => {
 
 const getEffectiveScheduleTime = (scheduleEntry) => scheduleEntry?.scheduledTime || '';
 
+const getIntervalMinutes = (scheduleEntry) => {
+  const intervalMinutes = Number(scheduleEntry?.intervalMinutes || 0);
+  return Number.isInteger(intervalMinutes) && intervalMinutes > 0 ? intervalMinutes : null;
+};
+
+const getIntervalOccurrence = (scheduleEntry, dateValue) => {
+  const intervalMinutes = getIntervalMinutes(scheduleEntry);
+  if (!intervalMinutes || !isValidDateTime(dateValue)) {
+    return null;
+  }
+
+  const activatedAt = normalizeDate(scheduleEntry?.activatedAt, 'activatedAt') ?? dateValue;
+  const firstDueAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  if (dateValue.getTime() < firstDueAt.getTime()) {
+    return firstDueAt;
+  }
+
+  const elapsedIntervals = Math.floor((dateValue.getTime() - firstDueAt.getTime()) / (intervalMinutes * 60000));
+  return new Date(firstDueAt.getTime() + elapsedIntervals * intervalMinutes * 60000);
+};
+
+const isSettledForCurrentInterval = (scheduleEntry, dateValue) => {
+  const intervalMinutes = getIntervalMinutes(scheduleEntry);
+  if (!intervalMinutes || !isValidDateTime(dateValue)) {
+    return scheduleEntry?.status === 'taken' || scheduleEntry?.status === 'skipped';
+  }
+
+  const settledAt = normalizeDate(scheduleEntry?.takenAt || scheduleEntry?.skippedAt, 'settledAt');
+  if (!settledAt) {
+    return false;
+  }
+
+  const occurrence = getIntervalOccurrence(scheduleEntry, dateValue);
+  if (!occurrence) {
+    return false;
+  }
+
+  const nextOccurrence = new Date(occurrence.getTime() + intervalMinutes * 60000);
+  return settledAt.getTime() >= occurrence.getTime() && settledAt.getTime() < nextOccurrence.getTime();
+};
+
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const isScheduleEntryForDate = (scheduleEntry, dateValue) => {
+  if (!isValidDateTime(dateValue)) {
+    return false;
+  }
+
+  if (scheduleEntry?.dayOfWeek) {
+    return DAYS_OF_WEEK[dateValue.getDay()] === scheduleEntry.dayOfWeek;
+  }
+
+  if (scheduleEntry?.monthOfYear) {
+    if (MONTHS[dateValue.getMonth()] !== scheduleEntry.monthOfYear) {
+      return false;
+    }
+  }
+
+  if (scheduleEntry?.dayOfMonth) {
+    return dateValue.getDate() === Number(scheduleEntry.dayOfMonth);
+  }
+
+  return true;
+};
+
 const resolveOwnerId = (candidate, sourceEntry = null) => {
   const fromCandidate =
     candidate ?? sourceEntry?.ownerId ?? sourceEntry?.userId ?? sourceEntry?.patientId ?? null;
@@ -222,26 +294,37 @@ const buildMedicationScheduleContexts = (sourceEntry, now) => {
 
   return sourceEntry.dailySched
     .map((scheduleEntry, index) => {
-      if (scheduleEntry.status === 'taken' || scheduleEntry.status === 'skipped') {
+      const intervalReference = scheduleDay.getTime() === referenceDay.getTime() ? createdAt : scheduleDay;
+      if (isSettledForCurrentInterval(scheduleEntry, intervalReference)) {
         return null;
       }
 
+      if (!isScheduleEntryForDate(scheduleEntry, scheduleDay)) {
+        return null;
+      }
+
+      const intervalDueAt = getIntervalOccurrence(scheduleEntry, intervalReference);
       const parsedTime = parseScheduleTime(getEffectiveScheduleTime(scheduleEntry));
-      if (!parsedTime) {
+      if (!intervalDueAt && !parsedTime) {
         return null;
       }
 
-      const dueAt = new Date(scheduleDay.getTime());
-      dueAt.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+      const dueAt = intervalDueAt || new Date(scheduleDay.getTime());
+      if (!intervalDueAt) {
+        dueAt.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+      }
 
       const dateKey = buildDateKey(dueAt);
       const normalizedEntryId = normalizeReminderId(medEntryId);
+      const occurrenceKey = scheduleEntry.intervalMinutes
+        ? `${dateKey}-${String(dueAt.getHours()).padStart(2, '0')}${String(dueAt.getMinutes()).padStart(2, '0')}`
+        : dateKey;
       return {
         scheduleIndex: index,
         scheduleEntry,
         dueAt,
         relatedEntryId: `${normalizedEntryId}-schedule-${index}`,
-        reminderId: `med-${normalizedEntryId}-${dateKey}-${index}`,
+        reminderId: `med-${normalizedEntryId}-${occurrenceKey}-${index}`,
       };
     })
     .filter(Boolean);
