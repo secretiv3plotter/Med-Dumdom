@@ -14,6 +14,7 @@ import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
+import NavigationBar from '../../../shared/components/common/NavigationBar';
 
 const SETTINGS_ITEMS = [
   {
@@ -24,6 +25,12 @@ const SETTINGS_ITEMS = [
     route: ROUTES.ACCESSIBILITY_SETTINGS,
   },
 ];
+
+const TAB_KEY_TO_ROUTE = {
+  home: ROUTES.HOME,
+  appointment: ROUTES.APPOINTMENT_TRACKER,
+  med: ROUTES.MED_TRACKER,
+};
 
 export default function SettingsScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || null;
@@ -52,17 +59,21 @@ export default function SettingsScreen({ navigation }) {
     Alert.alert('Account deactivated', 'Your account status is now inactive.');
   };
 
+  const onTabNavigate = (tabKey) => {
+  const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
+
+  if (targetRoute) {
+    navigation?.navigate?.(targetRoute);
+  }
+};
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.stickyTop}>
-        <BackButton
-          onPress={() =>
-            returnRoute
-              ? navigation?.navigate?.(ROUTES.PROFILE, { returnTo: returnRoute })
-              : navigation?.navigate?.(ROUTES.PROFILE)
-          }
-        />
-      </View>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <View style={styles.stickyTop}>
+      <BackButton
+        onPress={() => navigation?.navigate?.(ROUTES.HOME)}
+      />
+    </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.headerBlock}>
@@ -137,7 +148,13 @@ export default function SettingsScreen({ navigation }) {
           />
         </View>
       </ScrollView>
-
+        <View style={styles.footerNav}>
+          <NavigationBar
+            selectedTab="home"
+            showPressAlert={false}
+            onNavigate={onTabNavigate}
+          />
+        </View>
       {showDeleteDialog ? (
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogContainer}>
@@ -175,12 +192,13 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    paddingBottom: 40,
+    paddingBottom: 140,
     gap: spacing.md,
   },
   headerBlock: {
     alignItems: 'flex-start',
     gap: spacing.xs,
+    marginTop: -18,
   },
   title: {
     ...typography.title,
@@ -267,5 +285,14 @@ const styles = StyleSheet.create({
   dialogContainer: {
     borderRadius: radius.lg,
     overflow: 'hidden',
+  },
+  footerNav: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 30,
+    elevation: 12,
+    backgroundColor: colors.pageBg,
   },
 });
