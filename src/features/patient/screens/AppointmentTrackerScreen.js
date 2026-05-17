@@ -15,6 +15,7 @@ import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import NativeDateTimeField from '../../../shared/components/common/NativeDateTimeField';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import { ROUTES } from '../../../app/navigation/routes';
@@ -130,6 +131,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   const [pendingRevertAppointment, setPendingRevertAppointment] = useState(null);
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const activeApptTrackerService = useMemo(
     () => (realm ? new RealmApptTrackerRepository(realm) : trackerService),
@@ -391,7 +393,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ThemedScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+      <ThemedScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? <View style={styles.headerBlock}>{headerBlock}</View> : null}
         <View style={styles.searchWrap}>
           <InputBar
@@ -659,7 +666,11 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       ) : null}
 
       <View
-        style={[styles.footerNav, { backgroundColor: colors.pageBg }]}
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[
+          styles.footerNav,
+          { backgroundColor: colors.pageBg, opacity: footerNav.isVisible ? 1 : 0 },
+        ]}
         onLayout={(event) => {
           const nextHeight = Math.ceil(event.nativeEvent.layout.height);
           setFooterNavHeight((currentHeight) => (
@@ -667,7 +678,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           ));
         }}
       >
-        <NavigationBar selectedTab="appointment" showPressAlert={false} onNavigate={onTabNavigate} />
+        <NavigationBar
+          selectedTab="appointment"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );

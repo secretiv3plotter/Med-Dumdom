@@ -12,6 +12,7 @@ import NavigationBar from '../../../shared/components/common/NavigationBar';
 import InputBar from '../../../shared/components/common/InputBar';
 import TextCard from '../../../shared/components/common/TextCard';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import faqService from '../../../domain/services/FaqService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
@@ -35,6 +36,7 @@ export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Account');
@@ -75,7 +77,12 @@ export default function HelpAndSupportScreen({ navigation }) {
         ) : null}
       </View>
 
-      <ThemedScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView
+        contentContainerStyle={styles.content}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Help and Support</Text>
@@ -146,8 +153,19 @@ export default function HelpAndSupportScreen({ navigation }) {
         </View>
       </ThemedScrollView>
 
-      <View style={[styles.footerNav, { backgroundColor: colors.pageBg }]}>
-        <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[
+          styles.footerNav,
+          { backgroundColor: colors.pageBg, opacity: footerNav.isVisible ? 1 : 0 },
+        ]}
+      >
+        <NavigationBar
+          selectedTab="home"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );

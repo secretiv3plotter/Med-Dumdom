@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, radius, spacing, typography } from '../../../shared/theme';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
@@ -55,6 +56,7 @@ export default function PatientDashboardScreen({ navigation }) {
     () => (profilePictureUrl ? { uri: profilePictureUrl } : null),
     [profilePictureUrl]
   );
+  const footerNav = useScrollAwareFooterNav();
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -86,10 +88,23 @@ export default function PatientDashboardScreen({ navigation }) {
         />
       </View>
 
-      <ThemedScrollView contentContainerStyle={styles.container} />
+      <ThemedScrollView
+        contentContainerStyle={styles.container}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      />
 
-      <View style={styles.footerNav}>
-        <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[styles.footerNav, { opacity: footerNav.isVisible ? 1 : 0 }]}
+      >
+        <NavigationBar
+          selectedTab="home"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );

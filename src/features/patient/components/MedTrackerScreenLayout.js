@@ -61,9 +61,13 @@ export function MedicineListSection({
   onReviewRecords,
   onScheduleStatusChange,
   headerContent = null,
+  scrollHandlers = {},
 }) {
   return (
-    <ThemedScrollView contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}>
+    <ThemedScrollView
+      contentContainerStyle={[styles.content, { paddingBottom: footerNavHeight + spacing.lg }]}
+      {...scrollHandlers}
+    >
       {headerContent ? <View style={styles.headerBlock}>{headerContent}</View> : null}
       <View style={styles.searchWrap}>
         <InputBar
