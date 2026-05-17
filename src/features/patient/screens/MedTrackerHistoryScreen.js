@@ -14,6 +14,7 @@ import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRep
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { useTextScale } from '../../../shared/theme/textScale';
 import {
   BreadcrumbButton,
@@ -54,6 +55,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
   const [searchQuery, setSearchQuery] = useState('');
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const historyRecords = useMemo(() => {
     if (!realm) {
@@ -221,7 +223,12 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         {pinHeader ? headerBlock : null}
       </View>
 
-      <ThemedScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView
+        contentContainerStyle={styles.content}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? headerBlock : null}
         {historyRecords.length ? (
           <>
@@ -447,8 +454,16 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         )}
       </ThemedScrollView>
 
-      <View style={styles.footerNav}>
-        <NavigationBar selectedTab="med" showPressAlert={false} onNavigate={onTabNavigate} />
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[styles.footerNav, { opacity: footerNav.isVisible ? 1 : 0 }]}
+      >
+        <NavigationBar
+          selectedTab="med"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
 
       {pendingDeleteTarget ? (

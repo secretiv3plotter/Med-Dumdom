@@ -9,6 +9,7 @@ import {
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ToggleButton from '../../../shared/components/common/ToggleButton';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
@@ -46,6 +47,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   );
   const { setTextScale, setDarkModeEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
+  const footerNav = useScrollAwareFooterNav();
 
   const initialScale = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0);
   const [sliderValue, setSliderValue] = useState(initialScale);
@@ -113,7 +115,12 @@ export default function AccessibilitySettingsScreen({ navigation }) {
         </View>
       ) : null}
 
-      <ThemedScrollView contentContainerStyle={styles.content}>
+      <ThemedScrollView
+        contentContainerStyle={styles.content}
+        onLayout={footerNav.onLayout}
+        onContentSizeChange={footerNav.onContentSizeChange}
+        onScroll={footerNav.onScroll}
+      >
         {!pinHeader ? (
           <View style={styles.headerBlock}>
             <Text style={styles.title}>Accessibility Settings</Text>
@@ -178,8 +185,19 @@ export default function AccessibilitySettingsScreen({ navigation }) {
         </View>
       </ThemedScrollView>
 
-      <View style={[styles.footerNav, { backgroundColor: colors.pageBg }]}>
-        <NavigationBar selectedTab="home" showPressAlert={false} onNavigate={onTabNavigate} />
+      <View
+        pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
+        style={[
+          styles.footerNav,
+          { backgroundColor: colors.pageBg, opacity: footerNav.isVisible ? 1 : 0 },
+        ]}
+      >
+        <NavigationBar
+          selectedTab="home"
+          showPressAlert={false}
+          onNavigate={onTabNavigate}
+          hidden={!footerNav.isVisible}
+        />
       </View>
     </SafeAreaView>
   );
