@@ -502,22 +502,27 @@ const styles = StyleSheet.create({
   infoTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: spacing.xs,
   },
   infoTitleGroup: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    paddingRight: spacing.xs,
   },
   infoTitle: {
     ...typography.body,
     color: colors.title,
     fontWeight: '700',
+    flexShrink: 1,
   },
   editActionWrap: {
-    minWidth: 0,
+    flexShrink: 0,
     alignItems: 'flex-end',
+    marginLeft: spacing.xs,
   },
   editActionButton: {
     minWidth: 0,

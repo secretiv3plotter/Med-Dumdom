@@ -32,7 +32,8 @@ export function MedTrackerEditorContent({
   const isDetailsStep = editorStep === MEDICINE_EDITOR_STEPS.DETAILS;
   const isScheduleTypeStep = editorStep === MEDICINE_EDITOR_STEPS.SCHEDULE_TYPE;
   const isHourly = selectedScheduleType === 'regular_hourly';
-  const isWeekly = selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly';
+  const isWeeklyInterval = selectedScheduleType === 'regular_weekly';
+  const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly' || selectedScheduleType === 'regular_monthly';
   const stepTitle = isDetailsStep
     ? 'Medicine Details'
@@ -40,6 +41,8 @@ export function MedTrackerEditorContent({
       ? 'Schedule Type'
       : isHourly
         ? 'Hourly Schedule'
+      : isWeeklyInterval
+        ? 'Weekly Interval Schedule'
       : isWeekly
         ? 'Weekly Schedule'
         : isMonthly

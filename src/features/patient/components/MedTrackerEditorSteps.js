@@ -34,6 +34,11 @@ const parseIntervalValue = (value) => {
   };
 };
 
+const parseIntervalDays = (value) => {
+  const numericValue = Number(String(value || '').trim());
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 0;
+};
+
 function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
   return (
     <View style={[styles.unitBadgeContainer, selected && styles.unitBadgeContainerSelected]}>
@@ -61,11 +66,12 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
 
 const getDoseUnitLabel = (unit) => String(unit || '').trim() || 'units';
 
-function InlineScheduleEditor({ entry, index, unit, isHourly, isWeekly, isMonthly, onSave, onCancel }) {
+function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, isWeekly, isMonthly, onSave, onCancel }) {
   const [doseSize, setDoseSize] = useState(String(entry.doseSize));
   const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
   const [intervalHours, setIntervalHours] = useState(entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '');
   const [intervalMinutes, setIntervalMinutes] = useState(entry.intervalMinutes ? Number(entry.intervalMinutes) % 60 : '');
+  const [intervalDays, setIntervalDays] = useState(isWeeklyInterval && entry.intervalMinutes ? String(Math.floor(Number(entry.intervalMinutes) / 1440)) : '');
   const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || '');
   const [monthOfYear, setMonthOfYear] = useState(entry.monthOfYear || '');
   const [dayOfMonth, setDayOfMonth] = useState(entry.dayOfMonth ? String(entry.dayOfMonth) : '');
@@ -81,9 +87,19 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeekly, isMonthl
       setError('Select a day of the week.');
       return;
     }
-    const intervalTotalMinutes = Number(intervalHours || 0) * 60 + Number(intervalMinutes || 0);
+    const intervalTotalMinutes = isWeeklyInterval
+      ? parseIntervalDays(intervalDays) * 1440
+      : Number(intervalHours || 0) * 60 + Number(intervalMinutes || 0);
     if (isHourly && intervalTotalMinutes <= 0) {
       setError('Select a time period greater than 00:00.');
+      return;
+    }
+    if (isWeeklyInterval && intervalTotalMinutes <= 0) {
+      setError('Enter how many days between doses.');
+      return;
+    }
+    if (isWeeklyInterval && !scheduledTime) {
+      setError('Select a time of day.');
       return;
     }
     if (isMonthly && !monthOfYear) {
@@ -98,7 +114,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeekly, isMonthl
     const errMsg = onSave(index, {
       doseSize: trimmed,
       scheduledTime,
-      intervalMinutes: isHourly ? intervalTotalMinutes : null,
+      intervalMinutes: isHourly || isWeeklyInterval ? intervalTotalMinutes : null,
       dayOfWeek,
       monthOfYear,
       dayOfMonth,
@@ -137,6 +153,17 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeekly, isMonthl
                 setError('');
               }}
             />
+          ) : isWeeklyInterval ? (
+            <NativeDateTimeField
+              mode="time"
+              placeholder="Select time"
+              accessibilityLabel="Time"
+              value={scheduledTime}
+              onChange={(val) => {
+                setScheduledTime(val);
+                setError('');
+              }}
+            />
           ) : (
             <NativeDateTimeField
               mode="time"
@@ -151,6 +178,20 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeekly, isMonthl
           )}
         </View>
       </View>
+      {isWeeklyInterval ? (
+        <View style={{ marginBottom: spacing.sm }}>
+          <Text style={styles.fieldSubcaption}>Repeat every how many days?</Text>
+          <InputBar
+            placeholder="Days"
+            keyboardType="number-pad"
+            value={intervalDays}
+            onChangeText={(val) => {
+              setIntervalDays(val.replace(/[^0-9]/g, ''));
+              setError('');
+            }}
+          />
+        </View>
+      ) : null}
       {isWeekly && (
         <View style={{ marginBottom: spacing.sm }}>
           <NativeDateTimeField
@@ -390,21 +431,29 @@ export function MedicineScheduleStep({
   onDeleteScheduleEntry,
 }) {
   const isHourly = selectedScheduleType === 'regular_hourly';
-  const isWeekly = selectedScheduleType === 'weekly' || selectedScheduleType === 'regular_weekly';
+  const isWeeklyInterval = selectedScheduleType === 'regular_weekly';
+  const isIntervalSchedule = isHourly || isWeeklyInterval;
+  const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly' || selectedScheduleType === 'regular_monthly';
-  const hasHourlySchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
-  const intervalTotalMinutes = Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
+  const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes);
+  const intervalTotalMinutes = isWeeklyInterval
+    ? parseIntervalDays(scheduleDraft.intervalDays) * 1440
+    : Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
     (!isHourly || String(formState.startTime || '').trim()) &&
-    (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : String(scheduleDraft.scheduledTime || '').trim()) &&
+    (isHourly
+      ? hasSelectedInterval && intervalTotalMinutes > 0
+      : String(scheduleDraft.scheduledTime || '').trim()) &&
+    (!isWeeklyInterval || parseIntervalDays(scheduleDraft.intervalDays) > 0) &&
+
     (!isWeekly || scheduleDraft.dayOfWeek) &&
     (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth)) &&
-    (!isHourly || !hasHourlySchedule || scheduleEntries.length > 0)
+    (!isIntervalSchedule || !hasIntervalSchedule || scheduleEntries.length > 0)
   );
 
-  const calculatedDailyAmount = isHourly && scheduleDraft.doseSize && intervalTotalMinutes > 0
+  const calculatedDailyAmount = isIntervalSchedule && scheduleDraft.doseSize && intervalTotalMinutes > 0
     ? Math.floor(1440 / intervalTotalMinutes) * Number(scheduleDraft.doseSize)
     : null;
   const hourlyScheduleSummary = isHourly && String(scheduleDraft.doseSize || '').trim() && intervalTotalMinutes > 0
@@ -450,7 +499,7 @@ export function MedicineScheduleStep({
       {true ? (
         <View style={styles.scheduleBuilder}>
           <Text style={styles.sectionLabel}>
-            {isHourly && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule'}
+            {isIntervalSchedule && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule'}
           </Text>
 
           <Text style={styles.fieldSubcaption}>
@@ -518,6 +567,27 @@ export function MedicineScheduleStep({
                 }}
               />
             </>
+          ) : isWeeklyInterval ? (
+            <>
+              <Text style={styles.fieldSubcaption}>Repeat every how many days?</Text>
+              <InputBar
+                placeholder="Days"
+                keyboardType="number-pad"
+                value={scheduleDraft.intervalDays}
+                onChangeText={(value) => setScheduleDraft((current) => ({
+                  ...current,
+                  intervalDays: value.replace(/[^0-9]/g, ''),
+                }))}
+              />
+              <NativeDateTimeField
+                mode="time"
+                label="Time"
+                placeholder="Select time"
+                accessibilityLabel="Time"
+                value={scheduleDraft.scheduledTime}
+                onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+              />
+            </>
           ) : (
             <NativeDateTimeField
               mode="time"
@@ -538,7 +608,7 @@ export function MedicineScheduleStep({
 
           <View style={styles.footerActionsRow}>
             <ActionButton
-              label={isHourly && scheduleEntries.length > 0 ? "Update schedule item" : "Add schedule item"}
+              label={isIntervalSchedule && scheduleEntries.length > 0 ? "Update schedule item" : "Add schedule item"}
               variant="solid"
               onPress={onSaveScheduleEntry}
               disabled={!isScheduleDraftComplete}
@@ -568,7 +638,7 @@ export function MedicineScheduleStep({
                   />
                   {editingScheduleIndex === null ? (
                     <View style={styles.scheduleEditActions}>
-                      {!isHourly ? (
+                      {!isIntervalSchedule ? (
                         <View style={styles.iconActionCol}>
                           <Pressable
                             onPress={() => onEditScheduleEntry(index)}
@@ -607,6 +677,7 @@ export function MedicineScheduleStep({
                     index={index}
                     unit={formState.unit}
                     isHourly={isHourly}
+                    isWeeklyInterval={isWeeklyInterval}
                     isWeekly={isWeekly}
                     isMonthly={isMonthly}
                     onSave={onSaveInlineScheduleEntry}

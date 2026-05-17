@@ -3,8 +3,9 @@ import { colors, moderateScale, typography, spacing } from '../../../shared/them
 import { formatDoseWithUnit, formatIntervalMinutes, formatTime, getIntervalScheduleTime, isIntervalScheduleEntry } from '../utils/medTrackerUtils';
 
 export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
+  const isInterval = isIntervalScheduleEntry(entry);
   const scheduleDayLabel = dayLabel ? ` ${dayLabel}` : '';
-  const scheduleTimeText = isIntervalScheduleEntry(entry)
+  const scheduleTimeText = isInterval
     ? getIntervalScheduleTime(entry)
     : formatTime(entry.scheduledTime);
 
@@ -13,6 +14,11 @@ export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
       Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
       {'\n'}At{' '}
       <Text style={styles.scheduleTextStrong}>{scheduleTimeText}</Text>{scheduleDayLabel}
+      {isInterval ? (
+        <>
+          {'\n'}Every <Text style={styles.scheduleTextStrong}>{formatIntervalMinutes(entry.intervalMinutes)}</Text>
+        </>
+      ) : null}
     </Text>
   );
 }

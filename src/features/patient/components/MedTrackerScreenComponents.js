@@ -61,15 +61,10 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
         ]}
       >
         <View style={styles.cardHeaderBlock}>
-          <Text 
-            style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
+          <Text style={[styles.cardHeaderName, { fontSize: finalFontSize }]}>
             {medicine.medName}
           </Text>
-          <Text style={styles.cardHeaderMeta} numberOfLines={1}>
+          <Text style={styles.cardHeaderMeta}>
             {formatMedicineMeta(medicine)}
           </Text>
         </View>
@@ -236,7 +231,7 @@ function SchedulePreviewCard({
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
   const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
   const sectionLabelText = intervalEntry
-    ? `Hourly interval schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
+    ? `${Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Weekly interval' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
     : (medicine.dailySched || []).some(e => e.monthOfYear)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
@@ -372,14 +367,11 @@ function StatusBadge({ statusStyle }) {
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>
-      <Text 
+      <Text
         style={[
-          styles.statusText, 
+          styles.statusText,
           { color: statusStyle.textColor, fontSize: finalFontSize }
-        ]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        ]}
       >
         {label}
       </Text>
@@ -423,15 +415,12 @@ export function SegmentButton({ label = '', selected, onPress }) {
         pressed && styles.pressedControl,
       ]}
     >
-      <Text 
+      <Text
         style={[
-          styles.segmentButtonText, 
+          styles.segmentButtonText,
           selected && styles.segmentButtonTextSelected,
           { fontSize: finalFontSize }
-        ]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        ]}
       >
         {label}
       </Text>

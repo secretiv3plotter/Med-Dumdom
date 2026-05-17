@@ -15,6 +15,7 @@ export default function HelpButton({
   iconWrapStyle,
   circleStyle,
   textStyle,
+  truncateLabel = false,
   iconColor: iconColorOverride,
   ...pressableProps
 }) {
@@ -63,8 +64,8 @@ export default function HelpButton({
       </View>
 
       <Text
-        numberOfLines={1}
-        ellipsizeMode="tail"
+        numberOfLines={truncateLabel ? 1 : undefined}
+        ellipsizeMode={truncateLabel ? 'tail' : undefined}
         style={[
           styles.label,
           { marginTop: -scaleLayoutValue(moderateScale(2)) },
