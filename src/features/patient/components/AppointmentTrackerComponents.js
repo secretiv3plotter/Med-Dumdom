@@ -28,7 +28,6 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
     numericBaseFontSize = baseFontSize;
   }
 
-  // Dynamic scale down for long appointment concerns so they never wrap/crop on narrow viewports
   const dynamicFontSize = concern.length > 14 ? Math.max(11, numericBaseFontSize * 0.82) : numericBaseFontSize;
   const finalFontSize = scaleFontSize(dynamicFontSize);
 
