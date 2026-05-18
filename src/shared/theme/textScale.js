@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput } from 'react-native';
 import accessibilitySettingsService from '../../domain/services/AccessibilitySettingsService';
 import { roundToPixel } from './scaling';
 import {
+  getThemeColors,
   getThemeMode,
   setThemeMode,
   transformThemeValue,
@@ -52,12 +53,19 @@ export const normalizeTextScale = (value) => {
 };
 
 let currentTextScale = MIN_TEXT_SCALE;
+let currentHighContrastEnabled = false;
 
 export const getTextScale = () => currentTextScale;
+export const getHighContrastEnabled = () => currentHighContrastEnabled;
 
 export const setTextScale = (nextScale) => {
   currentTextScale = normalizeTextScale(nextScale);
   return currentTextScale;
+};
+
+export const setHighContrastEnabled = (enabled) => {
+  currentHighContrastEnabled = Boolean(enabled);
+  return currentHighContrastEnabled;
 };
 
 export const scaleFontSize = (baseSize) =>
@@ -129,7 +137,117 @@ const scaleTextStyle = (style) => {
     nextStyle.lineHeight = roundToPixel(resolvedLineHeightBase * currentTextScale);
   }
 
-  return transformThemeStyle(nextStyle);
+  const themedStyle = transformThemeStyle(nextStyle);
+
+  if (!currentHighContrastEnabled || !themedStyle || typeof themedStyle !== 'object') {
+    return themedStyle;
+  }
+
+  const HIGH_CONTRAST_EDGE_COLOR_KEYS = new Set([
+    'borderColor',
+    'borderBottomColor',
+    'borderTopColor',
+    'borderLeftColor',
+    'borderRightColor',
+  ]);
+  const HIGH_CONTRAST_BACKGROUND_KEYS = new Set(['backgroundColor']);
+  const HIGH_CONTRAST_TEXT_COLOR_KEYS = new Set([
+    'color',
+    'placeholderTextColor',
+    'textDecorationColor',
+    'textShadowColor',
+    'tintColor',
+    'accentColor',
+    'caretColor',
+  ]);
+
+  const HIGH_CONTRAST_BORDER_WIDTH_KEYS = new Set(['borderWidth']);
+
+  const isHexColor = (value) =>
+    typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
+
+  const normalizeHex = (hex) => {
+    const raw = hex.slice(1);
+    if (raw.length === 3) {
+      return raw
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+    return raw;
+  };
+
+  const hexToRgb = (hex) => {
+    const normalized = normalizeHex(hex);
+    const intValue = Number.parseInt(normalized, 16);
+    return {
+      r: (intValue >> 16) & 255,
+      g: (intValue >> 8) & 255,
+      b: intValue & 255,
+    };
+  };
+
+  const contrastedStyle = { ...themedStyle };
+  const darkMode = getThemeMode() === THEME_MODE_DARK;
+  const edgeColor = darkMode ? '#94A3B8' : '#000000';
+  const uniformBackground = getThemeColors(darkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT).pageBg;
+
+  const contrastTextColor = (value) => {
+    if (!isHexColor(value)) {
+      return value;
+    }
+
+    const { r, g, b } = hexToRgb(value);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    const isGray = delta <= 20;
+    const isGreen = g >= r + 20 && g >= b + 20;
+    const isBlue = b >= r + 20 && b >= g + 20;
+
+    if (isGray) {
+      return darkMode ? '#F8FAFC' : '#0F172A';
+    }
+
+    if (isGreen) {
+      return darkMode ? '#86EFAC' : '#166534';
+    }
+
+    if (isBlue) {
+      return darkMode ? '#93C5FD' : '#1E3A8A';
+    }
+
+    // For other hues, bias toward strong readable foreground per mode.
+    return darkMode ? '#F8FAFC' : '#0F172A';
+  };
+
+  Object.entries(contrastedStyle).forEach(([key, value]) => {
+    if (HIGH_CONTRAST_BACKGROUND_KEYS.has(key) && isHexColor(value)) {
+      contrastedStyle[key] = uniformBackground;
+      return;
+    }
+
+    if (HIGH_CONTRAST_EDGE_COLOR_KEYS.has(key) && isHexColor(value)) {
+      contrastedStyle[key] = edgeColor;
+      return;
+    }
+
+    if (HIGH_CONTRAST_TEXT_COLOR_KEYS.has(key)) {
+      contrastedStyle[key] = contrastTextColor(value);
+      return;
+    }
+
+    if (HIGH_CONTRAST_BORDER_WIDTH_KEYS.has(key) && typeof value === 'number') {
+      contrastedStyle[key] = Math.max(value, 2);
+      return;
+    }
+
+    if (key === 'fontWeight' && (typeof value === 'string' || typeof value === 'number')) {
+      contrastedStyle[key] = '700';
+    }
+  });
+
+  return contrastedStyle;
 };
 
 const createScaledStyleProxy = (styles) =>
@@ -203,11 +321,14 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
   const initialSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
   const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
+  const initialHighContrast = Boolean(initialSettings?.highContrastEnabled);
 
   currentTextScale = initialScale;
+  currentHighContrastEnabled = initialHighContrast;
   setThemeMode(initialDarkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT);
   const [textScale, setTextScaleState] = useState(initialScale);
   const [darkModeEnabled, setDarkModeEnabledState] = useState(initialDarkMode);
+  const [highContrastEnabled, setHighContrastEnabledState] = useState(initialHighContrast);
 
   const updateTextScale = useCallback(
     (nextScale) => {
@@ -229,14 +350,22 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
     [userId]
   );
 
+  const updateHighContrast = useCallback((enabled) => {
+    const nextEnabled = Boolean(enabled);
+    currentHighContrastEnabled = nextEnabled;
+    setHighContrastEnabledState(nextEnabled);
+  }, []);
+
   const value = useMemo(
     () => ({
       textScale,
       setTextScale: updateTextScale,
       darkModeEnabled,
       setDarkModeEnabled: updateDarkMode,
+      highContrastEnabled,
+      setHighContrastEnabled: updateHighContrast,
     }),
-    [textScale, updateTextScale, darkModeEnabled, updateDarkMode]
+    [textScale, updateTextScale, darkModeEnabled, updateDarkMode, highContrastEnabled, updateHighContrast]
   );
 
   return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;

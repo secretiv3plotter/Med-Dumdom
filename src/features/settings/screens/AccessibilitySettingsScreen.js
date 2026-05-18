@@ -45,7 +45,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   const [settings, setSettings] = useState(() =>
     accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
   );
-  const { setTextScale, setDarkModeEnabled } = useTextScale();
+  const { setTextScale, setDarkModeEnabled, setHighContrastEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
   const footerNav = useScrollAwareFooterNav();
 
@@ -59,7 +59,16 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     setInputValue(nextScale.toFixed(1));
     setTextScale(nextScale);
     setDarkModeEnabled(Boolean(settings.darkModeEnabled));
-  }, [settings.textScale, settings.textSizeLevel, settings.darkModeEnabled, setTextScale, setDarkModeEnabled]);
+    setHighContrastEnabled(Boolean(settings.highContrastEnabled));
+  }, [
+    settings.textScale,
+    settings.textSizeLevel,
+    settings.darkModeEnabled,
+    settings.highContrastEnabled,
+    setTextScale,
+    setDarkModeEnabled,
+    setHighContrastEnabled,
+  ]);
 
   const commitTextScale = (value) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -97,6 +106,9 @@ export default function AccessibilitySettingsScreen({ navigation }) {
 
     if (toggleMethod === 'toggleDarkMode') {
       setDarkModeEnabled(updatedSettings.darkModeEnabled);
+    }
+    if (toggleMethod === 'toggleHighContrast') {
+      setHighContrastEnabled(updatedSettings.highContrastEnabled);
     }
   };
 
