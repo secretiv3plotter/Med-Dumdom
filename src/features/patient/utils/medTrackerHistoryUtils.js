@@ -109,6 +109,8 @@ export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
 export const isIntervalScheduleEntry = (entry) =>
   Number(entry?.intervalMinutes || 0) > 0 || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
 
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
+
 export const getTakenAmountForRecord = (record) =>
   (record.dailySchedFinalStatuses || []).reduce(
     (total, entry) => total + (entry.finalStatus === 'taken' ? Number(entry.doseSize || 0) : 0),
@@ -164,6 +166,10 @@ export const dateKey = (date) => date.toISOString().slice(0, 10);
 export const getRecordDate = (record) => toHistoryDate(record.historyDate) ?? new Date(0);
 
 export const formatScheduleText = (entry, unit) => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAs needed`;
+  }
+
   const dayLabel = entry.dayOfWeek
     ? ` on ${entry.dayOfWeek}`
     : entry.monthOfYear

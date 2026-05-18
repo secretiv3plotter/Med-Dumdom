@@ -25,6 +25,7 @@ import {
   getIntervalScheduleTime,
   formatDoseWithUnit,
   formatTime,
+  isAsNeededScheduleEntry,
 } from '../utils/medTrackerUtils';
 
 const PILL_RADIUS = moderateScale(999);
@@ -145,6 +146,7 @@ function SchedulePreviewCard({
   const { triggerImpact, triggerSuccess } = useHapticFeedback();
 
   const isHourly = !!entry.intervalMinutes;
+  const isAsNeeded = isAsNeededScheduleEntry(entry);
   const lastActionMessage = isHourly ? getLastActionMessage(medicine) : null;
 
   return (
@@ -163,7 +165,7 @@ function SchedulePreviewCard({
       </View>
 
       <Text style={styles.scheduleMetaText}>
-        At {isHourly ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+        {isAsNeeded ? 'As needed' : `At ${isHourly ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
       </Text>
 
       {!isHourly ? (
@@ -235,10 +237,13 @@ function SchedulePreviewCard({
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
   const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
   const monthlyIntervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalUnit === 'months');
+  const hasAsNeededEntry = (medicine.dailySched || []).some((entry) => isAsNeededScheduleEntry(entry));
   const sectionLabelText = intervalEntry
     ? `${intervalEntry.intervalUnit === 'weeks' ? 'Weekly interval' : Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Every few days' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes, intervalEntry.intervalUnit)})`
     : monthlyIntervalEntry
     ? `Monthly interval schedule (Every ${monthlyIntervalEntry.intervalCount} month${Number(monthlyIntervalEntry.intervalCount) === 1 ? '' : 's'})`
+    : hasAsNeededEntry
+    ? 'As needed schedule'
     : (medicine.dailySched || []).some(e => e.monthOfYear)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
@@ -287,6 +292,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const isTaken = scheduleStatus.status === 'taken';
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
   const isResolved = entry.status === 'taken' || entry.status === 'skipped';
+  const isAsNeeded = isAsNeededScheduleEntry(entry);
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
   const scheduleDayLabel = getScheduleDayLabel(entry);
@@ -308,7 +314,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
       </View>
 
       <Text style={styles.scheduleMetaText}>
-        At {isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+        {isAsNeeded ? 'As needed' : `At ${isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
       </Text>
 
       {isTaken ? (
@@ -430,6 +436,7 @@ export function SegmentButton({ label = '', selected, onPress }) {
       onPress={onPress}
       unstable_pressDelay={0}
       accessibilityRole="button"
+      accessibilityLabel={`${selected ? 'Selected' : 'Select'} ${label}`}
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.segmentButton,

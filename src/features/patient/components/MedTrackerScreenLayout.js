@@ -272,8 +272,8 @@ export function ConfirmationDialogModal({
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.confirmOverlay} onPress={onCancel}>
-        <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+      <Pressable accessible={false} style={styles.confirmOverlay} onPress={onCancel}>
+        <Pressable accessible={false} style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
           <DialogBox
             title={title}
             message={message}

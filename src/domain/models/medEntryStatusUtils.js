@@ -6,6 +6,7 @@ import {
   getScheduleDateTime,
   getIntervalOccurrenceDateTime,
   getIntervalNextOccurrenceDateTime,
+  isAsNeededScheduleEntry,
   isIntervalScheduleEntry,
   isScheduleDateTimeInCurrentInterval,
   isBeforeCurrentDay,
@@ -29,6 +30,7 @@ const MONTHS = [
 const MONTHLY_MISSED_GRACE_DAYS = 7;
 
 const isDailyScheduleEntry = (scheduleEntry) =>
+  !isAsNeededScheduleEntry(scheduleEntry) &&
   !isIntervalScheduleEntry(scheduleEntry) &&
   !scheduleEntry?.dayOfWeek &&
   !scheduleEntry?.monthOfYear &&
@@ -209,6 +211,12 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
     return 'upcoming';
   }
 
+  if (isAsNeededScheduleEntry(scheduleEntry)) {
+    return scheduleEntry.status === 'taken' || scheduleEntry.status === 'skipped'
+      ? scheduleEntry.status
+      : 'pending';
+  }
+
   if (!isIntervalScheduleEntry(scheduleEntry) && !isScheduleActiveOnDate(scheduleEntry, currDate)) {
     const previousWeeklyScheduleDate = getPreviousWeeklyScheduleDate(scheduleEntry, currDate);
     if (
@@ -305,6 +313,9 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
 
 export const getScheduleMissedDateTime = (medEntry, scheduleIndex, currTime = new Date()) => {
   ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
+  if (isAsNeededScheduleEntry(medEntry.dailySched[scheduleIndex])) {
+    return currTime instanceof Date ? currTime : new Date();
+  }
   const currentDateTime = normalizeDate(currTime, 'currTime') ?? new Date();
   const scheduleMinutes = toMinutes(scheduleEffectiveTime(medEntry.dailySched[scheduleIndex]));
   if (isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex])) {
@@ -337,6 +348,10 @@ export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = ne
 
   if (!isActiveOnDate(medEntry, currDate)) {
     return false;
+  }
+
+  if (isAsNeededScheduleEntry(medEntry.dailySched[scheduleIndex])) {
+    return true;
   }
 
   if (!isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex]) && !isScheduleActiveOnDate(medEntry.dailySched[scheduleIndex], currDate)) {

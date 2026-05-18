@@ -9,6 +9,7 @@ export default function ToggleButton({
   size = 40,
   theme = {},
   variant = 'default',
+  accessibilityLabel = 'Turn setting on or off',
 }) {
   const t = { ...colors, ...theme };
   const isLockedOff = variant === 'offLocked';
@@ -22,6 +23,9 @@ export default function ToggleButton({
 
   return (
     <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ checked: isOn, disabled: isLockedOff }}
       disabled={isLockedOff}
       unstable_pressDelay={0}
       onPress={() => onChange(!isOn)}

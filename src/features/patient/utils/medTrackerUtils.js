@@ -146,6 +146,8 @@ export const getIntervalMinutes = (entry) => {
 export const isIntervalScheduleEntry = (entry) =>
   getIntervalMinutes(entry) !== null || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
 
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
+
 export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
   const minutes = Number(intervalMinutes || 0);
   if (!Number.isInteger(minutes) || minutes <= 0) {
@@ -311,6 +313,10 @@ export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
 };
 
 export const getScheduleDayLabel = (entry) => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return 'as needed';
+  }
+
   if (entry?.dayOfWeek) {
     return `on ${entry.dayOfWeek}`;
   }
@@ -367,6 +373,7 @@ export const buildMedicineSearchText = (medicine) => [
     entry.doseSize,
     entry.scheduledTime,
     entry.intervalMinutes,
+    entry.intervalUnit,
     entry.dayOfWeek,
     entry.monthOfYear,
     entry.dayOfMonth,
@@ -403,6 +410,10 @@ export const formatDoseWithUnit = (doseSize, unit) => {
 };
 
 export const formatScheduleEntry = (entry, unit = '') => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAs needed`;
+  }
+
   if (isIntervalScheduleEntry(entry)) {
     const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
       ? `\nAt ${formatTime(entry.scheduledTime)}`

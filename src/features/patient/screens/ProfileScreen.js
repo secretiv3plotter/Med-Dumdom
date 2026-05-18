@@ -368,8 +368,8 @@ export default function ProfileScreen({ navigation }) {
           animationType="fade"
           onRequestClose={() => setShowConfirmSave(false)}
         >
-          <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
-            <Pressable style={styles.dialogWrap} onPress={() => {}}>
+          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
+            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
               <DialogBox
                 title="Are you Sure?"
                 message="You are about to save changes."

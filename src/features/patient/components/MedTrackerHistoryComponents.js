@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import {
   formatDate,
@@ -16,27 +15,11 @@ import {
 
 const PILL_RADIUS = moderateScale(999);
 
-function HistoryDeleteButton({ onPress, accessibilityLabel = 'Delete record' }) {
-  return (
-    <View style={styles.iconActionCol}>
-      <Pressable
-        onPress={onPress}
-        unstable_pressDelay={0}
-        style={({ pressed }) => [styles.iconActionBtn, pressed && styles.iconActionPressed]}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-      >
-        <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
-      </Pressable>
-      <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
-    </View>
-  );
-}
-
 export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={subtitle ? `Open ${title}. ${subtitle}` : `Open ${title}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.optionCard, pressed && styles.pressedCard]}
@@ -61,6 +44,7 @@ export function BreadcrumbButton({ label, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`Go back to ${label}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.breadcrumbButton, pressed && styles.pressedControl]}
@@ -132,7 +116,7 @@ function ScheduleStatusCard({ entry, unit, recordId, onPress = null }) {
     <Pressable
       key={`${recordId}-${entry.scheduleIndex}`}
       accessibilityRole="button"
-      accessibilityLabel={`View ${statusStyle.label} medicine schedule record`}
+      accessibilityLabel={`Open ${statusStyle.label} medicine schedule record details`}
       unstable_pressDelay={0}
       onPress={() => onPress(entry)}
       style={({ pressed }) => [
@@ -183,7 +167,7 @@ function SmallDeleteAction({ onPress }) {
     <View style={styles.smallDeleteWrap}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Delete"
+        accessibilityLabel="Delete medicine history record"
         unstable_pressDelay={0}
         onPress={onPress}
         style={({ pressed }) => [

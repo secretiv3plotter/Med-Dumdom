@@ -1,8 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, moderateScale, typography, spacing } from '../../../shared/theme';
-import { formatDoseWithUnit, formatIntervalMinutes, formatTime, getIntervalScheduleTime, isIntervalScheduleEntry } from '../utils/medTrackerUtils';
+import { formatDoseWithUnit, formatIntervalMinutes, formatTime, getIntervalScheduleTime, isAsNeededScheduleEntry, isIntervalScheduleEntry } from '../utils/medTrackerUtils';
 
 export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
+  if (isAsNeededScheduleEntry(entry)) {
+    return (
+      <Text style={styles.scheduleCardTitle}>
+        Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
+        {'\n'}As needed
+      </Text>
+    );
+  }
+
   const isInterval = isIntervalScheduleEntry(entry);
   const scheduleDayLabel = dayLabel ? ` ${dayLabel}` : '';
   const scheduleTimeText = isInterval

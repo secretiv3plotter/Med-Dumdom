@@ -46,6 +46,7 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
         onPress={onPress}
         style={styles.unitBadgePressable}
         accessibilityRole="button"
+        accessibilityLabel={`Select unit ${label}`}
         accessibilityState={{ selected }}
       >
         <Text style={[styles.unitBadgeText, selected && styles.unitBadgeTextSelected]}>
@@ -66,7 +67,7 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
 
 const getDoseUnitLabel = (unit) => String(unit || '').trim() || 'units';
 
-function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, isEveryWeeksInterval, isMonthlyInterval, isWeekly, isMonthly, onSave, onCancel }) {
+function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, isEveryWeeksInterval, isMonthlyInterval, isAsNeeded, isWeekly, isMonthly, onSave, onCancel }) {
   const [doseSize, setDoseSize] = useState(String(entry.doseSize));
   const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
   const [intervalHours, setIntervalHours] = useState(entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '');
@@ -127,9 +128,9 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     setError('');
     const errMsg = onSave(index, {
       doseSize: trimmed,
-      scheduledTime: isHourly || isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval ? '00:00' : scheduledTime,
+      scheduledTime: isHourly || isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? '00:00' : scheduledTime,
       intervalMinutes: isHourly || isWeeklyInterval || isEveryWeeksInterval ? intervalTotalMinutes : null,
-      intervalUnit: isWeeklyInterval ? 'days' : isEveryWeeksInterval ? 'weeks' : isMonthlyInterval ? 'months' : '',
+      intervalUnit: isAsNeeded ? 'asNeeded' : isWeeklyInterval ? 'days' : isEveryWeeksInterval ? 'weeks' : isMonthlyInterval ? 'months' : '',
       intervalCount: isMonthlyInterval ? parsePositiveCount(intervalMonths) : null,
       dayOfWeek,
       monthOfYear,
@@ -144,7 +145,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     <View style={styles.inlineEditorContainer}>
       <View style={styles.inlineInputsRow}>
         <View style={styles.inlineDoseCol}>
-          <Text style={styles.fieldSubcaption}>How many {getDoseUnitLabel(unit)} will you take for this dose?</Text>
+          <Text style={styles.fieldSubcaption}>How many {getDoseUnitLabel(unit)} for one dose?</Text>
           <InputBar
             placeholder="Dose"
             keyboardType="number-pad"
@@ -169,7 +170,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
                 setError('');
               }}
             />
-          ) : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval ? null : (
+          ) : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? null : (
             <NativeDateTimeField
               mode="time"
               placeholder="Select time"
@@ -185,7 +186,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
       </View>
       {isWeeklyInterval ? (
         <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat every how many days?</Text>
+          <Text style={styles.fieldSubcaption}>Repeat after how many days?</Text>
           <InputBar
             placeholder="Days"
             keyboardType="number-pad"
@@ -199,7 +200,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
       ) : null}
       {isEveryWeeksInterval ? (
         <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat every how many weeks?</Text>
+          <Text style={styles.fieldSubcaption}>Repeat after how many weeks?</Text>
           <InputBar
             placeholder="Weeks"
             keyboardType="number-pad"
@@ -213,7 +214,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
       ) : null}
       {isMonthlyInterval ? (
         <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat every how many months?</Text>
+          <Text style={styles.fieldSubcaption}>Repeat after how many months?</Text>
           <InputBar
             placeholder="Months"
             keyboardType="number-pad"
@@ -389,7 +390,7 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
           <View key={option.value} style={styles.optionContainer}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={option.label}
+              accessibilityLabel={`Choose ${option.label} medicine schedule. ${option.caption || ''}`}
               accessibilityState={{ selected }}
               unstable_pressDelay={0}
               onPress={() => {
@@ -429,7 +430,7 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
                     <Pressable
                       key={subOption.value}
                       accessibilityRole="button"
-                      accessibilityLabel={subOption.label}
+                      accessibilityLabel={`Choose ${subOption.label} interval schedule. ${subOption.caption || ''}`}
                       accessibilityState={{ selected: subSelected }}
                       unstable_pressDelay={0}
                       onPress={() => onSelectScheduleType(subOption.value)}
@@ -481,6 +482,7 @@ export function MedicineScheduleStep({
   const isEveryWeeksInterval = selectedScheduleType === 'regular_every_weeks';
   const isMonthlyInterval = selectedScheduleType === 'regular_monthly';
   const isIntervalSchedule = isHourly || isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval;
+  const isAsNeeded = selectedScheduleType === 'asNeeded';
   const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly';
   const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
@@ -494,7 +496,9 @@ export function MedicineScheduleStep({
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
-    (isIntervalSchedule
+    (isAsNeeded
+      ? true
+      : isIntervalSchedule
       ? (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : true)
       : String(scheduleDraft.scheduledTime || '').trim()) &&
     (!isWeeklyInterval || parsePositiveCount(scheduleDraft.intervalDays) > 0) &&
@@ -555,7 +559,7 @@ export function MedicineScheduleStep({
           </Text>
 
           <Text style={styles.fieldSubcaption}>
-            How many {getDoseUnitLabel(formState.unit)} will you take for {isHourly ? 'every dose' : 'this dose'}?
+            How many {getDoseUnitLabel(formState.unit)} for {isHourly ? 'each dose' : 'one dose'}?
           </Text>
           <InputBar
             placeholder="Dose"
@@ -621,7 +625,7 @@ export function MedicineScheduleStep({
             </>
           ) : isWeeklyInterval ? (
             <>
-              <Text style={styles.fieldSubcaption}>Repeat every how many days?</Text>
+              <Text style={styles.fieldSubcaption}>Repeat after how many days?</Text>
               <InputBar
                 placeholder="Days"
                 keyboardType="number-pad"
@@ -634,7 +638,7 @@ export function MedicineScheduleStep({
             </>
           ) : isEveryWeeksInterval ? (
             <>
-              <Text style={styles.fieldSubcaption}>Repeat every how many weeks?</Text>
+              <Text style={styles.fieldSubcaption}>Repeat after how many weeks?</Text>
               <InputBar
                 placeholder="Weeks"
                 keyboardType="number-pad"
@@ -647,7 +651,7 @@ export function MedicineScheduleStep({
             </>
           ) : isMonthlyInterval ? (
             <>
-              <Text style={styles.fieldSubcaption}>Repeat every how many months?</Text>
+              <Text style={styles.fieldSubcaption}>Repeat after how many months?</Text>
               <InputBar
                 placeholder="Months"
                 keyboardType="number-pad"
@@ -666,6 +670,10 @@ export function MedicineScheduleStep({
                 onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfMonth: value }))}
               />
             </>
+          ) : isAsNeeded ? (
+            <Text style={styles.fieldSubcaption}>
+              No time is needed. Mark this medicine when you take it.
+            </Text>
           ) : (
             <NativeDateTimeField
               mode="time"
@@ -750,15 +758,16 @@ export function MedicineScheduleStep({
                   ) : null}
                 </View>
                 {isEditing ? (
-                  <InlineScheduleEditor
-                    entry={entry}
-                    index={index}
-                    unit={formState.unit}
-                    isHourly={isHourly}
-                    isWeeklyInterval={isWeeklyInterval}
-                    isEveryWeeksInterval={isEveryWeeksInterval}
-                    isMonthlyInterval={isMonthlyInterval}
-                    isWeekly={isWeekly}
+                      <InlineScheduleEditor
+                        entry={entry}
+                        index={index}
+                        unit={formState.unit}
+                        isHourly={isHourly}
+                        isWeeklyInterval={isWeeklyInterval}
+                        isEveryWeeksInterval={isEveryWeeksInterval}
+                        isMonthlyInterval={isMonthlyInterval}
+                        isAsNeeded={isAsNeeded}
+                        isWeekly={isWeekly}
                     isMonthly={isMonthly}
                     onSave={onSaveInlineScheduleEntry}
                     onCancel={onCancelScheduleEdit}

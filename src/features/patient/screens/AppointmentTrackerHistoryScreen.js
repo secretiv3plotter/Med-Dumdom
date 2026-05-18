@@ -538,8 +538,8 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
           animationType="fade"
           onRequestClose={() => setPendingDeleteTarget(null)}
         >
-          <Pressable style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
-            <Pressable style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessible={false} style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
+            <Pressable accessible={false} style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
               <DialogBox
                 title="Delete Record"
                 message={`Delete this appointment record for ${pendingDeleteTarget?.concern}? You can undo this later.`}
@@ -653,6 +653,7 @@ function BreadcrumbButton({ label, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`Go back to ${label}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.breadcrumbButton, pressed && styles.pressedControl]}
@@ -666,6 +667,7 @@ function DirectoryCard({ title, subtitle, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={subtitle ? `Open ${title}. ${subtitle}` : `Open ${title}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.directoryCard, pressed && styles.pressedCard]}

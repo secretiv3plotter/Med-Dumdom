@@ -114,6 +114,8 @@ function AppContent() {
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
   const screenProps =
+    currentRoute === ROUTES.HOME ||
+    currentRoute === ROUTES.PATIENT_DASHBOARD ||
     currentRoute === ROUTES.MED_TRACKER ||
     currentRoute === ROUTES.MED_TRACKER_HISTORY ||
     currentRoute === ROUTES.APPOINTMENT_TRACKER ||

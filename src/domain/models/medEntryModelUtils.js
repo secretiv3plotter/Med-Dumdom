@@ -190,6 +190,8 @@ export const isCalendarMonthIntervalEntry = (entry) => entry?.intervalUnit === '
 
 export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null || isCalendarMonthIntervalEntry(entry);
 
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
+
 const getDaysInMonth = (year, monthIndex) => new Date(year, monthIndex + 1, 0).getDate();
 
 const dateAtScheduledMonthDay = (year, monthIndex, dayOfMonth, scheduledTime) => {
