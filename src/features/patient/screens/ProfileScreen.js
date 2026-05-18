@@ -101,6 +101,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [showSavedDialog, setShowSavedDialog] = useState(false);
+  const [showConfirmLogOut, setShowConfirmLogOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const timeoutRef = useRef(null);
 
@@ -128,24 +129,17 @@ export default function ProfileScreen({ navigation, realm = null }) {
     }
   };
 
-  const handleLogOut = async () => {
-    Alert.alert('Log Out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (firebase?.auth) {
-              await signOut(firebase.auth);
-            }
-          } catch (err) {
-            console.warn('Sign out error:', err);
-          }
-          navigation?.reset?.(ROUTES.LOG_IN);
-        },
-      },
-    ]);
+  const confirmLogOut = async () => {
+    setShowConfirmLogOut(false);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('_med_dumdom_secure_db_');
+    }
+    if (realm && typeof realm.clearCollections === 'function') {
+      realm.clearCollections();
+    }
+    if (firebase?.auth) {
+      await signOut(firebase.auth);
+    }
   };
 
   const syncDraft = (nextProfile) => {
@@ -373,7 +367,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
           ) : null}
 
           <Pressable
-            onPress={handleLogOut}
+            onPress={() => setShowConfirmLogOut(true)}
             accessibilityRole="button"
             accessibilityLabel="Log out"
             style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
@@ -436,6 +430,28 @@ export default function ProfileScreen({ navigation, realm = null }) {
               />
             </View>
           </View>
+        </Modal>
+      ) : null}
+
+      {showConfirmLogOut ? (
+        <Modal
+          transparent
+          visible={true}
+          animationType="fade"
+          onRequestClose={() => setShowConfirmLogOut(false)}
+        >
+          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmLogOut(false)}>
+            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
+              <DialogBox
+                title="Log Out?"
+                message="Are you sure you want to log out?"
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmLogOut(false) },
+                  { label: 'Log Out', variant: 'solid', onPress: confirmLogOut },
+                ]}
+              />
+            </Pressable>
+          </Pressable>
         </Modal>
       ) : null}
     </SafeAreaView>

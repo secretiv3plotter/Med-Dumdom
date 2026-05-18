@@ -205,6 +205,20 @@ export class WebRealm {
     }
   }
   
+  // Clears all in-memory data without locking the database
+  clearCollections() {
+    this.collections = {
+      PatientUser: {},
+      AccessibilityPreference: {},
+      ApptEntry: {},
+      ApptTrackerHistory: {},
+      MedEntry: {},
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
+    };
+    this.notifyListeners();
+  }
+
   // Wipes key and clears in-memory decrypted database
   lock() {
     this.key = null;
@@ -221,6 +235,27 @@ export class WebRealm {
     this.notifyListeners();
   }
   
+  // Wipes all local data and re-initializes an empty database
+  async clearAndReset() {
+    this.key = null;
+    this.isUnlocked = false;
+    const emptyCollections = {
+      PatientUser: {},
+      AccessibilityPreference: {},
+      ApptEntry: {},
+      ApptTrackerHistory: {},
+      MedEntry: {},
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
+    };
+    this.collections = emptyCollections;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.dbKeyName);
+    }
+    const DEFAULT_DEMO_PASSWORD = "med-dumdom-default-secure-dx-key";
+    await this.unlock(DEFAULT_DEMO_PASSWORD);
+  }
+
   // Async saving in the background (write-behind cache)
   async saveAsync() {
     if (!this.key) return;

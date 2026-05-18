@@ -85,15 +85,16 @@ function AppContent() {
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
 
-  // Redirect to login whenever Firebase reports no logged-in user
+  // Redirect based on Firebase auth state only when it is resolved (not undefined)
   useEffect(() => {
+    if (currentUser === undefined) return;
     if (currentUser === null && !AUTH_ROUTES.has(currentRoute)) {
       setHistory([{ routeName: ROUTES.LOG_IN, params: {} }]);
     }
-    if (currentUser && AUTH_ROUTES.has(currentRoute)) {
+    if (currentUser !== null && AUTH_ROUTES.has(currentRoute)) {
       setHistory([{ routeName: ROUTES.HOME, params: {} }]);
     }
-  }, [currentUser, currentRoute]);
+  }, [currentUser]); // intentionally only re-runs when auth state changes, not on every route change
 
   const navigation = useMemo(
     () => ({
@@ -154,6 +155,10 @@ function AppContent() {
     document.addEventListener('click', listener, true);
     return () => document.removeEventListener('click', listener, true);
   }, [hapticEnabled]);
+
+  if (currentUser === undefined) {
+    return null;
+  }
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
   const screenProps = { navigation, realm };
