@@ -1,6 +1,17 @@
 import ApptEntry from '../../domain/models/ApptEntryModel';
 
 const DEFAULT_PATIENT_EMAIL = 'current-user@local.invalid';
+const SYNC_STATUS = {
+  PENDING: 'pending',
+  SYNCED: 'synced',
+  ERROR: 'error',
+};
+
+const SYNC_OPERATION = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+};
 
 const normalizeUserId = (userId) => {
   const normalizedUserId = String(userId || '').trim();
@@ -23,6 +34,10 @@ const normalizeApptEntryId = (apptEntryId) => {
 const toNullableDate = (value) => {
   if (!value) {
     return null;
+  }
+
+  if (typeof value.toDate === 'function') {
+    return value.toDate();
   }
 
   const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -110,6 +125,63 @@ const toHistoryModel = (entry) => ({
   createdAt: entry.createdAt,
 });
 
+const toPlainApptHistory = (entry) => ({
+  historyId: entry.historyId,
+  patientUserId: entry.patientUserId,
+  apptEntryId: entry.apptEntryId,
+  concern: entry.concern,
+  address: entry.address,
+  doctorName: entry.doctorName || '',
+  contactNumber: entry.contactNumber || '',
+  dateSched: entry.dateSched,
+  timeSched: entry.timeSched,
+  note: entry.note || '',
+  finalStatus: entry.finalStatus,
+  completedAt: toIsoOrNull(entry.completedAt),
+  skippedAt: toIsoOrNull(entry.skippedAt),
+  missedAt: toIsoOrNull(entry.missedAt),
+  deletedAt: toIsoOrNull(entry.deletedAt),
+  isDeleted: Boolean(entry.isDeleted),
+  recordDeletedAt: toIsoOrNull(entry.recordDeletedAt),
+  syncStatus: entry.syncStatus || SYNC_STATUS.SYNCED,
+  syncOperation: entry.syncOperation || '',
+  syncError: entry.syncError || '',
+  lastSyncedAt: toIsoOrNull(entry.lastSyncedAt),
+  localUpdatedAt: toIsoOrNull(entry.localUpdatedAt),
+  remoteUpdatedAt: toIsoOrNull(entry.remoteUpdatedAt),
+  syncVersion: Number(entry.syncVersion || 0),
+  syncDeviceId: entry.syncDeviceId || '',
+  createdAt: toIsoOrNull(entry.createdAt),
+});
+
+const toPlainApptEntry = (entry) => ({
+  apptEntryId: entry.apptEntryId,
+  patientUserId: entry.patientUserId,
+  concern: entry.concern,
+  address: entry.address,
+  doctorName: entry.doctorName || '',
+  contactNumber: entry.contactNumber || '',
+  dateSched: entry.dateSched,
+  timeSched: entry.timeSched,
+  note: entry.note || '',
+  isCompleted: Boolean(entry.isCompleted),
+  isSkipped: Boolean(entry.isSkipped),
+  completedAt: toIsoOrNull(entry.completedAt),
+  skippedAt: toIsoOrNull(entry.skippedAt),
+  isDeleted: Boolean(entry.isDeleted),
+  deletedAt: toIsoOrNull(entry.deletedAt),
+  syncStatus: entry.syncStatus || SYNC_STATUS.SYNCED,
+  syncOperation: entry.syncOperation || '',
+  syncError: entry.syncError || '',
+  lastSyncedAt: toIsoOrNull(entry.lastSyncedAt),
+  localUpdatedAt: toIsoOrNull(entry.localUpdatedAt),
+  remoteUpdatedAt: toIsoOrNull(entry.remoteUpdatedAt),
+  syncVersion: Number(entry.syncVersion || 0),
+  syncDeviceId: entry.syncDeviceId || '',
+  createdAt: toIsoOrNull(entry.createdAt),
+  updatedAt: toIsoOrNull(entry.updatedAt),
+});
+
 export default class RealmApptTrackerRepository {
   constructor(realm) {
     this.realm = realm;
@@ -144,9 +216,18 @@ export default class RealmApptTrackerRepository {
     });
   }
 
-  persistApptEntry(userId, apptEntry, existingCreatedAt = null, existingDeleted = {}) {
+  persistApptEntry(userId, apptEntry, existingCreatedAt = null, existingDeleted = {}, syncOptions = {}) {
     const normalizedUserId = normalizeUserId(userId);
     const now = new Date();
+    const existingEntry = apptEntry.apptEntryId
+      ? this.realm.objectForPrimaryKey('ApptEntry', apptEntry.apptEntryId)
+      : null;
+    const markPending = syncOptions.markPending !== false;
+    const operation = syncOptions.operation ||
+      (existingEntry?.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : existingEntry ? SYNC_OPERATION.UPDATE : SYNC_OPERATION.CREATE);
+    const createdAt = existingCreatedAt || existingEntry?.createdAt || now;
+    const syncVersion = Number(syncOptions.syncVersion ?? existingEntry?.syncVersion ?? 0) + (markPending ? 1 : 0);
+
     return this.realm.create(
       'ApptEntry',
       {
@@ -163,9 +244,17 @@ export default class RealmApptTrackerRepository {
         isSkipped: Boolean(apptEntry.isSkipped),
         completedAt: toNullableDate(apptEntry.completedAt),
         skippedAt: toNullableDate(apptEntry.skippedAt),
-        isDeleted: Boolean(existingDeleted.isDeleted),
-        deletedAt: toNullableDate(existingDeleted.deletedAt),
-        createdAt: existingCreatedAt || now,
+        isDeleted: Boolean(syncOptions.isDeleted ?? existingDeleted.isDeleted),
+        deletedAt: toNullableDate(syncOptions.deletedAt ?? existingDeleted.deletedAt),
+        syncStatus: syncOptions.syncStatus || (markPending ? SYNC_STATUS.PENDING : existingEntry?.syncStatus || SYNC_STATUS.SYNCED),
+        syncOperation: syncOptions.syncOperation ?? (markPending ? operation : existingEntry?.syncOperation || ''),
+        syncError: syncOptions.syncError ?? (markPending ? '' : existingEntry?.syncError || ''),
+        lastSyncedAt: toNullableDate(syncOptions.lastSyncedAt ?? existingEntry?.lastSyncedAt),
+        localUpdatedAt: toNullableDate(syncOptions.localUpdatedAt) || now,
+        remoteUpdatedAt: toNullableDate(syncOptions.remoteUpdatedAt ?? existingEntry?.remoteUpdatedAt),
+        syncVersion,
+        syncDeviceId: syncOptions.syncDeviceId ?? existingEntry?.syncDeviceId ?? '',
+        createdAt,
         updatedAt: now,
       },
       'modified',
@@ -200,6 +289,14 @@ export default class RealmApptTrackerRepository {
           deletedAt: status === 'deleted' ? resolvedDate : null,
           isDeleted: false,
           recordDeletedAt: null,
+          syncStatus: SYNC_STATUS.PENDING,
+          syncOperation: SYNC_OPERATION.CREATE,
+          syncError: '',
+          lastSyncedAt: null,
+          localUpdatedAt: new Date(),
+          remoteUpdatedAt: null,
+          syncVersion: 1,
+          syncDeviceId: '',
           createdAt: new Date(),
         },
         'modified',
@@ -243,7 +340,15 @@ export default class RealmApptTrackerRepository {
           this.snapshotHistory(normalizedUserId, model, finalStatus, snapshotTime);
         }
 
-        this.realm.delete(entry);
+        const deletedAt = new Date();
+        entry.isDeleted = true;
+        entry.deletedAt = deletedAt;
+        entry.syncStatus = SYNC_STATUS.PENDING;
+        entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+        entry.syncError = '';
+        entry.localUpdatedAt = deletedAt;
+        entry.syncVersion = Number(entry.syncVersion || 0) + 1;
+        entry.updatedAt = deletedAt;
       });
   }
 
@@ -251,7 +356,14 @@ export default class RealmApptTrackerRepository {
     const historyId = `${normalizeUserId(userId)}-${normalizeApptEntryId(apptEntryId)}-${status}`;
     const history = this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId);
     if (history) {
-      this.realm.delete(history);
+      const now = new Date();
+      history.isDeleted = true;
+      history.recordDeletedAt = now;
+      history.syncStatus = SYNC_STATUS.PENDING;
+      history.syncOperation = history.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+      history.syncError = '';
+      history.localUpdatedAt = now;
+      history.syncVersion = Number(history.syncVersion || 0) + 1;
     }
   }
 
@@ -316,8 +428,131 @@ export default class RealmApptTrackerRepository {
   deleteApptEntry(userId, apptEntryId) {
     return this.write(() => {
       const entry = this.getActiveEntry(userId, apptEntryId);
+      const now = new Date();
+      entry.isDeleted = true;
+      entry.deletedAt = now;
+      entry.syncStatus = SYNC_STATUS.PENDING;
+      entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+      entry.syncError = '';
+      entry.localUpdatedAt = now;
+      entry.syncVersion = Number(entry.syncVersion || 0) + 1;
+      entry.updatedAt = now;
+      return true;
+    });
+  }
+
+  listPendingApptSyncChanges(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    return Array.from(this.realm.objects('ApptEntry').filtered('patientUserId == $0', normalizedUserId))
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.PENDING || entry.syncStatus === SYNC_STATUS.ERROR)
+      .map(toPlainApptEntry)
+      .sort((firstEntry, secondEntry) =>
+        String(firstEntry.localUpdatedAt || firstEntry.updatedAt || '').localeCompare(String(secondEntry.localUpdatedAt || secondEntry.updatedAt || ''))
+      );
+  }
+
+  markApptEntrySynced(userId, apptEntryId, remoteUpdatedAt = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedApptEntryId = normalizeApptEntryId(apptEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptEntry', normalizedApptEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
+      const syncedAt = new Date();
+      entry.syncStatus = SYNC_STATUS.SYNCED;
+      entry.syncOperation = '';
+      entry.syncError = '';
+      entry.lastSyncedAt = syncedAt;
+      entry.remoteUpdatedAt = toNullableDate(remoteUpdatedAt) || syncedAt;
+      return true;
+    });
+  }
+
+  markApptEntrySyncError(userId, apptEntryId, error) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedApptEntryId = normalizeApptEntryId(apptEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptEntry', normalizedApptEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
+      entry.syncStatus = SYNC_STATUS.ERROR;
+      entry.syncError = error instanceof Error ? error.message : String(error || 'Sync failed.');
+      return true;
+    });
+  }
+
+  hardDeleteApptEntry(userId, apptEntryId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedApptEntryId = normalizeApptEntryId(apptEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptEntry', normalizedApptEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
       this.realm.delete(entry);
       return true;
+    });
+  }
+
+  upsertRemoteApptEntry(userId, remoteData = {}) {
+    const normalizedUserId = normalizeUserId(userId);
+    const apptEntryId = normalizeApptEntryId(remoteData.apptEntryId || remoteData.id);
+    const remoteUpdatedAt = toNullableDate(remoteData.remoteUpdatedAt || remoteData.updatedAt || remoteData.lastSyncedAt) || new Date();
+
+    return this.write(() => {
+      this.ensurePatientUser(normalizedUserId);
+      const existingEntry = this.realm.objectForPrimaryKey('ApptEntry', apptEntryId);
+      const localUpdatedAt = toNullableDate(existingEntry?.localUpdatedAt || existingEntry?.updatedAt);
+      const hasUnpushedLocalChange =
+        existingEntry &&
+        (existingEntry.syncStatus === SYNC_STATUS.PENDING || existingEntry.syncStatus === SYNC_STATUS.ERROR) &&
+        localUpdatedAt &&
+        localUpdatedAt.getTime() >= remoteUpdatedAt.getTime();
+
+      if (hasUnpushedLocalChange) {
+        return toPlainApptEntry(existingEntry);
+      }
+
+      const apptEntry = new ApptEntry({
+        apptEntryId,
+        concern: remoteData.concern,
+        address: remoteData.address,
+        doctorName: remoteData.doctorName || '',
+        contactNumber: remoteData.contactNumber || '',
+        dateSched: remoteData.dateSched,
+        timeSched: remoteData.timeSched,
+        note: remoteData.note || '',
+        isCompleted: Boolean(remoteData.isCompleted),
+        isSkipped: Boolean(remoteData.isSkipped),
+        completedAt: toNullableDate(remoteData.completedAt),
+        skippedAt: toNullableDate(remoteData.skippedAt),
+        createdAt: toNullableDate(remoteData.createdAt),
+        updatedAt: toNullableDate(remoteData.updatedAt),
+      });
+
+      const savedEntry = this.persistApptEntry(normalizedUserId, apptEntry, toNullableDate(remoteData.createdAt), remoteData, {
+        markPending: false,
+        isDeleted: Boolean(remoteData.isDeleted),
+        deletedAt: toNullableDate(remoteData.deletedAt),
+        syncStatus: SYNC_STATUS.SYNCED,
+        syncOperation: '',
+        syncError: '',
+        lastSyncedAt: new Date(),
+        localUpdatedAt: remoteUpdatedAt,
+        remoteUpdatedAt,
+        syncVersion: Number(remoteData.syncVersion || existingEntry?.syncVersion || 0),
+        syncDeviceId: remoteData.syncDeviceId || existingEntry?.syncDeviceId || '',
+      });
+
+      return toPlainApptEntry(savedEntry);
     });
   }
 
@@ -445,7 +680,14 @@ export default class RealmApptTrackerRepository {
       normalizedHistoryIds.forEach((historyId) => {
         const entry = this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId);
         if (entry && entry.patientUserId === normalizedUserId) {
-          this.realm.delete(entry);
+          const now = new Date();
+          entry.isDeleted = true;
+          entry.recordDeletedAt = now;
+          entry.syncStatus = SYNC_STATUS.PENDING;
+          entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+          entry.syncError = '';
+          entry.localUpdatedAt = now;
+          entry.syncVersion = Number(entry.syncVersion || 0) + 1;
           deletedCount += 1;
         }
       });
@@ -454,10 +696,114 @@ export default class RealmApptTrackerRepository {
     });
   }
 
+  listPendingApptHistorySyncChanges(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    return Array.from(this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0', normalizedUserId))
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.PENDING || entry.syncStatus === SYNC_STATUS.ERROR)
+      .map(toPlainApptHistory);
+  }
+
+  markApptHistorySynced(userId, historyId, remoteUpdatedAt = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptTrackerHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      const syncedAt = new Date();
+      entry.syncStatus = SYNC_STATUS.SYNCED;
+      entry.syncOperation = '';
+      entry.syncError = '';
+      entry.lastSyncedAt = syncedAt;
+      entry.remoteUpdatedAt = toNullableDate(remoteUpdatedAt) || syncedAt;
+      return true;
+    });
+  }
+
+  markApptHistorySyncError(userId, historyId, error) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptTrackerHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      entry.syncStatus = SYNC_STATUS.ERROR;
+      entry.syncError = error instanceof Error ? error.message : String(error || 'Sync failed.');
+      return true;
+    });
+  }
+
+  hardDeleteApptHistory(userId, historyId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('ApptTrackerHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      this.realm.delete(entry);
+      return true;
+    });
+  }
+
+  upsertRemoteApptHistory(userId, remoteData = {}) {
+    const normalizedUserId = normalizeUserId(userId);
+    const historyId = String(remoteData.historyId || remoteData.id || '').trim();
+    if (!historyId) {
+      throw new RangeError('historyId cannot be empty.');
+    }
+
+    return this.write(() => {
+      const existingHistory = this.realm.objectForPrimaryKey('ApptTrackerHistory', historyId);
+      const remoteUpdatedAt = toNullableDate(remoteData.remoteUpdatedAt || remoteData.createdAt || remoteData.lastSyncedAt) || new Date();
+      const localUpdatedAt = toNullableDate(existingHistory?.localUpdatedAt || existingHistory?.createdAt);
+      if (
+        existingHistory &&
+        (existingHistory.syncStatus === SYNC_STATUS.PENDING || existingHistory.syncStatus === SYNC_STATUS.ERROR) &&
+        localUpdatedAt &&
+        localUpdatedAt.getTime() >= remoteUpdatedAt.getTime()
+      ) {
+        return toPlainApptHistory(existingHistory);
+      }
+
+      const savedHistory = this.realm.create('ApptTrackerHistory', {
+        historyId,
+        patientUserId: normalizedUserId,
+        apptEntryId: remoteData.apptEntryId || '',
+        concern: remoteData.concern || '',
+        address: remoteData.address || '',
+        doctorName: remoteData.doctorName || '',
+        contactNumber: remoteData.contactNumber || '',
+        dateSched: remoteData.dateSched || '',
+        timeSched: remoteData.timeSched || '',
+        note: remoteData.note || '',
+        finalStatus: remoteData.finalStatus || 'missed',
+        completedAt: toNullableDate(remoteData.completedAt),
+        skippedAt: toNullableDate(remoteData.skippedAt),
+        missedAt: toNullableDate(remoteData.missedAt),
+        deletedAt: toNullableDate(remoteData.deletedAt),
+        isDeleted: Boolean(remoteData.isDeleted),
+        recordDeletedAt: toNullableDate(remoteData.recordDeletedAt),
+        syncStatus: SYNC_STATUS.SYNCED,
+        syncOperation: '',
+        syncError: '',
+        lastSyncedAt: new Date(),
+        localUpdatedAt: remoteUpdatedAt,
+        remoteUpdatedAt,
+        syncVersion: Number(remoteData.syncVersion || existingHistory?.syncVersion || 0),
+        syncDeviceId: remoteData.syncDeviceId || existingHistory?.syncDeviceId || '',
+        createdAt: toNullableDate(remoteData.createdAt) || existingHistory?.createdAt || new Date(),
+      }, 'modified');
+
+      return toPlainApptHistory(savedHistory);
+    });
+  }
+
   deleteSoftDeletedRecords(userId) {
     const normalizedUserId = normalizeUserId(userId);
-    const deletedEntries = this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
-    const deletedHistory = this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
+    const deletedEntries = this.realm.objects('ApptEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId)
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.SYNCED && !entry.syncOperation);
+    const deletedHistory = this.realm.objects('ApptTrackerHistory').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId)
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.SYNCED && !entry.syncOperation);
     const deletedCount = deletedEntries.length + deletedHistory.length;
 
     if (deletedEntries.length) {

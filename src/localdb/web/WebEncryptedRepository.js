@@ -29,6 +29,11 @@ class RealmResults extends Array {
         return itemUserId === String(userId) && item.isDeleted;
       }));
     }
+
+    if (queryString.trim() === 'patientUserId == $0') {
+      const userId = args[0];
+      return new RealmResults(...this.filter(item => String(item.patientUserId || '') === String(userId)));
+    }
     
     return this;
   }
@@ -210,7 +215,8 @@ export class WebRealm {
       ApptEntry: {},
       ApptTrackerHistory: {},
       MedEntry: {},
-      MedTrackerDailyHistory: {}
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
     };
     this.notifyListeners();
   }
