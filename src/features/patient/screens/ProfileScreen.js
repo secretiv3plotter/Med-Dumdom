@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -32,6 +32,7 @@ import TextCard from '../../../shared/components/common/TextCard';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
@@ -44,10 +45,10 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 const FALLBACK_PROFILE = {
-  fullName: 'Jane Doe',
+  fullName: '',
   profilePicture: '',
-  birthDate: new Date('1975-06-15'),
-  address: 'Cebu City',
+  birthDate: null,
+  address: '',
 };
 
 const toDraft = (profile) => ({
@@ -74,19 +75,23 @@ const formatBirthDate = (birthDate) => {
   });
 };
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
+  const profileRepository = useMemo(
+    () => (realm ? new RealmUserRepository(realm) : personalProfileService),
+    [realm]
+  );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
+    const currentProfile = profileRepository.getProfile(CURRENT_USER_ID);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return personalProfileService.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+    return profileRepository.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
@@ -121,7 +126,7 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
+    const savedProfile = profileRepository.saveProfile(CURRENT_USER_ID, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
   };

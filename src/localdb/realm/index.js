@@ -3,6 +3,7 @@ export {
   realmConfig,
   realmSchemas,
   PatientUserSchema,
+  AccessibilityPreferenceSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
   MedDailyScheduleHistorySchema,
@@ -12,3 +13,5 @@ export {
 } from './realmSchemas';
 
 export { realmEncryptionKey } from './encryptionKey';
+export { default as RealmUserRepository } from './RealmUserRepository';
+export { default as RealmSettingsPreferenceRepository } from './RealmSettingsPreferenceRepository';

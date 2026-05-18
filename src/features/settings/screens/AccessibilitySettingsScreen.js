@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -11,6 +11,7 @@ import ToggleButton from '../../../shared/components/common/ToggleButton';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import Slider from '@react-native-community/slider';
@@ -35,9 +36,13 @@ const ACCESSIBILITY_TOGGLES = [
   { key: 'darkModeEnabled', label: 'Dark mode', toggle: 'toggleDarkMode' },
 ];
 
-export default function AccessibilitySettingsScreen({ navigation }) {
+export default function AccessibilitySettingsScreen({ navigation, realm = null }) {
+  const settingsRepository = useMemo(
+    () => (realm ? new RealmSettingsPreferenceRepository(realm) : accessibilitySettingsService),
+    [realm]
+  );
   const [settings, setSettings] = useState(() =>
-    accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
+    settingsRepository.getAccessibilitySettings(CURRENT_USER_ID)
   );
   const { setTextScale, setDarkModeEnabled, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
@@ -87,7 +92,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
       Math.max(MIN_TEXT_SCALE, Number(parsed.toFixed(1)))
     );
 
-    const updatedSettings = accessibilitySettingsService.updateTextScale(
+    const updatedSettings = settingsRepository.updateTextScale(
       CURRENT_USER_ID,
       clamped
     );
@@ -107,7 +112,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   };
 
   const toggleSetting = (toggleMethod) => {
-    const updatedSettings = accessibilitySettingsService[toggleMethod](CURRENT_USER_ID);
+    const updatedSettings = settingsRepository[toggleMethod](CURRENT_USER_ID);
     setSettings(updatedSettings);
 
     if (toggleMethod === 'toggleDarkMode') {

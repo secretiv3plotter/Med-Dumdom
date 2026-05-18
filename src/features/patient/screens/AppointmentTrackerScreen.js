@@ -45,46 +45,6 @@ const APPOINTMENT_ACCENT = colors.success;
 const APPOINTMENT_ACCENT_TEXT = colors.success;
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 const APPOINTMENT_ADD_CIRCLE_BG = 'rgb(22, 101, 52)';
-const SEEDED_MOCK_APPOINTMENT_USERS = new Set();
-
-const formatDateOffset = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-};
-
-const createMockAppointments = () => [
-  {
-    apptEntryId: 'mock-appt-dental-checkup',
-    concern: 'Dental checkup',
-    address: 'Bright Smile Dental Clinic',
-    doctorName: 'Dr. Santos',
-    contactNumber: '0917 555 0184',
-    dateSched: formatDateOffset(1),
-    timeSched: '09:30',
-    note: 'Bring previous dental records.',
-  },
-  {
-    apptEntryId: 'mock-appt-lab-results',
-    concern: 'Lab results follow-up',
-    address: 'City Health Medical Center',
-    doctorName: 'Dr. Reyes',
-    contactNumber: '0917 555 0192',
-    dateSched: formatDateOffset(3),
-    timeSched: '14:00',
-    note: 'Ask about next steps after blood work.',
-  },
-  {
-    apptEntryId: 'mock-appt-eye-consult',
-    concern: 'Eye consultation',
-    address: 'ClearView Eye Center',
-    doctorName: 'Dr. Lim',
-    contactNumber: '0917 555 0138',
-    dateSched: formatDateOffset(7),
-    timeSched: '11:15',
-    note: 'Bring current glasses.',
-  },
-];
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -143,18 +103,6 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
     () => activeApptTrackerService.listApptEntries(CURRENT_USER_ID),
     [activeApptTrackerService, version]
   );
-
-  useEffect(() => {
-    if (appointments.length || SEEDED_MOCK_APPOINTMENT_USERS.has(CURRENT_USER_ID)) {
-      return;
-    }
-
-    createMockAppointments().forEach((appointment) => {
-      activeApptTrackerService.addApptEntry(CURRENT_USER_ID, appointment);
-    });
-    SEEDED_MOCK_APPOINTMENT_USERS.add(CURRENT_USER_ID);
-    refresh();
-  }, [activeApptTrackerService, appointments.length]);
 
   const selectedAppointment = useMemo(
     () => appointments.find((appointment) => appointment.apptEntryId === selectedAppointmentId) || null,

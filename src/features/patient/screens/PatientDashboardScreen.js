@@ -13,6 +13,8 @@ import medTrackerService from '../../../domain/services/MedTrackerService';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import {
   formatDoseWithUnit,
   formatTime,
@@ -135,8 +137,8 @@ const buildMostDueAppointment = (appointments, now) => {
 };
 
 export default function PatientDashboardScreen({ navigation, realm = null }) {
-  const patientName = navigation?.currentParams?.patientName || 'Patient';
-  const patientPossessive = patientName.endsWith('s') ? `${patientName}'` : `${patientName}'s`;
+  const fallbackPatientName = navigation?.currentParams?.patientName || 'Patient';
+  const [patientFirstName, setPatientFirstName] = useState(fallbackPatientName);
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
   const [textSizeLevel, setTextSizeLevel] = useState(1);
   const [observedNow, setObservedNow] = useState(() => new Date());
@@ -149,24 +151,37 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
     () => (realm ? new RealmApptTrackerRepository(realm) : apptTrackerService),
     [realm],
   );
+  const activeProfileService = useMemo(
+    () => (realm ? new RealmUserRepository(realm) : personalProfileService),
+    [realm],
+  );
+  const activeSettingsService = useMemo(
+    () => (realm ? new RealmSettingsPreferenceRepository(realm) : accessibilitySettingsService),
+    [realm],
+  );
 
-  const refreshProfilePicture = () => {
-    const profile = personalProfileService.getProfile(CURRENT_USER_ID);
+  const refreshProfileSummary = () => {
+    const profile = activeProfileService.getProfile(CURRENT_USER_ID);
+    const firstName = String(profile?.fullName || '')
+      .trim()
+      .split(/\s+/)[0];
+
+    setPatientFirstName(firstName || fallbackPatientName);
     setProfilePictureUrl(profile?.profilePicture?.trim?.() || '');
   };
 
   const refreshAccessibilitySettings = () => {
-    const settings = accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID);
+    const settings = activeSettingsService.getAccessibilitySettings(CURRENT_USER_ID);
     const nextTextSizeLevel = Number(settings?.textSizeLevel);
     setTextSizeLevel(Number.isNaN(nextTextSizeLevel) ? 1 : nextTextSizeLevel);
   };
 
   useEffect(() => {
-    refreshProfilePicture();
+    refreshProfileSummary();
     refreshAccessibilitySettings();
 
     const unsubscribeFocus = navigation?.addListener?.('focus', () => {
-      refreshProfilePicture();
+      refreshProfileSummary();
       refreshAccessibilitySettings();
     });
 
@@ -175,7 +190,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
         unsubscribeFocus();
       }
     };
-  }, [navigation]);
+  }, [navigation, activeProfileService, activeSettingsService, fallbackPatientName]);
 
   useEffect(() => {
     const intervalId = setInterval(() => setObservedNow(new Date()), 30000);
@@ -183,6 +198,9 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   }, []);
 
   const shouldSplitProgramName = textSizeLevel > 1;
+  const patientPossessive = patientFirstName.endsWith('s')
+    ? `${patientFirstName}'`
+    : `${patientFirstName}'s`;
 
   const profileImageSource = useMemo(
     () => (profilePictureUrl ? { uri: profilePictureUrl } : null),

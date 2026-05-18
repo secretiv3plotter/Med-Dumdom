@@ -5,46 +5,6 @@ import {
 } from './serviceUtils';
 
 const normalizeRange = (range) => normalizeServiceRange(range, { emptyPreset: '' });
-const DEFAULT_MOCK_USER_ID = 'current-user';
-
-const formatDateOffset = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-};
-
-const createMockAppointments = () => [
-  {
-    apptEntryId: 'mock-appt-dental-checkup',
-    concern: 'Dental checkup',
-    address: 'Bright Smile Dental Clinic',
-    doctorName: 'Dr. Santos',
-    contactNumber: '0917 555 0184',
-    dateSched: formatDateOffset(1),
-    timeSched: '09:30',
-    note: 'Bring previous dental records.',
-  },
-  {
-    apptEntryId: 'mock-appt-lab-results',
-    concern: 'Lab results follow-up',
-    address: 'City Health Medical Center',
-    doctorName: 'Dr. Reyes',
-    contactNumber: '0917 555 0192',
-    dateSched: formatDateOffset(3),
-    timeSched: '14:00',
-    note: 'Ask about next steps after blood work.',
-  },
-  {
-    apptEntryId: 'mock-appt-eye-consult',
-    concern: 'Eye consultation',
-    address: 'ClearView Eye Center',
-    doctorName: 'Dr. Lim',
-    contactNumber: '0917 555 0138',
-    dateSched: formatDateOffset(7),
-    timeSched: '11:15',
-    note: 'Bring current glasses.',
-  },
-];
 
 const scheduledDateTime = (entry) => {
   const date = new Date(`${entry.dateSched}T${entry.timeSched}:00`);
@@ -150,13 +110,6 @@ export class ApptTrackerService {
     this.historyByUserId = new Map();
 
     if (!initialEntriesByUserId) {
-      const { normalizedUserId, store } = getUserStore(this.entriesByUserId, DEFAULT_MOCK_USER_ID);
-      createMockAppointments().forEach((entry) => {
-        const apptEntry = toApptEntryModel(entry);
-        const entryId = apptEntry.apptEntryId || `${normalizedUserId}-appt-${++store.counter}`;
-        apptEntry.apptEntryId = entryId;
-        store.entries.set(entryId, apptEntry);
-      });
       return;
     }
 

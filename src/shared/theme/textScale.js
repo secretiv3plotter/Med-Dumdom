@@ -319,8 +319,8 @@ export const installTextScaling = () => {
 
 const TextScaleContext = createContext(null);
 
-export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
-  const initialSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+export function TextScaleProvider({ children, userId = DEFAULT_USER_ID, settingsService = accessibilitySettingsService }) {
+  const initialSettings = settingsService.getAccessibilitySettings(userId);
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
   const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
   const initialHighContrast = Boolean(initialSettings?.highContrastEnabled);
@@ -342,9 +342,9 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       const normalized = normalizeTextScale(nextScale);
       currentTextScale = normalized;
       setTextScaleState(normalized);
-      accessibilitySettingsService.updateTextScale(userId, normalized);
+      settingsService.updateTextScale(userId, normalized);
     },
-    [userId]
+    [userId, settingsService]
   );
 
   const updateDarkMode = useCallback(
@@ -352,9 +352,9 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       const nextEnabled = Boolean(enabled);
       setThemeMode(nextEnabled ? THEME_MODE_DARK : THEME_MODE_LIGHT);
       setDarkModeEnabledState(nextEnabled);
-      accessibilitySettingsService.setDarkModeEnabled(userId, nextEnabled);
+      settingsService.setDarkModeEnabled(userId, nextEnabled);
     },
-    [userId]
+    [userId, settingsService]
   );
 
   const updateHighContrast = useCallback((enabled) => {
@@ -369,12 +369,12 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       setColorBlindModeEnabled(nextEnabled);
       setColorBlindModeEnabledState(nextEnabled);
 
-      const currentSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+      const currentSettings = settingsService.getAccessibilitySettings(userId);
       if (Boolean(currentSettings.colorBlindModeEnabled) !== nextEnabled) {
-        accessibilitySettingsService.toggleColorBlindMode(userId);
+        settingsService.toggleColorBlindMode(userId);
       }
     },
-    [userId]
+    [userId, settingsService]
   );
 
   const updateHapticEnabled = useCallback(
@@ -382,12 +382,12 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       const nextEnabled = Boolean(enabled);
       setHapticEnabledState(nextEnabled);
 
-      const currentSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+      const currentSettings = settingsService.getAccessibilitySettings(userId);
       if (Boolean(currentSettings.hapticEnabled) !== nextEnabled) {
-        accessibilitySettingsService.toggleHaptic(userId);
+        settingsService.toggleHaptic(userId);
       }
     },
-    [userId]
+    [userId, settingsService]
   );
 
   const value = useMemo(

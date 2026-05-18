@@ -7,6 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
 import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
+import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -138,15 +139,7 @@ function AppContent() {
   }, [hapticEnabled]);
 
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
-  const screenProps =
-    currentRoute === ROUTES.HOME ||
-    currentRoute === ROUTES.PATIENT_DASHBOARD ||
-    currentRoute === ROUTES.MED_TRACKER ||
-    currentRoute === ROUTES.MED_TRACKER_HISTORY ||
-    currentRoute === ROUTES.APPOINTMENT_TRACKER ||
-    currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY
-      ? { navigation, realm }
-      : { navigation };
+  const screenProps = { navigation, realm };
   const screenKey =
     currentRoute === ROUTES.ACCESSIBILITY_SETTINGS
       ? currentRoute
@@ -159,6 +152,22 @@ function AppContent() {
       </View>
       <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
+  );
+}
+
+function AppShell() {
+  const realm = useRealm();
+  const settingsRepository = useMemo(
+    () => (realm ? new RealmSettingsPreferenceRepository(realm) : undefined),
+    [realm],
+  );
+
+  return (
+    <TextScaleProvider settingsService={settingsRepository}>
+      <SafeAreaProvider style={[styles.appShell, { backgroundColor: colors.pageBg }]}>
+        <AppContent />
+      </SafeAreaProvider>
+    </TextScaleProvider>
   );
 }
 
@@ -186,14 +195,6 @@ export default function AppRoot() {
 
   const isWebDesktop = Platform.OS === 'web' && windowWidth > 1025;
 
-  const content = (
-    <TextScaleProvider>
-      <SafeAreaProvider style={[styles.appShell, { backgroundColor: colors.pageBg }]}>
-        <AppContent />
-      </SafeAreaProvider>
-    </TextScaleProvider>
-  );
-
   if (!fontsLoaded) {
     return null; // Hold splash screen until font resources are ready
   }
@@ -208,7 +209,7 @@ export default function AppRoot() {
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            {content}
+            <AppShell />
           </View>
         </View>
       </RealmProvider>
@@ -217,7 +218,7 @@ export default function AppRoot() {
 
   return (
     <RealmProvider>
-      {content}
+      <AppShell />
     </RealmProvider>
   );
 }

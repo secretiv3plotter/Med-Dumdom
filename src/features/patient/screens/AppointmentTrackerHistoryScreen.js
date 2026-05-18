@@ -24,7 +24,6 @@ import { useTextScale } from '../../../shared/theme/textScale';
 const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
 const FOOTER_NAV_Z_INDEX = 30;
-const SEEDED_MOCK_HISTORY_USERS = new Set();
 const APPOINTMENT_ACCENT = '#52B788';
 const APPOINTMENT_ACCENT_TEXT = '#1B6B4A';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
@@ -127,67 +126,6 @@ const buildRecordSearchText = (record) => {
   ].join(' ').toLowerCase();
 };
 
-const formatDateOffset = (offsetDays) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
-};
-
-const createMockPreviousAppointments = () => [
-  {
-    entry: {
-      apptEntryId: 'mock-history-physical-checkup',
-      concern: 'Annual physical checkup',
-      address: 'Greenfield Family Clinic',
-      doctorName: 'Dr. Navarro',
-      contactNumber: '0917 555 0214',
-      dateSched: formatDateOffset(-3),
-      timeSched: '10:00',
-      note: 'Routine wellness visit.',
-    },
-    finalStatus: 'completed',
-  },
-  {
-    entry: {
-      apptEntryId: 'mock-history-therapy-session',
-      concern: 'Therapy session',
-      address: 'MindCare Wellness Center',
-      doctorName: 'Dr. Cruz',
-      contactNumber: '0917 555 0166',
-      dateSched: formatDateOffset(-18),
-      timeSched: '15:30',
-      note: 'Follow-up session.',
-    },
-    finalStatus: 'skipped',
-  },
-  {
-    entry: {
-      apptEntryId: 'mock-history-cardio-consult',
-      concern: 'Cardiology consult',
-      address: 'Metro Heart Institute',
-      doctorName: 'Dr. Villanueva',
-      contactNumber: '0917 555 0147',
-      dateSched: formatDateOffset(-42),
-      timeSched: '08:45',
-      note: 'Discuss ECG results.',
-    },
-    finalStatus: 'missed',
-  },
-  {
-    entry: {
-      apptEntryId: 'mock-history-derma-followup',
-      concern: 'Dermatology follow-up',
-      address: 'SkinHealth Clinic',
-      doctorName: 'Dr. Mercado',
-      contactNumber: '0917 555 0189',
-      dateSched: formatDateOffset(-390),
-      timeSched: '13:15',
-      note: 'Review medication response.',
-    },
-    finalStatus: 'completed',
-  },
-];
-
 const monthName = (monthIndex) => [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -266,18 +204,6 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
     () => activeApptTrackerService.listPreviousApptRecords(CURRENT_USER_ID).map(normalizeRecord).filter(Boolean),
     [activeApptTrackerService, version]
   );
-
-  useEffect(() => {
-    if (records.length || SEEDED_MOCK_HISTORY_USERS.has(CURRENT_USER_ID) || !activeApptTrackerService?.snapshotHistory) {
-      return;
-    }
-
-    createMockPreviousAppointments().forEach(({ entry, finalStatus }) => {
-      activeApptTrackerService.snapshotHistory(CURRENT_USER_ID, entry, finalStatus, new Date(`${entry.dateSched}T${entry.timeSched}:00`));
-    });
-    SEEDED_MOCK_HISTORY_USERS.add(CURRENT_USER_ID);
-    setVersion((current) => current + 1);
-  }, [activeApptTrackerService, records.length]);
 
   const filteredRecords = useMemo(() => {
     const normalizedQuery = normalizeSearchText(searchQuery);
