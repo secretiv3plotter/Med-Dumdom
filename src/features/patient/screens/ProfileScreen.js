@@ -15,9 +15,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { signOut } from 'firebase/auth';
 import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import {
   BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
@@ -78,6 +80,7 @@ const formatBirthDate = (birthDate) => {
 export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
+  const { firebase } = useFirebase();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
   const profileRepository = useMemo(
@@ -123,6 +126,26 @@ export default function ProfileScreen({ navigation, realm = null }) {
     if (targetRoute) {
       navigation?.navigate?.(targetRoute);
     }
+  };
+
+  const handleLogOut = async () => {
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (firebase?.auth) {
+              await signOut(firebase.auth);
+            }
+          } catch (err) {
+            console.warn('Sign out error:', err);
+          }
+          navigation?.reset?.(ROUTES.LOG_IN);
+        },
+      },
+    ]);
   };
 
   const syncDraft = (nextProfile) => {
@@ -251,7 +274,9 @@ export default function ProfileScreen({ navigation, realm = null }) {
                   onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
-                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person" size={54} color={colors.surface} />
+                </View>
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
@@ -346,6 +371,16 @@ export default function ProfileScreen({ navigation, realm = null }) {
               textStyle={styles.saveButtonText}
             />
           ) : null}
+
+          <Pressable
+            onPress={handleLogOut}
+            accessibilityRole="button"
+            accessibilityLabel="Log out"
+            style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
+          >
+            <Ionicons name="log-out-outline" size={18} color={colors.error ?? '#DC2626'} />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </Pressable>
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
@@ -440,6 +475,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   avatarShell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPlaceholder: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -585,6 +628,27 @@ const styles = StyleSheet.create({
   saveButtonText: {
     ...typography.bodySmall,
     color: colors.surface,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    alignSelf: 'center',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.error ?? '#DC2626',
+  },
+  logoutButtonPressed: {
+    backgroundColor: '#FEE2E2',
+  },
+  logoutText: {
+    ...typography.bodySmall,
+    color: colors.error ?? '#DC2626',
+    fontWeight: '600',
   },
   footerNav: {
     position: 'absolute',

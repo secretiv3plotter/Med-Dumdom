@@ -2,19 +2,23 @@ import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
-import BackButton from '../../../shared/components/common/BackButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import {
-  BACK_HEADER_HORIZONTAL_PADDING,
-  BACK_HEADER_TOP_OFFSET,
-} from '../../../shared/components/common/backHeaderMetrics';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { useRealm } from '../../../localdb/realm/RealmContext';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
+import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
+import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
+import FirebaseSyncService from '../../../sync/FirebaseSyncService';
 
 export default function LogInScreen({ navigation }) {
   const realm = useRealm();
+  const { firebase } = useFirebase();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,26 +30,48 @@ export default function LogInScreen({ navigation }) {
       return;
     }
 
-    if (realm && typeof realm.unlock === 'function') {
-      setIsLoading(true);
-      try {
-        await realm.unlock(password);
-      } catch (err) {
-        Alert.alert('Authentication Error', 'Invalid password for the local encrypted database.');
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
+    if (!firebase) {
+      Alert.alert('Not ready', 'Still connecting to the server. Please try again.');
+      return;
     }
 
-    navigation?.navigate?.(ROUTES.HOME);
+    setIsLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(firebase.auth, email.trim(), password);
+      const userId = userCredential.user.uid;
+
+      try {
+        const syncService = new FirebaseSyncService({
+          firestoreDb: firebase.db,
+          medRepository: realm ? new RealmMedTrackerRepository(realm) : null,
+          apptRepository: realm ? new RealmApptTrackerRepository(realm) : null,
+          medUnitRepository: realm ? new RealmMedUnitRepository(realm) : null,
+          userRepository: realm ? new RealmUserRepository(realm) : null,
+          settingsRepository: realm ? new RealmSettingsPreferenceRepository(realm) : null,
+        });
+        await syncService.syncAll(userId);
+      } catch (syncErr) {
+        console.warn('Sync failed, continuing offline:', syncErr);
+      }
+
+      navigation?.navigate?.(ROUTES.HOME);
+    } catch (err) {
+      const message =
+        err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
+          ? 'Incorrect email or password.'
+          : err.code === 'auth/user-not-found'
+          ? 'No account found with that email.'
+          : err.code === 'auth/too-many-requests'
+          ? 'Too many attempts. Please try again later.'
+          : 'Sign in failed. Please check your connection and try again.';
+      Alert.alert('Login Failed', message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <BackButton onPress={() => navigation?.goBack?.()} disabled={!navigation?.canGoBack} />
-      </View>
       <ThemedScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.titleBlock}>
           <Text style={styles.title}>Welcome back!</Text>
@@ -94,12 +120,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.pageBg,
-  },
-  header: {
-    position: 'absolute',
-    top: BACK_HEADER_TOP_OFFSET,
-    left: BACK_HEADER_HORIZONTAL_PADDING,
-    zIndex: 20,
   },
   container: {
     flexGrow: 1,

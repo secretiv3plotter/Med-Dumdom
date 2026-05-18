@@ -68,13 +68,24 @@ export default function ProfileButton({
             importantForAccessibility="no"
           />
         ) : (
-          <Ionicons
-            name={icon}
-            size={scaleLayoutValue(iconSize)}
-            color={iconColor}
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              {
+                width: scaleLayoutValue(iconSize),
+                height: scaleLayoutValue(iconSize),
+                borderRadius: scaleLayoutValue(iconSize / 2),
+              },
+            ]}
             accessibilityElementsHidden
             importantForAccessibility="no"
-          />
+          >
+            <Ionicons
+              name="person"
+              size={scaleLayoutValue(iconSize * 0.52)}
+              color={colors.surface}
+            />
+          </View>
         )}
       </View>
 
@@ -106,6 +117,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  avatarPlaceholder: {
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     ...typography.bodySmall,

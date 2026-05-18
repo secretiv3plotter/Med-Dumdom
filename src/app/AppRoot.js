@@ -8,6 +8,7 @@ import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
 import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
+import { FirebaseProvider, useFirebase } from '../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -74,12 +75,25 @@ function useWebViewportLock() {
   }, []);
 }
 
+const AUTH_ROUTES = new Set([ROUTES.LOG_IN, ROUTES.SIGN_UP]);
+
 function AppContent() {
   const realm = useRealm();
+  const { currentUser } = useFirebase();
   const { textScale, darkModeEnabled, hapticEnabled } = useTextScale();
-  const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
+  const [history, setHistory] = useState([{ routeName: ROUTES.LOG_IN, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
+
+  // Redirect to login whenever Firebase reports no logged-in user
+  useEffect(() => {
+    if (currentUser === null && !AUTH_ROUTES.has(currentRoute)) {
+      setHistory([{ routeName: ROUTES.LOG_IN, params: {} }]);
+    }
+    if (currentUser && AUTH_ROUTES.has(currentRoute)) {
+      setHistory([{ routeName: ROUTES.HOME, params: {} }]);
+    }
+  }, [currentUser, currentRoute]);
 
   const navigation = useMemo(
     () => ({
@@ -87,6 +101,9 @@ function AppContent() {
       currentParams: currentEntry.params,
       navigate: (routeName, params = {}) => {
         setHistory((prev) => [...prev, { routeName, params }]);
+      },
+      reset: (routeName, params = {}) => {
+        setHistory([{ routeName, params }]);
       },
       goBack: () => {
         setHistory((prev) => {
@@ -201,25 +218,29 @@ export default function AppRoot() {
 
   if (isWebDesktop) {
     return (
-      <RealmProvider>
-        <View style={[styles.webDesktopBackground, { backgroundColor: colors.pageBg }]}>
-          <View
-            style={[
-              styles.phoneFrame,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <AppShell />
+      <FirebaseProvider>
+        <RealmProvider>
+          <View style={[styles.webDesktopBackground, { backgroundColor: colors.pageBg }]}>
+            <View
+              style={[
+                styles.phoneFrame,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <AppShell />
+            </View>
           </View>
-        </View>
-      </RealmProvider>
+        </RealmProvider>
+      </FirebaseProvider>
     );
   }
 
   return (
-    <RealmProvider>
-      <AppShell />
-    </RealmProvider>
+    <FirebaseProvider>
+      <RealmProvider>
+        <AppShell />
+      </RealmProvider>
+    </FirebaseProvider>
   );
 }
 

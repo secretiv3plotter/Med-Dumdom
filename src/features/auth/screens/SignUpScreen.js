@@ -3,13 +3,14 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import { useRealm } from '../../../localdb/realm/RealmContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 
 export default function SignUpScreen({ navigation }) {
-  const realm = useRealm();
+  const { firebase } = useFirebase();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,19 +22,28 @@ export default function SignUpScreen({ navigation }) {
       return;
     }
 
-    if (realm && typeof realm.unlock === 'function') {
-      setIsLoading(true);
-      try {
-        await realm.unlock(password);
-      } catch (err) {
-        Alert.alert('Authentication Error', 'Failed to initialize the local encrypted database.');
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(false);
+    if (!firebase) {
+      Alert.alert('Not ready', 'Still connecting to the server. Please try again.');
+      return;
     }
 
-    navigation?.navigate?.(ROUTES.HOME);
+    setIsLoading(true);
+    try {
+      await createUserWithEmailAndPassword(firebase.auth, email.trim(), password);
+      navigation?.navigate?.(ROUTES.HOME);
+    } catch (err) {
+      const message =
+        err.code === 'auth/email-already-in-use'
+          ? 'An account with this email already exists.'
+          : err.code === 'auth/invalid-email'
+          ? 'Please enter a valid email address.'
+          : err.code === 'auth/weak-password'
+          ? 'Password must be at least 6 characters.'
+          : 'Sign up failed. Please check your connection and try again.';
+      Alert.alert('Sign Up Failed', message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

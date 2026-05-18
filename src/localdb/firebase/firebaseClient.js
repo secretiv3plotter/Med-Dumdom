@@ -1,26 +1,11 @@
-const FIREBASE_INSTALL_MESSAGE =
-  'Firebase SDK is not installed. Run `npm install firebase`, then provide your Firebase config before starting sync.';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
-const loadFirebaseModule = async (moduleName) => {
-  try {
-    return await import(moduleName);
-  } catch (error) {
-    const nextError = new Error(FIREBASE_INSTALL_MESSAGE);
-    nextError.cause = error;
-    throw nextError;
-  }
-};
-
-export const initializeFirebaseClient = async (firebaseConfig) => {
+export const initializeFirebaseClient = (firebaseConfig) => {
   if (!firebaseConfig || typeof firebaseConfig !== 'object') {
     throw new Error('Firebase config is required to initialize Firebase.');
   }
-
-  const [{ initializeApp, getApps, getApp }, { getFirestore }, { getAuth }] = await Promise.all([
-    loadFirebaseModule('firebase/app'),
-    loadFirebaseModule('firebase/firestore'),
-    loadFirebaseModule('firebase/auth'),
-  ]);
 
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
@@ -30,5 +15,3 @@ export const initializeFirebaseClient = async (firebaseConfig) => {
     db: getFirestore(app),
   };
 };
-
-export { FIREBASE_INSTALL_MESSAGE };
