@@ -36,6 +36,7 @@ export default function CrudButton({
   const computedIconColor = disabled ? disabledIconColor : solid || redSolid ? colors.surface : colors.brand;
   const iconColor = iconColorOverride ?? computedIconColor;
   const effectiveIconSize = outline && iconSize === DEFAULT_ICON_SIZE ? CIRCLE_SIZE : iconSize;
+  const iconOnlySolidBackground = darkModeEnabled ? 'rgb(56, 189, 248)' : 'rgb(2, 132, 199)';
   const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
   const showLabel = !iconOnly && Boolean(label);
 
@@ -54,6 +55,7 @@ export default function CrudButton({
           gap: showLabel ? scaleLayoutValue(spacing.xxs) : 0,
         },
         iconOnly && { backgroundColor: 'transparent' },
+        iconOnly && styles.iconOnlyTopLayer,
         solid && !iconOnly && { backgroundColor: colors.brand },
         outline && { backgroundColor: 'transparent' },
         redSolid && !iconOnly && { backgroundColor: colors.error },
@@ -73,6 +75,7 @@ export default function CrudButton({
               height: scaleLayoutValue(CIRCLE_SIZE),
             },
             solid && styles.solidButton,
+            iconOnly && solid && { backgroundColor: iconOnlySolidBackground },
             outline && styles.outlineButton,
             redSolid && styles.redSolidButton,
             disabled && !outline && styles.disabledCircle,
@@ -111,6 +114,11 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
+  },
+  iconOnlyTopLayer: {
+    position: 'relative',
+    zIndex: 40,
+    elevation: 40,
   },
   circle: {
     borderRadius: 999,

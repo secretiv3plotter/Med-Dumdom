@@ -44,6 +44,7 @@ const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
 const APPOINTMENT_ACCENT = colors.success;
 const APPOINTMENT_ACCENT_TEXT = colors.success;
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
+const APPOINTMENT_ADD_CIRCLE_BG = 'rgb(22, 101, 52)';
 const SEEDED_MOCK_APPOINTMENT_USERS = new Set();
 
 const formatDateOffset = (offsetDays) => {
@@ -873,7 +874,7 @@ const styles = StyleSheet.create({
     borderColor: APPOINTMENT_ACCENT_TEXT,
   },
   appointmentAddCircle: {
-    backgroundColor: APPOINTMENT_ACCENT,
+    backgroundColor: APPOINTMENT_ADD_CIRCLE_BG,
   },
   appointmentAddText: {
     color: APPOINTMENT_ACCENT_TEXT,
