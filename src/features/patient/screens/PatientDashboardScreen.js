@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import DashboardHeader from '../../../shared/components/common/DashboardHeader';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
@@ -234,6 +235,13 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ImageBackground
+        source={require('../../../../assets/meddumdom banner (1).png')}
+        resizeMode="cover"
+        style={styles.bgImage}
+        imageStyle={styles.bgImageStyle}
+      >
+      <View style={styles.bgOverlay} />
       <View style={styles.topSection}>
         <DashboardHeader
           onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
@@ -256,6 +264,8 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
       </View>
 
       <ThemedScrollView
+        transparentBackground
+        style={styles.transparentScroll}
         contentContainerStyle={styles.container}
         onLayout={footerNav.onLayout}
         onContentSizeChange={footerNav.onContentSizeChange}
@@ -263,19 +273,28 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
       >
         <View style={styles.dueGrid}>
           <DueScheduleCard
-            title="Most due medicine"
-            emptyText="No medicine schedules yet."
+            title="Next medicine"
+            emptyTitle="No medicines scheduled"
+            emptySubtitle="Add one to get reminders."
+            iconName="medkit-outline"
+            emptyIconName="notifications-outline"
+            ctaLabel="Add medicine"
             item={mostDueMedSchedule}
             onPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER)}
           />
           <DueScheduleCard
-            title="Most due appointment"
-            emptyText="No appointment schedules yet."
+            title="Next appointment"
+            emptyTitle="No appointments yet"
+            emptySubtitle="Add one so you never miss it."
+            iconName="calendar-outline"
+            emptyIconName="time-outline"
+            ctaLabel="Add appointment"
             item={mostDueAppointment}
             onPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER)}
           />
         </View>
       </ThemedScrollView>
+      </ImageBackground>
 
       <View
         pointerEvents={footerNav.isVisible ? 'auto' : 'none'}
@@ -292,31 +311,56 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   );
 }
 
-function DueScheduleCard({ title, item, emptyText, onPress }) {
+function DueScheduleCard({
+  title,
+  item,
+  onPress,
+  iconName,
+  emptyIconName,
+  emptyTitle,
+  emptySubtitle,
+  ctaLabel,
+}) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={item ? `${title}: ${item.title}, ${item.label}` : `${title}: ${emptyText}`}
-      unstable_pressDelay={0}
-      onPress={onPress}
-      style={({ pressed }) => [styles.dueCard, pressed && styles.pressedDueCard]}
-    >
-      <Text style={styles.dueCardTitle}>{title}</Text>
-      {item ? (
-        <>
-          <View style={styles.dueCardHeaderRow}>
-            <Text style={styles.dueCardName}>{item.title}</Text>
-            <Text style={[styles.dueBadge, item.status === 'missed' && styles.dueBadgeMissed]}>
-              {item.label}
-            </Text>
+    <View style={styles.dueCard}>
+      <View style={styles.dueCardTopRow}>
+        <View style={styles.dueCardIconChip}>
+          <Ionicons name={iconName} size={20} color={colors.brand} />
+        </View>
+        <Text style={styles.dueCardTitle}>{title}</Text>
+      </View>
+
+      <View style={styles.dueCardPanel}>
+        {item ? (
+          <>
+            <View style={styles.dueCardHeaderRow}>
+              <Text style={styles.dueCardName}>{item.title}</Text>
+              <Text style={[styles.dueBadge, item.status === 'missed' && styles.dueBadgeMissed]}>
+                {item.label}
+              </Text>
+            </View>
+            <Text style={styles.dueCardSubtitle}>{item.subtitle}</Text>
+            <Text style={styles.dueCardTime}>{item.timeText}</Text>
+          </>
+        ) : (
+          <View style={styles.emptyPanel}>
+            <Ionicons name={emptyIconName} size={36} color={colors.bodyMuted} />
+            <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+            <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
           </View>
-          <Text style={styles.dueCardSubtitle}>{item.subtitle}</Text>
-          <Text style={styles.dueCardTime}>{item.timeText}</Text>
-        </>
-      ) : (
-        <Text style={styles.dueCardSubtitle}>{emptyText}</Text>
-      )}
-    </Pressable>
+        )}
+      </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${title}: ${ctaLabel}`}
+        unstable_pressDelay={0}
+        onPress={onPress}
+        style={({ pressed }) => [styles.dueActionButton, pressed && styles.dueActionButtonPressed]}
+      >
+        <Text style={styles.dueActionText}>+  {ctaLabel}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -325,10 +369,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.pageBg,
   },
+  bgImage: {
+    flex: 1,
+  },
+  bgImageStyle: {
+    opacity: 0.9,
+    width: '100%',
+    height: '100%',
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.pageBg,
+    opacity: 0.5,
+  },
+  transparentScroll: {
+    backgroundColor: 'transparent',
+  },
   topSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    backgroundColor: colors.pageBg,
+    paddingBottom: spacing.md,
+    backgroundColor: 'transparent',
     gap: spacing.xs,
   },
   header: {
@@ -355,30 +416,55 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   container: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 0,
     paddingBottom: 170,
     gap: spacing.md,
   },
   dueGrid: {
+    marginTop: 0,
     gap: spacing.md,
   },
   dueCard: {
-    minHeight: moderateScale(132),
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.md,
-    gap: spacing.xs,
-  },
-  pressedDueCard: {
-    backgroundColor: '#C7DBFF',
-    borderColor: colors.brandText,
+    gap: spacing.sm,
+    shadowColor: '#000000',
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
   dueCardTitle: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
+    ...typography.titleSmall,
+    color: colors.title,
     fontWeight: '700',
+  },
+  dueCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dueCardIconChip: {
+    width: moderateScale(46),
+    height: moderateScale(46),
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brandSoft,
+  },
+  dueCardPanel: {
+    minHeight: moderateScale(140),
+    borderRadius: radius.md,
+    backgroundColor: colors.pageBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   dueCardHeaderRow: {
     flexDirection: 'row',
@@ -415,6 +501,38 @@ const styles = StyleSheet.create({
   dueBadgeMissed: {
     color: colors.error,
     backgroundColor: '#FEE2E2',
+  },
+  emptyPanel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.body,
+    color: colors.title,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    textAlign: 'center',
+  },
+  dueActionButton: {
+    minHeight: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  dueActionButtonPressed: {
+    backgroundColor: colors.brandText,
+  },
+  dueActionText: {
+    ...typography.button,
+    color: colors.surface,
+    fontWeight: '700',
   },
   patientTitle: {
     ...typography.title,

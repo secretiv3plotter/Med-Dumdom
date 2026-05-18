@@ -10,6 +10,7 @@ export default function ThemedScrollView({
   children,
   contentContainerStyle,
   style,
+  transparentBackground = false,
   scrollbarContainerStyle,
   scrollbarThumbStyle,
   scrollbarTrackStyle,
@@ -49,10 +50,10 @@ export default function ThemedScrollView({
   const shouldShowCustomScrollbar = showCustomScrollbar && darkModeEnabled && hasScrollableContent;
 
   return (
-    <View style={[styles.shell, style]}>
+    <View style={[styles.shell, transparentBackground && styles.transparentBg, style]}>
       <ScrollView
         {...scrollViewProps}
-        style={styles.scrollView}
+        style={[styles.scrollView, transparentBackground && styles.transparentBg]}
         contentContainerStyle={[styles.content, contentContainerStyle]}
         showsVerticalScrollIndicator={showCustomScrollbar ? false : shouldShowScrollIndicator}
         scrollEventThrottle={scrollEventThrottle}
@@ -120,6 +121,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
+  },
+  transparentBg: {
+    backgroundColor: 'transparent',
   },
   track: {
     position: 'absolute',
