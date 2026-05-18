@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -32,7 +32,6 @@ import TextCard from '../../../shared/components/common/TextCard';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
-import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
@@ -45,10 +44,10 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 const FALLBACK_PROFILE = {
-  fullName: '',
+  fullName: 'Jane Doe',
   profilePicture: '',
-  birthDate: null,
-  address: '',
+  birthDate: new Date('1975-06-15'),
+  address: 'Cebu City',
 };
 
 const toDraft = (profile) => ({
@@ -75,23 +74,19 @@ const formatBirthDate = (birthDate) => {
   });
 };
 
-export default function ProfileScreen({ navigation, realm = null }) {
+export default function ProfileScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
-  const profileRepository = useMemo(
-    () => (realm ? new RealmUserRepository(realm) : personalProfileService),
-    [realm]
-  );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = profileRepository.getProfile(CURRENT_USER_ID);
+    const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return profileRepository.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+    return personalProfileService.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
@@ -126,7 +121,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = profileRepository.saveProfile(CURRENT_USER_ID, nextProfile);
+    const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
   };
@@ -165,10 +160,6 @@ export default function ProfileScreen({ navigation, realm = null }) {
     }
   };
 
-  const onCancel = () => {
-    setDraft(toDraft(profile));
-    setIsEditing(false);
-  };
   const confirmSaveChanges = () => {
     let parsedBirthDate = null;
     if (draft.birthDate) {
@@ -278,17 +269,25 @@ export default function ProfileScreen({ navigation, realm = null }) {
               </View>
               <View style={styles.editActionWrap}>
                 {!isEditing ? (
-                  <EditButton
+                  <Pressable
                     onPress={() => setIsEditing(true)}
-                    iconSize={moderateScale(32)}
-                    iconColorOverride={colors.title}
-                    style={styles.editActionButton}
-                    circleStyle={styles.editActionCircle}
-                    textStyle={[styles.editActionText, styles.editTextBlack]}
-                  />
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit"
+                    style={({ pressed }) => [
+                      styles.editActionButton,
+                      pressed && styles.editActionPressed,
+                    ]}
+                  >
+                    <Ionicons
+                      name="create-outline"
+                      size={moderateScale(38)}
+                      color={colors.title}
+                    />
+                    <Text style={[styles.editActionText, styles.editTextBlack]}>Edit</Text>
+                  </Pressable>
                 ) : null}
               </View>
-            </View>
+                          </View>
 
             {isEditing ? (
               <>
@@ -336,22 +335,20 @@ export default function ProfileScreen({ navigation, realm = null }) {
           </TextCard>
 
           {isEditing ? (
-  <View style={styles.editActionsRow}>
-    <ActionButton
-      label="Cancel"
-      variant="outline"
-      onPress={onCancel}
-      style={[styles.editFooterButton, styles.cancelButton]}
-    />
-
-    <ActionButton
-      label="Save Changes"
-      onPress={() => setShowConfirmSave(true)}
-      style={[styles.editFooterButton, styles.saveButton]}
-      textStyle={styles.saveButtonText}
-    />
-  </View>
-) : null}
+            <View style={styles.editActionsRow}>
+              <ActionButton
+                label="Cancel"
+                variant="outline"
+                onPress={() => setIsEditing(false)}
+                style={styles.editFooterButton}
+              />
+              <ActionButton
+                label="Save Changes"
+                onPress={() => setShowConfirmSave(true)}
+                style={styles.editFooterButton}
+              />
+            </View>
+          ) : null}
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
@@ -379,8 +376,8 @@ export default function ProfileScreen({ navigation, realm = null }) {
           animationType="fade"
           onRequestClose={() => setShowConfirmSave(false)}
         >
-          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
-            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
+          <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
+            <Pressable style={styles.dialogWrap} onPress={() => {}}>
               <DialogBox
                 title="Are you Sure?"
                 message="You are about to save changes."
@@ -536,17 +533,20 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   editActionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
     minWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
   },
-  editActionCircle: {
-    width: 36,
-    height: 36,
-    paddingBottom: spacing.sm,
+  editActionPressed: {
+    opacity: 0.7,
   },
   editActionText: {
     ...typography.bodySmall,
     fontWeight: '700',
-    marginTop: -8,
+    marginTop: 2,
   },
   editTextBlack: {
     color: colors.title,
@@ -579,20 +579,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
-  },
-    saveButton: {
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-  },
-
-  cancelButton: {
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-  },
-
-  saveButtonText: {
-    ...typography.bodySmall,
-    color: colors.surface,
   },
   footerNav: {
     position: 'absolute',
