@@ -30,14 +30,8 @@ const CURRENT_USER_ID = 'current-user';
 
 const ACCESSIBILITY_TOGGLES = [
   { key: 'highContrastEnabled', label: 'High contrast', toggle: 'toggleHighContrast' },
-  { key: 'reducedMotionEnabled', label: 'Reduced motion', toggle: 'toggleReducedMotion' },
-  { key: 'screenReaderSupportEnabled', label: 'Screen reader support', toggle: 'toggleScreenReaderSupport' },
   { key: 'hapticEnabled', label: 'Haptic feedback', toggle: 'toggleHaptic' },
-  { key: 'speechToTextEnabled', label: 'Speech to text', toggle: 'toggleSpeechToText' },
-  { key: 'assistiveDeviceEnabled', label: 'Assistive device support', toggle: 'toggleAssistiveDevice' },
-  { key: 'voiceTypingEnabled', label: 'Voice typing', toggle: 'toggleVoiceTyping' },
   { key: 'colorBlindModeEnabled', label: 'Color blind mode', toggle: 'toggleColorBlindMode' },
-  { key: 'easyModeEnabled', label: 'Easy mode', toggle: 'toggleEasyMode' },
   { key: 'darkModeEnabled', label: 'Dark mode', toggle: 'toggleDarkMode' },
 ];
 

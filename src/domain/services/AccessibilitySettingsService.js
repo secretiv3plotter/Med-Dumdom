@@ -7,14 +7,8 @@
 // - exposing accessibility settings for the current user
 // - updating text size level
 // - toggling high contrast
-// - toggling reduced motion
-// - toggling screen reader support
 // - toggling haptic feedback
-// - toggling speech to text
-// - toggling assistive device support
-// - toggling voice typing
 // - toggling color blind mode
-// - toggling easy mode
 // - toggling dark mode
 //
 // Use cases covered:
@@ -30,14 +24,8 @@
 // - getAccessibilitySettings(userId)
 // - updateTextSizeLevel(userId, level)
 // - toggleHighContrast(userId)
-// - toggleReducedMotion(userId)
-// - toggleScreenReaderSupport(userId)
 // - toggleHaptic(userId)
-// - toggleSpeechToText(userId)
-// - toggleAssistiveDevice(userId)
-// - toggleVoiceTyping(userId)
 // - toggleColorBlindMode(userId)
-// - toggleEasyMode(userId)
 // - toggleDarkMode(userId)
 //
 // Notes:
@@ -71,14 +59,8 @@ const cloneSettings = (settings) =>
   new AccessibilitySetting(
     settings.textScale ?? settings.textSizeLevel ?? 1.0,
     settings.highContrastEnabled,
-    settings.reducedMotionEnabled,
-    settings.screenReaderSupportEnabled,
     settings.hapticEnabled,
-    settings.speechToTextEnabled,
-    settings.assistiveDeviceEnabled,
-    settings.voiceTypingEnabled,
     settings.colorBlindModeEnabled,
-    settings.easyModeEnabled,
     settings.darkModeEnabled
   );
 
@@ -91,14 +73,8 @@ const toSettingsModel = (settings) => {
     return new AccessibilitySetting(
       settings.textScale ?? settings.textSizeLevel ?? 1.0,
       settings.highContrastEnabled,
-      settings.reducedMotionEnabled,
-      settings.screenReaderSupportEnabled,
       settings.hapticEnabled,
-      settings.speechToTextEnabled,
-      settings.assistiveDeviceEnabled,
-      settings.voiceTypingEnabled,
       settings.colorBlindModeEnabled,
-      settings.easyModeEnabled,
       settings.darkModeEnabled
     );
   }
@@ -144,51 +120,15 @@ export class AccessibilitySettingsService {
     return cloneSettings(settings);
   }
 
-  toggleReducedMotion(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleReducedMotion();
-    return cloneSettings(settings);
-  }
-
-  toggleScreenReaderSupport(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleScreenReaderSupport();
-    return cloneSettings(settings);
-  }
-
   toggleHaptic(userId) {
     const settings = this._getStoredSettings(userId);
     settings.toggleHaptic();
     return cloneSettings(settings);
   }
 
-  toggleSpeechToText(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleSpeechToText();
-    return cloneSettings(settings);
-  }
-
-  toggleAssistiveDevice(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleAssistiveDevice();
-    return cloneSettings(settings);
-  }
-
-  toggleVoiceTyping(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleVoiceTyping();
-    return cloneSettings(settings);
-  }
-
   toggleColorBlindMode(userId) {
     const settings = this._getStoredSettings(userId);
     settings.toggleColorBlindMode();
-    return cloneSettings(settings);
-  }
-
-  toggleEasyMode(userId) {
-    const settings = this._getStoredSettings(userId);
-    settings.toggleEasyMode();
     return cloneSettings(settings);
   }
 
