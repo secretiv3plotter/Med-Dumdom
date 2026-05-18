@@ -5,12 +5,30 @@ const PatientUserSchema = {
   primaryKey: 'userId',
   properties: {
     userId: 'string',
+    role: { type: 'string', default: 'patient' },
+    phoneNum: 'string?',
     email: { type: 'string', indexed: true },
+    password: 'string?',
     passwordHash: 'string?',
     fullName: 'string?',
     birthDate: 'date?',
     address: 'string?',
     profilePicture: 'string?',
+    createdAt: 'date',
+    updatedAt: 'date',
+  },
+};
+
+const AccessibilityPreferenceSchema = {
+  name: 'AccessibilityPreference',
+  primaryKey: 'userId',
+  properties: {
+    userId: 'string',
+    textSizeLevel: { type: 'double', default: 1.0 },
+    highContrastEnabled: { type: 'bool', default: false },
+    hapticEnabled: { type: 'bool', default: true },
+    colorBlindModeEnabled: { type: 'bool', default: false },
+    darkModeEnabled: { type: 'bool', default: false },
     createdAt: 'date',
     updatedAt: 'date',
   },
@@ -34,6 +52,8 @@ const MedDailyScheduleSchema = {
     doseSize: 'int',
     scheduledTime: 'string?',
     intervalMinutes: 'int?',
+    intervalUnit: 'string?',
+    intervalCount: 'int?',
     dayOfWeek: 'string?',
     monthOfYear: 'string?',
     dayOfMonth: 'int?',
@@ -76,6 +96,8 @@ const MedDailyScheduleHistorySchema = {
     doseSize: 'int',
     scheduledTime: 'string?',
     intervalMinutes: 'int?',
+    intervalUnit: 'string?',
+    intervalCount: 'int?',
     dayOfWeek: 'string?',
     monthOfYear: 'string?',
     dayOfMonth: 'int?',
@@ -163,6 +185,7 @@ const ApptTrackerHistorySchema = {
 
 export const realmSchemas = [
   PatientUserSchema,
+  AccessibilityPreferenceSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
   MedUnitSchema,
@@ -172,7 +195,7 @@ export const realmSchemas = [
   ApptTrackerHistorySchema,
 ];
 
-export const REALM_SCHEMA_VERSION = 14;
+export const REALM_SCHEMA_VERSION = 17;
 
 export const realmConfig = {
   schema: realmSchemas,
@@ -182,6 +205,7 @@ export const realmConfig = {
 
 export {
   PatientUserSchema,
+  AccessibilityPreferenceSchema,
   MedDailyScheduleSchema,
   MedEntrySchema,
   MedUnitSchema,

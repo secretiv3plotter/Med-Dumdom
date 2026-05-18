@@ -181,9 +181,53 @@ export const getIntervalMinutes = (entry) => {
   return Number.isInteger(value) && value > 0 ? value : null;
 };
 
-export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
+export const getIntervalCount = (entry) => {
+  const value = Number(entry?.intervalCount || 0);
+  return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+export const isCalendarMonthIntervalEntry = (entry) => entry?.intervalUnit === 'months' && getIntervalCount(entry) !== null;
+
+export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null || isCalendarMonthIntervalEntry(entry);
+
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
+
+const getDaysInMonth = (year, monthIndex) => new Date(year, monthIndex + 1, 0).getDate();
+
+const dateAtScheduledMonthDay = (year, monthIndex, dayOfMonth, scheduledTime) => {
+  const [hours = 0, minutes = 0] = String(scheduledTime || '00:00').split(':').map(Number);
+  const resolvedDay = Math.min(dayOfMonth, getDaysInMonth(year, monthIndex));
+  const date = new Date(year, monthIndex, resolvedDay);
+  date.setHours(hours || 0, minutes || 0, 0, 0);
+  return date;
+};
+
+const addMonthsFromAnchor = (anchorDate, monthOffset, dayOfMonth, scheduledTime) => {
+  const anchorMonthIndex = anchorDate.getFullYear() * 12 + anchorDate.getMonth() + monthOffset;
+  const year = Math.floor(anchorMonthIndex / 12);
+  const monthIndex = anchorMonthIndex % 12;
+  return dateAtScheduledMonthDay(year, monthIndex, dayOfMonth, scheduledTime);
+};
 
 export const getIntervalOccurrenceDateTime = (entry, dateValue = new Date()) => {
+  if (isCalendarMonthIntervalEntry(entry)) {
+    const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
+    const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
+    const intervalCount = getIntervalCount(entry);
+    const dayOfMonth = Number(entry?.dayOfMonth || 1);
+    if (!intervalCount || !Number.isInteger(dayOfMonth) || dayOfMonth < 1) {
+      return null;
+    }
+
+    let elapsedMonths = (currentDate.getFullYear() - activatedAt.getFullYear()) * 12 + currentDate.getMonth() - activatedAt.getMonth();
+    elapsedMonths = Math.max(0, Math.floor(elapsedMonths / intervalCount) * intervalCount);
+    let occurrence = addMonthsFromAnchor(activatedAt, elapsedMonths, dayOfMonth, scheduleEffectiveTime(entry));
+    if (occurrence > currentDate) {
+      occurrence = addMonthsFromAnchor(activatedAt, elapsedMonths - intervalCount, dayOfMonth, scheduleEffectiveTime(entry));
+    }
+    return occurrence > activatedAt && occurrence <= currentDate ? occurrence : null;
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return null;
@@ -206,6 +250,28 @@ export const getIntervalOccurrenceMinutes = (entry, dateValue = new Date()) => {
 };
 
 export const getIntervalNextOccurrenceDateTime = (entry, dateValue = new Date()) => {
+  if (isCalendarMonthIntervalEntry(entry)) {
+    const currentDate = normalizeDate(dateValue, 'dateValue') ?? new Date();
+    const activatedAt = normalizeDate(entry?.activatedAt, 'activatedAt') ?? currentDate;
+    const intervalCount = getIntervalCount(entry);
+    const dayOfMonth = Number(entry?.dayOfMonth || 1);
+    if (!intervalCount || !Number.isInteger(dayOfMonth) || dayOfMonth < 1) {
+      return null;
+    }
+
+    const occurrence = getIntervalOccurrenceDateTime(entry, currentDate);
+    if (!occurrence) {
+      let first = addMonthsFromAnchor(activatedAt, 0, dayOfMonth, scheduleEffectiveTime(entry));
+      if (first <= activatedAt) {
+        first = addMonthsFromAnchor(activatedAt, intervalCount, dayOfMonth, scheduleEffectiveTime(entry));
+      }
+      return first;
+    }
+
+    const elapsedMonths = (occurrence.getFullYear() - activatedAt.getFullYear()) * 12 + occurrence.getMonth() - activatedAt.getMonth();
+    return addMonthsFromAnchor(activatedAt, elapsedMonths + intervalCount, dayOfMonth, scheduleEffectiveTime(entry));
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return null;
@@ -247,8 +313,16 @@ export const isScheduleDateTimeInCurrentInterval = (entry, dateTimeValue, curren
   }
 
   const occurrenceMinutes = getIntervalOccurrenceMinutes(entry, currentDate);
-  const nextOccurrenceMinutes = getIntervalNextOccurrenceMinutes(entry, currentDate);
   const actionMinutes = actionDate.getHours() * 60 + actionDate.getMinutes();
+  if (isCalendarMonthIntervalEntry(entry)) {
+    const occurrenceDate = getIntervalOccurrenceDateTime(entry, currentDate);
+    const nextOccurrenceDate = getIntervalNextOccurrenceDateTime(entry, currentDate);
+    return occurrenceDate !== null &&
+      actionDate >= occurrenceDate &&
+      (!nextOccurrenceDate || actionDate < nextOccurrenceDate);
+  }
+
+  const nextOccurrenceMinutes = getIntervalNextOccurrenceMinutes(entry, currentDate);
   return occurrenceMinutes !== null &&
     actionMinutes >= occurrenceMinutes &&
     (nextOccurrenceMinutes === null || nextOccurrenceMinutes >= 1440 || actionMinutes < nextOccurrenceMinutes);
@@ -327,6 +401,8 @@ export const normalizeScheduleEntry = (entry, index) => {
       doseSize: 1,
       scheduledTime: normalizeRequiredTime(entry, `dailySched[${index}].scheduledTime`),
       intervalMinutes: null,
+      intervalUnit: '',
+      intervalCount: null,
       dayOfWeek: '',
       monthOfYear: '',
       dayOfMonth: null,
@@ -349,6 +425,8 @@ export const normalizeScheduleEntry = (entry, index) => {
   const monthOfYear = normalizeOptionalMonthOfYear(entry.monthOfYear, `dailySched[${index}].monthOfYear`);
   const dayOfMonth = normalizeOptionalDayOfMonth(entry.dayOfMonth, `dailySched[${index}].dayOfMonth`);
   const intervalMinutes = normalizeInteger(entry.intervalMinutes, `dailySched[${index}].intervalMinutes`, { optional: true, allowZero: false });
+  const intervalUnit = normalizeOptionalString(entry.intervalUnit, `dailySched[${index}].intervalUnit`);
+  const intervalCount = normalizeInteger(entry.intervalCount, `dailySched[${index}].intervalCount`, { optional: true, allowZero: false });
   if (monthOfYear && !dayOfMonth) {
     throw new RangeError(`dailySched[${index}].dayOfMonth is required for monthly schedules.`);
   }
@@ -368,6 +446,8 @@ export const normalizeScheduleEntry = (entry, index) => {
       `dailySched[${index}].scheduledTime`
     ),
     intervalMinutes,
+    intervalUnit,
+    intervalCount,
     dayOfWeek,
     monthOfYear,
     dayOfMonth,

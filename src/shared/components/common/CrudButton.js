@@ -9,6 +9,9 @@ const CIRCLE_SIZE = accessibility.minTouchTarget + spacing.xs;
 const DEFAULT_ICON_SIZE = spacing.lg;
 const EDIT_ICON_SIZE = moderateScale(40);
 const LABEL_LIFT = moderateScale(10);
+const HEADER_ACTION_SIZE = moderateScale(36);
+const HEADER_ACTION_ICON_SIZE = moderateScale(18);
+const HEADER_ACTION_LABEL_SIZE = 10;
 
 export default function CrudButton({
   label,
@@ -33,6 +36,7 @@ export default function CrudButton({
   const computedIconColor = disabled ? disabledIconColor : solid || redSolid ? colors.surface : colors.brand;
   const iconColor = iconColorOverride ?? computedIconColor;
   const effectiveIconSize = outline && iconSize === DEFAULT_ICON_SIZE ? CIRCLE_SIZE : iconSize;
+  const iconOnlySolidBackground = darkModeEnabled ? 'rgb(56, 189, 248)' : 'rgb(2, 132, 199)';
   const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
   const showLabel = !iconOnly && Boolean(label);
 
@@ -51,6 +55,7 @@ export default function CrudButton({
           gap: showLabel ? scaleLayoutValue(spacing.xxs) : 0,
         },
         iconOnly && { backgroundColor: 'transparent' },
+        iconOnly && styles.iconOnlyTopLayer,
         solid && !iconOnly && { backgroundColor: colors.brand },
         outline && { backgroundColor: 'transparent' },
         redSolid && !iconOnly && { backgroundColor: colors.error },
@@ -70,6 +75,7 @@ export default function CrudButton({
               height: scaleLayoutValue(CIRCLE_SIZE),
             },
             solid && styles.solidButton,
+            iconOnly && solid && { backgroundColor: iconOnlySolidBackground },
             outline && styles.outlineButton,
             redSolid && styles.redSolidButton,
             disabled && !outline && styles.disabledCircle,
@@ -108,6 +114,11 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     flexShrink: 1,
     alignItems: 'center',
+  },
+  iconOnlyTopLayer: {
+    position: 'relative',
+    zIndex: 40,
+    elevation: 40,
   },
   circle: {
     borderRadius: 999,
@@ -151,6 +162,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#C7DBFF',
     borderRadius: spacing.xs,
   },
+  headerActionContainer: {
+    minWidth: HEADER_ACTION_SIZE,
+    gap: spacing.xxs || 2,
+  },
+  headerActionCircle: {
+    width: HEADER_ACTION_SIZE,
+    height: HEADER_ACTION_SIZE,
+    backgroundColor: '#F1F5F9',
+  },
+  headerActionPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  headerEditText: {
+    color: colors.success,
+    fontSize: HEADER_ACTION_LABEL_SIZE,
+    fontWeight: '600',
+  },
+  headerDeleteText: {
+    color: colors.error,
+    fontSize: HEADER_ACTION_LABEL_SIZE,
+    fontWeight: '600',
+  },
 });
 
 export function AddButton(props) {
@@ -164,9 +197,12 @@ export function EditButton(props) {
       label="Edit"
       icon="create-outline"
       variant="outline"
-      iconSize={EDIT_ICON_SIZE}
-      circleStyle={[{ paddingLeft: scaleLayoutValue(moderateScale(4)) }, props.circleStyle]}
-      textStyle={[{ marginTop: -scaleLayoutValue(LABEL_LIFT) }, props.textStyle]}
+      iconSize={HEADER_ACTION_ICON_SIZE}
+      iconColorOverride={colors.success}
+      style={[styles.headerActionContainer, props.style]}
+      circleStyle={[styles.headerActionCircle, props.circleStyle]}
+      pressedStyle={styles.headerActionPressed}
+      textStyle={[styles.headerEditText, props.textStyle]}
     />
   );
 }
@@ -185,5 +221,18 @@ export function CancelButton(props) {
 }
 
 export function DeleteButton(props) {
-  return <CrudButton label="Delete" icon="trash" variant="redSolid" {...props} />;
+  return (
+    <CrudButton
+      {...props}
+      label="Delete"
+      icon="trash-outline"
+      variant="outline"
+      iconSize={HEADER_ACTION_ICON_SIZE}
+      iconColorOverride={colors.error}
+      style={[styles.headerActionContainer, props.style]}
+      circleStyle={[styles.headerActionCircle, props.circleStyle]}
+      pressedStyle={styles.headerActionPressed}
+      textStyle={[styles.headerDeleteText, props.textStyle]}
+    />
+  );
 }

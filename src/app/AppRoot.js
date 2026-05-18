@@ -7,6 +7,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
 import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
+import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -75,7 +76,7 @@ function useWebViewportLock() {
 
 function AppContent() {
   const realm = useRealm();
-  const { textScale, darkModeEnabled } = useTextScale();
+  const { textScale, darkModeEnabled, hapticEnabled } = useTextScale();
   const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
@@ -112,14 +113,33 @@ function AppContent() {
     return () => subscription.remove();
   }, [history, navigation]);
 
+  const handleGlobalTouch = () => {
+    if (!hapticEnabled) return;
+    import('expo-haptics').then((Haptics) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    });
+  };
+
+  // Web: attach a global document click listener since onTouchStart doesn't fire in browsers
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const listener = (e) => {
+      if (!hapticEnabled) return;
+      // Only fire if the click landed on something interactive
+      const isClickable = e.target?.closest(
+        'button, a, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [tabindex]'
+      );
+      if (!isClickable) return;
+      import('expo-haptics').then((Haptics) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      });
+    };
+    document.addEventListener('click', listener, true);
+    return () => document.removeEventListener('click', listener, true);
+  }, [hapticEnabled]);
+
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
-  const screenProps =
-    currentRoute === ROUTES.MED_TRACKER ||
-    currentRoute === ROUTES.MED_TRACKER_HISTORY ||
-    currentRoute === ROUTES.APPOINTMENT_TRACKER ||
-    currentRoute === ROUTES.APPOINTMENT_TRACKER_HISTORY
-      ? { navigation, realm }
-      : { navigation };
+  const screenProps = { navigation, realm };
   const screenKey =
     currentRoute === ROUTES.ACCESSIBILITY_SETTINGS
       ? currentRoute
@@ -127,11 +147,27 @@ function AppContent() {
 
   return (
     <>
-      <View key={screenKey} style={{ flex: 1 }}>
+      <View key={screenKey} style={{ flex: 1 }} onTouchStart={handleGlobalTouch}>
         <CurrentScreen {...screenProps} />
       </View>
       <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
+  );
+}
+
+function AppShell() {
+  const realm = useRealm();
+  const settingsRepository = useMemo(
+    () => (realm ? new RealmSettingsPreferenceRepository(realm) : undefined),
+    [realm],
+  );
+
+  return (
+    <TextScaleProvider settingsService={settingsRepository}>
+      <SafeAreaProvider style={[styles.appShell, { backgroundColor: colors.pageBg }]}>
+        <AppContent />
+      </SafeAreaProvider>
+    </TextScaleProvider>
   );
 }
 
@@ -159,14 +195,6 @@ export default function AppRoot() {
 
   const isWebDesktop = Platform.OS === 'web' && windowWidth > 1025;
 
-  const content = (
-    <TextScaleProvider>
-      <SafeAreaProvider style={[styles.appShell, { backgroundColor: colors.pageBg }]}>
-        <AppContent />
-      </SafeAreaProvider>
-    </TextScaleProvider>
-  );
-
   if (!fontsLoaded) {
     return null; // Hold splash screen until font resources are ready
   }
@@ -181,7 +209,7 @@ export default function AppRoot() {
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            {content}
+            <AppShell />
           </View>
         </View>
       </RealmProvider>
@@ -190,7 +218,7 @@ export default function AppRoot() {
 
   return (
     <RealmProvider>
-      {content}
+      <AppShell />
     </RealmProvider>
   );
 }

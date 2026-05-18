@@ -122,6 +122,7 @@ export class WebRealm {
   constructor() {
     this.collections = {
       PatientUser: {},
+      AccessibilityPreference: {},
       ApptEntry: {},
       ApptTrackerHistory: {},
       MedEntry: {},
@@ -170,7 +171,7 @@ export class WebRealm {
         const decryptedJson = await decryptData(encryptedObj, this.key);
         this.collections = JSON.parse(decryptedJson);
         // Ensure new collections are registered (mock migration support)
-        const schemas = ['PatientUser', 'ApptEntry', 'ApptTrackerHistory', 'MedEntry', 'MedTrackerDailyHistory', 'MedUnit'];
+        const schemas = ['PatientUser', 'AccessibilityPreference', 'ApptEntry', 'ApptTrackerHistory', 'MedEntry', 'MedTrackerDailyHistory', 'MedUnit'];
         schemas.forEach((s) => {
           if (!this.collections[s]) {
             this.collections[s] = {};
@@ -180,6 +181,7 @@ export class WebRealm {
         // Initialize an empty database
         this.collections = {
           PatientUser: {},
+          AccessibilityPreference: {},
           ApptEntry: {},
           ApptTrackerHistory: {},
           MedEntry: {},
@@ -204,6 +206,7 @@ export class WebRealm {
     this.isUnlocked = false;
     this.collections = {
       PatientUser: {},
+      AccessibilityPreference: {},
       ApptEntry: {},
       ApptTrackerHistory: {},
       MedEntry: {},
@@ -264,7 +267,7 @@ export class WebRealm {
     
     // Find primary key field
     let primaryKeyField = 'apptEntryId';
-    if (schemaName === 'PatientUser') primaryKeyField = 'userId';
+    if (schemaName === 'PatientUser' || schemaName === 'AccessibilityPreference') primaryKeyField = 'userId';
     if (schemaName === 'MedEntry') primaryKeyField = 'medEntryId';
     if (schemaName === 'MedUnit') primaryKeyField = 'unitId';
     if (schemaName === 'ApptTrackerHistory' || schemaName === 'MedTrackerDailyHistory') primaryKeyField = 'historyId';

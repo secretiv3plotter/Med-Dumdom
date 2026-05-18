@@ -70,7 +70,7 @@ export default function LargePopup({
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.backdrop} pointerEvents="box-none">
-        <Pressable style={styles.dismissArea} onPress={onClose} />
+        <Pressable accessible={false} style={styles.dismissArea} onPress={onClose} />
         <Animated.View
           style={[
             styles.sheet,

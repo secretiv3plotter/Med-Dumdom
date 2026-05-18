@@ -229,16 +229,17 @@ export default function NativeDateTimeField({
   focusBorderColor,
   focusBackgroundColor,
   focusTextColor,
+  pickerDefaultValue = '',
 }) {
   const [isPickerVisible, setPickerVisible] = useState(false);
   const usesCustomPicker = Platform.OS === 'web' || mode === 'day' || mode === 'month' || mode === 'monthDay' || mode === 'duration';
   const selectedDate = useMemo(() => {
-    const parsedValue = parseValue(value, mode) ?? new Date();
+    const parsedValue = parseValue(value, mode) ?? parseValue(pickerDefaultValue, mode) ?? new Date();
     if (mode !== 'date' || !(minimumDate instanceof Date) || parsedValue >= minimumDate) {
       return parsedValue;
     }
     return minimumDate;
-  }, [minimumDate, mode, value]);
+  }, [minimumDate, mode, pickerDefaultValue, value]);
 
   const displayValue = formatDisplayValue(value, mode);
   const resolvedPlaceholder = placeholder || (mode === 'day' ? 'Select day' : (mode === 'month' ? 'Select month' : (mode === 'monthDay' ? 'Select day' : (mode === 'duration' ? 'Select time period' : (mode === 'time' ? 'Select time' : 'Select date')))));
@@ -311,7 +312,7 @@ export default function NativeDateTimeField({
         setTypedTimeHour(pad2(currentVal.hours));
         setTypedTimeMinute(pad2(currentVal.minutes));
       } else if (Platform.OS === 'web') {
-        const currentVal = parseValue(value, mode) ?? new Date();
+        const currentVal = parseValue(value, mode) ?? parseValue(pickerDefaultValue, mode) ?? new Date();
         if (mode === 'date') {
           setTempYear(currentVal.getFullYear());
           setTempMonth(currentVal.getMonth());
@@ -335,7 +336,7 @@ export default function NativeDateTimeField({
       }
       setTypedPickerError('');
     }
-  }, [isPickerVisible, value, mode, monthValue, usesCustomPicker]);
+  }, [isPickerVisible, value, mode, monthValue, pickerDefaultValue, usesCustomPicker]);
 
   const commitValue = (date) => {
     onChange(mode === 'time' ? formatPickerTime(date) : formatPickerDate(date));
@@ -896,6 +897,8 @@ export default function NativeDateTimeField({
                       {circularItems(DAYS_OF_WEEK).map(({ item: d, index, loopIndex }) => (
                         <Pressable
                           key={`${loopIndex}-${d}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Choose ${d} for ${resolvedLabel}`}
                           onPress={() => {
                             setTempDayOfWeek(d);
                             setTypedPickerValue(d);
@@ -930,6 +933,8 @@ export default function NativeDateTimeField({
                       {circularItems(MONTHS).map(({ item: monthName, index: idx, loopIndex }) => (
                         <Pressable
                           key={`${loopIndex}-${monthName}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Choose ${monthName} for ${resolvedLabel}`}
                           onPress={() => {
                             setTempMonth(idx);
                             setTypedPickerValue(monthName);
@@ -964,6 +969,8 @@ export default function NativeDateTimeField({
                       {circularItems(daysForSelectedMonthList).map(({ item: d, loopIndex }) => (
                         <Pressable
                           key={`${loopIndex}-${d}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Choose day ${d} for ${resolvedLabel}`}
                           onPress={() => {
                             setTempDayOfMonth(d);
                             setTypedPickerValue(String(d));
@@ -1003,6 +1010,9 @@ export default function NativeDateTimeField({
                           return (
                             <Pressable
                               key={`${loopIndex}-${m}`}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Choose ${m} for ${resolvedLabel}`}
+                              accessibilityState={{ disabled: isMonthDisabled }}
                               disabled={isMonthDisabled}
                               onPress={() => {
                                 setTempMonth(idx);
@@ -1048,6 +1058,9 @@ export default function NativeDateTimeField({
                           return (
                             <Pressable
                               key={`${loopIndex}-${d}`}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Choose day ${d} for ${resolvedLabel}`}
+                              accessibilityState={{ disabled: isDayDisabled }}
                               disabled={isDayDisabled}
                               onPress={() => {
                                 setTempDay(d);
@@ -1087,6 +1100,8 @@ export default function NativeDateTimeField({
                         {circularItems(yearsList).map(({ item: y, loopIndex }) => (
                           <Pressable
                             key={`${loopIndex}-${y}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Choose year ${y} for ${resolvedLabel}`}
                             onPress={() => {
                               setTempYear(y);
                               setTypedDateYear(String(y));
@@ -1116,6 +1131,8 @@ export default function NativeDateTimeField({
                         {circularItems(hoursList).map(({ item: h, loopIndex }) => (
                           <Pressable
                             key={`${loopIndex}-${h}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={mode === 'duration' ? `Choose ${pad2(h)} hours for ${resolvedLabel}` : `Choose hour ${h} for ${resolvedLabel}`}
                             onPress={() => {
                               setTempHour(h);
                               setTypedTimeHour(mode === 'duration' ? pad2(h) : String(h));
@@ -1143,6 +1160,8 @@ export default function NativeDateTimeField({
                         {circularItems(minutesList).map(({ item: m, loopIndex }) => (
                           <Pressable
                             key={`${loopIndex}-${m}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Choose ${pad2(m)} minutes for ${resolvedLabel}`}
                             onPress={() => {
                               setTempMinute(m);
                               setTypedTimeMinute(pad2(m));
@@ -1168,6 +1187,8 @@ export default function NativeDateTimeField({
                           {['AM', 'PM'].map((p) => (
                             <Pressable
                               key={p}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Choose ${p} for ${resolvedLabel}`}
                               onPress={() => {
                                 setTempAmPm(p);
                                 setTypedTimePeriod(p);
@@ -1190,12 +1211,16 @@ export default function NativeDateTimeField({
               {/* Action Buttons */}
               <View style={styles.modalActions}>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cancel ${resolvedLabel} picker`}
                   onPress={() => setPickerVisible(false)}
                   style={[styles.actionBtn, styles.cancelBtn]}
                 >
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </Pressable>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Confirm ${resolvedLabel}`}
                   onPress={handleWebConfirm}
                   style={[styles.actionBtn, styles.confirmBtn, pickerConfirmButtonStyle]}
                 >

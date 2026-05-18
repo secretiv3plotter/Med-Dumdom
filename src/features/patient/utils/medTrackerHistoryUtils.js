@@ -1,7 +1,13 @@
 import { colors } from '../../../shared/theme';
-import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+import { getThemeMode, THEME_MODE_DARK, transformThemeValue } from '../../../shared/theme/palette';
 
 const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+const themeColor = (value, key) => transformThemeValue(value, undefined, key);
+const statusStyle = (style) => ({
+  ...style,
+  bgColor: themeColor(style.bgColor, 'backgroundColor'),
+  textColor: themeColor(style.textColor, 'color'),
+});
 
 export const capitalize = (value) => String(value || '')
   .trim()
@@ -77,16 +83,33 @@ export const formatDoseWithUnit = (doseSize, unit) => {
   return normalizedUnit ? `${doseSize} ${normalizedUnit}` : String(doseSize);
 };
 
-export const formatIntervalMinutes = (intervalMinutes) => {
+export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
   const minutes = Number(intervalMinutes || 0);
   if (!Number.isInteger(minutes) || minutes <= 0) {
     return '';
   }
 
+  if (intervalUnit === 'weeks' && minutes >= 10080 && minutes % 10080 === 0) {
+    const weeksPart = minutes / 10080;
+    return `${weeksPart} week${weeksPart === 1 ? '' : 's'}`;
+  }
+
+  if (intervalUnit === 'months') {
+    return '';
+  }
+
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    const daysPart = minutes / 1440;
+    return `${daysPart} day${daysPart === 1 ? '' : 's'}`;
+  }
+
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 };
 
-export const isIntervalScheduleEntry = (entry) => Number(entry?.intervalMinutes || 0) > 0;
+export const isIntervalScheduleEntry = (entry) =>
+  Number(entry?.intervalMinutes || 0) > 0 || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
+
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
 
 export const getTakenAmountForRecord = (record) =>
   (record.dailySchedFinalStatuses || []).reduce(
@@ -143,13 +166,23 @@ export const dateKey = (date) => date.toISOString().slice(0, 10);
 export const getRecordDate = (record) => toHistoryDate(record.historyDate) ?? new Date(0);
 
 export const formatScheduleText = (entry, unit) => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAs needed`;
+  }
+
   const dayLabel = entry.dayOfWeek
     ? ` on ${entry.dayOfWeek}`
     : entry.monthOfYear
       ? entry.dayOfMonth ? ` on ${entry.monthOfYear} ${entry.dayOfMonth}` : ` in ${entry.monthOfYear}`
       : '';
   if (isIntervalScheduleEntry(entry)) {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}${dayLabel}`;
+    const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
+      ? `\nAt ${formatTime(entry.scheduledTime)}`
+      : '';
+    const intervalText = entry.intervalUnit === 'months'
+      ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+      : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit);
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${intervalText}${scheduledTimeText}${dayLabel}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}${dayLabel}`;
@@ -188,25 +221,25 @@ export const buildHistoryRecordSearchText = (record) => {
 export const getStatusStyle = (status) => {
   if (isDarkMode()) {
     if (status === 'taken') {
-      return { label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+      return statusStyle({ label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText });
     }
 
     if (status === 'skipped') {
-      return { label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+      return statusStyle({ label: 'Skipped', bgColor: colors.surface, textColor: colors.body });
     }
 
-    return { label: 'Missed', bgColor: '#2C1E12', textColor: colors.warning };
+    return statusStyle({ label: 'Missed', bgColor: '#2C1E12', textColor: colors.warning });
   }
 
   if (status === 'taken') {
-    return { label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' };
+    return statusStyle({ label: 'Taken', bgColor: '#BFDBFE', textColor: '#1D4ED8' });
   }
 
   if (status === 'skipped') {
-    return { label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' };
+    return statusStyle({ label: 'Skipped', bgColor: '#E5E7EB', textColor: '#B91C1C' });
   }
 
-  return { label: 'Missed', bgColor: '#FED7AA', textColor: '#9A3412' };
+  return statusStyle({ label: 'Missed', bgColor: '#FED7AA', textColor: '#9A3412' });
 };
 
 export const buildMedGroups = (records) =>

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { DeleteButton } from '../../../shared/components/common/CrudButton';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import {
   formatDate,
@@ -19,6 +19,7 @@ export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={subtitle ? `Open ${title}. ${subtitle}` : `Open ${title}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.optionCard, pressed && styles.pressedCard]}
@@ -28,7 +29,7 @@ export function OptionCard({ title, subtitle, onPress, onDelete = null }) {
         {subtitle ? <Text style={styles.optionSubtitle}>{subtitle}</Text> : null}
       </View>
       {onDelete ? (
-        <DeleteButton
+        <SmallDeleteAction
           onPress={(event) => {
             event?.stopPropagation?.();
             onDelete();
@@ -43,6 +44,7 @@ export function BreadcrumbButton({ label, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`Go back to ${label}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.breadcrumbButton, pressed && styles.pressedControl]}
@@ -80,15 +82,11 @@ export function MedicineDetailsCard({ medicine }) {
   );
 }
 
-function ScheduleStatusCard({ entry, unit, recordId }) {
+function ScheduleStatusCard({ entry, unit, recordId, onPress = null }) {
   const statusStyle = getStatusStyle(entry.finalStatus);
   const resolvedAt = formatDateTime(entry.takenAt || entry.skippedAt || entry.resolvedAt);
-
-  return (
-    <View
-      key={`${recordId}-${entry.scheduleIndex}`}
-      style={[styles.scheduleCard, { backgroundColor: statusStyle.bgColor }]}
-    >
+  const cardContent = (
+    <>
       <View style={styles.scheduleRow}>
         <Text style={styles.scheduleText}>{formatScheduleText(entry, unit)}</Text>
         <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>
@@ -100,11 +98,39 @@ function ScheduleStatusCard({ entry, unit, recordId }) {
       {resolvedAt ? (
         <Text style={styles.scheduleMeta}>{`${statusStyle.label} ${resolvedAt}`}</Text>
       ) : null}
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return (
+      <View
+        key={`${recordId}-${entry.scheduleIndex}`}
+        style={[styles.scheduleCard, { backgroundColor: statusStyle.bgColor }]}
+      >
+        {cardContent}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      key={`${recordId}-${entry.scheduleIndex}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${statusStyle.label} medicine schedule record details`}
+      unstable_pressDelay={0}
+      onPress={() => onPress(entry)}
+      style={({ pressed }) => [
+        styles.scheduleCard,
+        { backgroundColor: statusStyle.bgColor },
+        pressed && styles.pressedScheduleCard,
+      ]}
+    >
+      {cardContent}
+    </Pressable>
   );
 }
 
-export function DayRecordCard({ record, onDelete = null }) {
+export function DayRecordCard({ record, onDelete = null, onSchedulePress = null }) {
   return (
     <View style={styles.recordCard}>
       <View style={styles.recordHeader}>
@@ -118,7 +144,7 @@ export function DayRecordCard({ record, onDelete = null }) {
             {formatTakenAmount([record], record.unit, 'Taken this day')}
           </Text>
         </View>
-        {onDelete ? <DeleteButton onPress={() => onDelete(record)} /> : null}
+        {onDelete ? <SmallDeleteAction onPress={() => onDelete(record)} /> : null}
       </View>
 
       <View style={styles.scheduleList}>
@@ -128,9 +154,30 @@ export function DayRecordCard({ record, onDelete = null }) {
             entry={entry}
             unit={record.unit}
             recordId={record.historyId}
+            onPress={onSchedulePress ? (scheduleEntry) => onSchedulePress(record, scheduleEntry) : null}
           />
         ))}
       </View>
+    </View>
+  );
+}
+
+function SmallDeleteAction({ onPress }) {
+  return (
+    <View style={styles.smallDeleteWrap}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Delete medicine history record"
+        unstable_pressDelay={0}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.smallDeleteButton,
+          pressed && styles.smallDeleteButtonPressed,
+        ]}
+      >
+        <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
+      </Pressable>
+      <Text style={styles.smallDeleteLabel}>Delete</Text>
     </View>
   );
 }
@@ -189,6 +236,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#C7DBFF',
     borderColor: colors.brandText,
   },
+  pressedScheduleCard: {
+    borderColor: colors.brandText,
+  },
   pressedControl: {
     backgroundColor: '#C7DBFF',
     borderColor: colors.brandText,
@@ -206,6 +256,29 @@ const styles = StyleSheet.create({
   optionSubtitle: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
+  },
+  smallDeleteWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxs,
+  },
+  smallDeleteButton: {
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  smallDeleteButtonPressed: {
+    backgroundColor: '#E2E8F0',
+  },
+  smallDeleteLabel: {
+    ...typography.bodySmall,
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.error,
+    textAlign: 'center',
   },
   recordCard: {
     backgroundColor: colors.surface,

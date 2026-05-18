@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { scaleFontSize } from '../../../shared/theme/textScale';
+import { useHapticFeedback } from '../../../shared/hooks/useHapticFeedback';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import {
   completedScheduleStyle,
@@ -23,8 +24,8 @@ import {
   getLastActionMessage,
   getIntervalScheduleTime,
   formatDoseWithUnit,
-  getCalculatedDailyAmount,
   formatTime,
+  isAsNeededScheduleEntry,
 } from '../utils/medTrackerUtils';
 
 const PILL_RADIUS = moderateScale(999);
@@ -61,15 +62,10 @@ export function MedicinePreviewCard({ medicine, observedNow, onOpen, onScheduleS
         ]}
       >
         <View style={styles.cardHeaderBlock}>
-          <Text 
-            style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
+          <Text style={[styles.cardHeaderName, { fontSize: finalFontSize }]}>
             {medicine.medName}
           </Text>
-          <Text style={styles.cardHeaderMeta} numberOfLines={1}>
+          <Text style={styles.cardHeaderMeta}>
             {formatMedicineMeta(medicine)}
           </Text>
         </View>
@@ -147,8 +143,10 @@ function SchedulePreviewCard({
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
   const scheduleDayLabel = getScheduleDayLabel(entry);
   const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
+  const { triggerImpact, triggerSuccess } = useHapticFeedback();
 
   const isHourly = !!entry.intervalMinutes;
+  const isAsNeeded = isAsNeededScheduleEntry(entry);
   const lastActionMessage = isHourly ? getLastActionMessage(medicine) : null;
 
   return (
@@ -167,7 +165,7 @@ function SchedulePreviewCard({
       </View>
 
       <Text style={styles.scheduleMetaText}>
-        At {isHourly ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+        {isAsNeeded ? 'As needed' : `At ${isHourly ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
       </Text>
 
       {!isHourly ? (
@@ -197,11 +195,13 @@ function SchedulePreviewCard({
           <ActionButton
             label="Revert Status"
             onPress={(event) => {
+              triggerImpact();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'clear');
             }}
             variant="outline"
             style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
           />
@@ -212,6 +212,7 @@ function SchedulePreviewCard({
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={(event) => {
+              triggerImpact();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'skipped');
             }}
@@ -220,6 +221,7 @@ function SchedulePreviewCard({
           <ActionButton
             label="Taken"
             onPress={(event) => {
+              triggerSuccess();
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'taken');
             }}
@@ -234,8 +236,14 @@ function SchedulePreviewCard({
 
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
   const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
+  const monthlyIntervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalUnit === 'months');
+  const hasAsNeededEntry = (medicine.dailySched || []).some((entry) => isAsNeededScheduleEntry(entry));
   const sectionLabelText = intervalEntry
-    ? `Hourly interval schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes)})`
+    ? `${intervalEntry.intervalUnit === 'weeks' ? 'Weekly interval' : Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Every few days' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes, intervalEntry.intervalUnit)})`
+    : monthlyIntervalEntry
+    ? `Monthly interval schedule (Every ${monthlyIntervalEntry.intervalCount} month${Number(monthlyIntervalEntry.intervalCount) === 1 ? '' : 's'})`
+    : hasAsNeededEntry
+    ? 'As needed schedule'
     : (medicine.dailySched || []).some(e => e.monthOfYear)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
@@ -244,13 +252,20 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
 
   return (
     <>
-      <DetailItem label="Medication name" value={medicine.medName} />
-      <DetailItem label="Unit strength" value={medicine.unitStrength || '--'} />
-      <DetailItem label="Total daily amount" value={`${getCalculatedDailyAmount(medicine)} ${medicine.unit}`} />
-      <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
-      <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
-      <DetailItem label="Instructions" value={medicine.instructions || '--'} />
-      <DetailItem label="Prescriber contact" value={medicine.prescriberContact || '--'} />
+      <View style={styles.detailPanel}>
+        <DetailItem label="Medication name" value={medicine.medName} />
+        <View style={styles.detailGrid}>
+          <DetailItem label="Instructions" value={medicine.instructions} />
+          <DetailItem label="Prescriber contact" value={medicine.prescriberContact} />
+        </View>
+      </View>
+
+      <View style={styles.detailPanel}>
+        <View style={styles.detailGrid}>
+          <DetailItem label="Start date" value={formatDate(medicine.startDate)} />
+          <DetailItem label="End date" value={medicine.endDate ? formatDate(medicine.endDate) : 'Indefinite'} />
+        </View>
+      </View>
 
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>
@@ -277,6 +292,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const isTaken = scheduleStatus.status === 'taken';
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
   const isResolved = entry.status === 'taken' || entry.status === 'skipped';
+  const isAsNeeded = isAsNeededScheduleEntry(entry);
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
   const scheduleDayLabel = getScheduleDayLabel(entry);
@@ -298,7 +314,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
       </View>
 
       <Text style={styles.scheduleMetaText}>
-        At {isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}{dayLabel ? ` ${dayLabel}` : ''}
+        {isAsNeeded ? 'As needed' : `At ${isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
       </Text>
 
       {isTaken ? (
@@ -323,6 +339,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
             }}
             variant="outline"
             style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
           />
@@ -371,14 +388,11 @@ function StatusBadge({ statusStyle }) {
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.badgeBgColor || statusStyle.bgColor }]}>
-      <Text 
+      <Text
         style={[
-          styles.statusText, 
+          styles.statusText,
           { color: statusStyle.textColor, fontSize: finalFontSize }
-        ]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        ]}
       >
         {label}
       </Text>
@@ -387,10 +401,17 @@ function StatusBadge({ statusStyle }) {
 }
 
 function DetailItem({ label, value }) {
+  const displayValue = value == null ? '' : String(value);
+  const accessibleValue = displayValue.trim() ? displayValue : 'blank';
+
   return (
-    <View style={styles.detailRow}>
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${accessibleValue}`}
+      style={[styles.detailRow, styles.readOnlyDetailRow]}
+    >
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={styles.detailValue}>{displayValue}</Text>
     </View>
   );
 }
@@ -415,6 +436,7 @@ export function SegmentButton({ label = '', selected, onPress }) {
       onPress={onPress}
       unstable_pressDelay={0}
       accessibilityRole="button"
+      accessibilityLabel={`${selected ? 'Selected' : 'Select'} ${label}`}
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.segmentButton,
@@ -422,15 +444,12 @@ export function SegmentButton({ label = '', selected, onPress }) {
         pressed && styles.pressedControl,
       ]}
     >
-      <Text 
+      <Text
         style={[
-          styles.segmentButtonText, 
+          styles.segmentButtonText,
           selected && styles.segmentButtonTextSelected,
           { fontSize: finalFontSize }
-        ]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        ]}
       >
         {label}
       </Text>
@@ -492,8 +511,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#C7DBFF',
     borderColor: colors.brandText,
   },
+  detailPanel: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: '#F8FAFC',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   detailRow: {
     gap: spacing.xxs,
+  },
+  readOnlyDetailRow: {
+    flex: 1,
+    minWidth: moderateScale(130),
   },
   detailLabel: {
     ...typography.bodySmall,
@@ -573,6 +609,10 @@ const styles = StyleSheet.create({
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
     borderColor: colors.error,
+  },
+  revertStatusButtonPressed: {
+    backgroundColor: '#FECACA',
+    borderColor: '#B91C1C',
   },
   revertStatusButtonText: {
     color: colors.error,

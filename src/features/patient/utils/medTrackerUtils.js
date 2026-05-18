@@ -1,7 +1,14 @@
 import { colors } from '../../../shared/theme';
-import { getThemeMode, THEME_MODE_DARK } from '../../../shared/theme/palette';
+import { getThemeMode, THEME_MODE_DARK, transformThemeValue } from '../../../shared/theme/palette';
 
 const isDarkMode = () => getThemeMode() === THEME_MODE_DARK;
+const themeColor = (value, key) => transformThemeValue(value, undefined, key);
+const statusStyle = (style) => ({
+  ...style,
+  bgColor: themeColor(style.bgColor, 'backgroundColor'),
+  badgeBgColor: style.badgeBgColor ? themeColor(style.badgeBgColor, 'backgroundColor') : style.badgeBgColor,
+  textColor: themeColor(style.textColor, 'color'),
+});
 
 export const capitalize = (value) => String(value || '')
   .trim()
@@ -136,12 +143,29 @@ export const getIntervalMinutes = (entry) => {
   return Number.isInteger(value) && value > 0 ? value : null;
 };
 
-export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null;
+export const isIntervalScheduleEntry = (entry) =>
+  getIntervalMinutes(entry) !== null || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
 
-export const formatIntervalMinutes = (intervalMinutes) => {
+export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
+
+export const formatIntervalMinutes = (intervalMinutes, intervalUnit = '') => {
   const minutes = Number(intervalMinutes || 0);
   if (!Number.isInteger(minutes) || minutes <= 0) {
     return '';
+  }
+
+  if (intervalUnit === 'weeks' && minutes >= 10080 && minutes % 10080 === 0) {
+    const weeksPart = minutes / 10080;
+    return `${weeksPart} week${weeksPart === 1 ? '' : 's'}`;
+  }
+
+  if (intervalUnit === 'months') {
+    return '';
+  }
+
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    const daysPart = minutes / 1440;
+    return `${daysPart} day${daysPart === 1 ? '' : 's'}`;
   }
 
   const hoursPart = Math.floor(minutes / 60);
@@ -159,6 +183,10 @@ export const formatIntervalMinutes = (intervalMinutes) => {
 };
 
 export const getIntervalScheduleTime = (entry, now = new Date()) => {
+  if (entry?.intervalUnit === 'months') {
+    return formatTime(entry.scheduledTime);
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return '';
@@ -199,6 +227,36 @@ export const getIntervalOccurrenceMinutes = (entry, now = new Date()) => {
 };
 
 const getMinutesUntilNextIntervalOccurrence = (entry, now = new Date()) => {
+  if (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0) {
+    const currentDate = now instanceof Date ? now : new Date(now);
+    const activatedAt = entry?.activatedAt ? new Date(entry.activatedAt) : currentDate;
+    if (Number.isNaN(currentDate.getTime()) || Number.isNaN(activatedAt.getTime())) {
+      return null;
+    }
+
+    const intervalCount = Number(entry.intervalCount);
+    const dayOfMonth = Number(entry.dayOfMonth || 1);
+    const [hours = 0, minutes = 0] = String(entry.scheduledTime || '00:00').split(':').map(Number);
+    const buildDate = (monthOffset) => {
+      const monthIndex = activatedAt.getFullYear() * 12 + activatedAt.getMonth() + monthOffset;
+      const year = Math.floor(monthIndex / 12);
+      const month = monthIndex % 12;
+      const day = Math.min(dayOfMonth, new Date(year, month + 1, 0).getDate());
+      const nextDate = new Date(year, month, day);
+      nextDate.setHours(hours || 0, minutes || 0, 0, 0);
+      return nextDate;
+    };
+
+    let elapsedMonths = (currentDate.getFullYear() - activatedAt.getFullYear()) * 12 + currentDate.getMonth() - activatedAt.getMonth();
+    elapsedMonths = Math.max(0, Math.floor(elapsedMonths / intervalCount) * intervalCount);
+    let nextDate = buildDate(elapsedMonths);
+    if (nextDate <= currentDate || nextDate <= activatedAt) {
+      nextDate = buildDate(elapsedMonths + intervalCount);
+    }
+
+    return Math.max(0, Math.ceil((nextDate.getTime() - currentDate.getTime()) / 60000));
+  }
+
   const intervalMinutes = getIntervalMinutes(entry);
   if (!intervalMinutes) {
     return null;
@@ -255,12 +313,20 @@ export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
 };
 
 export const getScheduleDayLabel = (entry) => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return 'as needed';
+  }
+
   if (entry?.dayOfWeek) {
     return `on ${entry.dayOfWeek}`;
   }
 
   if (entry?.monthOfYear) {
     return entry.dayOfMonth ? `on ${entry.monthOfYear} ${entry.dayOfMonth}` : `in ${entry.monthOfYear}`;
+  }
+
+  if (entry?.intervalUnit === 'months' && entry?.dayOfMonth) {
+    return `on day ${entry.dayOfMonth}`;
   }
 
   return '';
@@ -307,6 +373,7 @@ export const buildMedicineSearchText = (medicine) => [
     entry.doseSize,
     entry.scheduledTime,
     entry.intervalMinutes,
+    entry.intervalUnit,
     entry.dayOfWeek,
     entry.monthOfYear,
     entry.dayOfMonth,
@@ -343,8 +410,18 @@ export const formatDoseWithUnit = (doseSize, unit) => {
 };
 
 export const formatScheduleEntry = (entry, unit = '') => {
+  if (isAsNeededScheduleEntry(entry)) {
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAs needed`;
+  }
+
   if (isIntervalScheduleEntry(entry)) {
-    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${formatIntervalMinutes(entry.intervalMinutes)}`;
+    const scheduledTimeText = entry.scheduledTime && entry.scheduledTime !== '00:00'
+      ? `\nAt ${formatTime(entry.scheduledTime)}`
+      : '';
+    const intervalText = entry.intervalUnit === 'months'
+      ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+      : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit);
+    return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nEvery ${intervalText}${scheduledTimeText}`;
   }
 
   return `Take ${formatDoseWithUnit(entry.doseSize, unit)}\nAt ${formatTime(entry.scheduledTime)}`;
@@ -377,8 +454,11 @@ export const buildScheduleEntriesFromMedicine = (medicine) =>
 export const buildScheduleDraftFromEntry = (entry) => ({
   doseSize: entry.doseSize ? String(entry.doseSize) : '',
   scheduledTime: entry.scheduledTime || '',
-  intervalHours: entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
-  intervalMinutes: entry.intervalMinutes ? Number(entry.intervalMinutes) % 60 : '',
+  intervalHours: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Math.floor(Number(entry.intervalMinutes) / 60) : '',
+  intervalMinutes: entry.intervalMinutes && Number(entry.intervalMinutes) < 1440 ? Number(entry.intervalMinutes) % 60 : '',
+  intervalDays: entry.intervalMinutes && entry.intervalUnit !== 'weeks' && Number(entry.intervalMinutes) >= 1440 ? Math.floor(Number(entry.intervalMinutes) / 1440) : '',
+  intervalWeeks: entry.intervalMinutes && entry.intervalUnit === 'weeks' ? Math.floor(Number(entry.intervalMinutes) / 10080) : '',
+  intervalMonths: entry.intervalUnit === 'months' && entry.intervalCount ? String(entry.intervalCount) : '',
   dayOfWeek: entry.dayOfWeek || '',
   monthOfYear: entry.monthOfYear || '',
   dayOfMonth: entry.dayOfMonth ? String(entry.dayOfMonth) : '',
@@ -389,50 +469,50 @@ export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()
 
   if (isDarkMode()) {
     if (status === 'taken') {
-      return { status, label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText };
+      return statusStyle({ status, label: 'Taken', bgColor: '#0B1F3A', textColor: colors.brandText });
     }
 
     if (status === 'missed') {
-      return { status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error };
+      return statusStyle({ status, label: 'Missed', bgColor: '#2A1111', textColor: colors.error });
     }
 
     if (status === 'skipped') {
-      return { status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body };
+      return statusStyle({ status, label: 'Skipped', bgColor: colors.surface, textColor: colors.body });
     }
 
     if (status === 'due') {
-      return { status, label: 'Due now', bgColor: '#0F2A1B', textColor: colors.success };
+      return statusStyle({ status, label: 'Due now', bgColor: '#0F2A1B', textColor: colors.success });
     }
 
     if (status === 'pending') {
-      return { status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning };
+      return statusStyle({ status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning });
     }
 
-    return { status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body };
+    return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body });
   }
 
   // Accessible color palette conforming to standard WCAG AA contrast ratio requirements
   if (status === 'taken') {
-    return { status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }; // Sky Blue on Navy (contrast 6.3+)
+    return statusStyle({ status, label: 'Taken', bgColor: '#DBEAFE', textColor: '#1E40AF' }); // Sky Blue on Navy (contrast 6.3+)
   }
 
   if (status === 'missed') {
-    return { status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }; // Soft Red on Dark Crimson (contrast 6.5+)
+    return statusStyle({ status, label: 'Missed', bgColor: '#FEE2E2', textColor: '#991B1B' }); // Soft Red on Dark Crimson (contrast 6.5+)
   }
 
   if (status === 'skipped') {
-    return { status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }; // Light Gray on Charcoal (neutral, contrast 6.0+)
+    return statusStyle({ status, label: 'Skipped', bgColor: '#F3F4F6', textColor: '#374151' }); // Light Gray on Charcoal (neutral, contrast 6.0+)
   }
 
   if (status === 'due') {
-    return { status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }; // Mint Green on Forest Green (contrast 7.1+)
+    return statusStyle({ status, label: 'Due now', bgColor: '#D1FAE5', textColor: '#064E3B' }); // Mint Green on Forest Green (contrast 7.1+)
   }
 
   if (status === 'pending') {
-    return { status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }; // Soft Amber on Deep Brown (contrast 6.1+)
+    return statusStyle({ status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }); // Soft Amber on Deep Brown (contrast 6.1+)
   }
 
-  return { status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' };
+  return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' });
 };
 
 export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = new Date()) => {
@@ -469,13 +549,13 @@ export const isUpcomingScheduleTomorrow = (medicine, entry, statusStyle, now = n
 export const completedScheduleStyle = {
   status: 'completed',
   label: 'Completed',
-  bgColor: '#d1fae56c',
-  textColor: '#064E3B',
+  get bgColor() { return themeColor('#d1fae56c', 'backgroundColor'); },
+  get textColor() { return themeColor('#064E3B', 'color'); },
 };
 
 export const missedPreviewStyle = {
-  bgColor: '#FEE2E2',
-  textColor: '#991B1B',
+  get bgColor() { return themeColor('#FEE2E2', 'backgroundColor'); },
+  get textColor() { return themeColor('#991B1B', 'color'); },
 };
 
 export const formatRelativeDateLabel = (value, now = new Date()) => {
@@ -758,12 +838,16 @@ export const getScheduleDuplicateKey = (entry) => {
     return [
       'interval',
       normalizeDuplicateKey(entry.intervalMinutes || ''),
+      normalizeDuplicateKey(entry.intervalUnit || ''),
+      normalizeDuplicateKey(entry.intervalCount || ''),
       normalizeDuplicateKey(entry.activatedAt || ''),
     ].join('|');
   }
   return [
     normalizeDuplicateKey(scheduleEffectiveTime(entry)),
     normalizeDuplicateKey(entry.intervalMinutes || ''),
+    normalizeDuplicateKey(entry.intervalUnit || ''),
+    normalizeDuplicateKey(entry.intervalCount || ''),
     normalizeDuplicateKey(entry.dayOfWeek || ''),
     normalizeDuplicateKey(entry.monthOfYear || ''),
     normalizeDuplicateKey(entry.dayOfMonth || ''),
@@ -874,4 +958,3 @@ export const getMedicineStatusForSorting = (medicine, now = new Date()) => {
 
   return 'upcoming';
 };
-

@@ -3,7 +3,10 @@ import { StyleSheet, Text, TextInput } from 'react-native';
 import accessibilitySettingsService from '../../domain/services/AccessibilitySettingsService';
 import { roundToPixel } from './scaling';
 import {
+  getThemeColors,
   getThemeMode,
+  getColorBlindModeEnabled,
+  setColorBlindModeEnabled,
   setThemeMode,
   transformThemeValue,
   THEME_MODE_DARK,
@@ -52,12 +55,19 @@ export const normalizeTextScale = (value) => {
 };
 
 let currentTextScale = MIN_TEXT_SCALE;
+let currentHighContrastEnabled = false;
 
 export const getTextScale = () => currentTextScale;
+export const getHighContrastEnabled = () => currentHighContrastEnabled;
 
 export const setTextScale = (nextScale) => {
   currentTextScale = normalizeTextScale(nextScale);
   return currentTextScale;
+};
+
+export const setHighContrastEnabled = (enabled) => {
+  currentHighContrastEnabled = Boolean(enabled);
+  return currentHighContrastEnabled;
 };
 
 export const scaleFontSize = (baseSize) =>
@@ -71,7 +81,7 @@ export const getLayoutScale = () => layoutScaleFromTextScale(currentTextScale);
 export const scaleLayoutValue = (value) => roundToPixel(value * getLayoutScale());
 
 const transformThemeStyle = (style) => {
-  if (getThemeMode() !== THEME_MODE_DARK || !style || typeof style !== 'object') {
+  if ((getThemeMode() !== THEME_MODE_DARK && !getColorBlindModeEnabled()) || !style || typeof style !== 'object') {
     return style;
   }
 
@@ -129,7 +139,117 @@ const scaleTextStyle = (style) => {
     nextStyle.lineHeight = roundToPixel(resolvedLineHeightBase * currentTextScale);
   }
 
-  return transformThemeStyle(nextStyle);
+  const themedStyle = transformThemeStyle(nextStyle);
+
+  if (!currentHighContrastEnabled || !themedStyle || typeof themedStyle !== 'object') {
+    return themedStyle;
+  }
+
+  const HIGH_CONTRAST_EDGE_COLOR_KEYS = new Set([
+    'borderColor',
+    'borderBottomColor',
+    'borderTopColor',
+    'borderLeftColor',
+    'borderRightColor',
+  ]);
+  const HIGH_CONTRAST_BACKGROUND_KEYS = new Set(['backgroundColor']);
+  const HIGH_CONTRAST_TEXT_COLOR_KEYS = new Set([
+    'color',
+    'placeholderTextColor',
+    'textDecorationColor',
+    'textShadowColor',
+    'tintColor',
+    'accentColor',
+    'caretColor',
+  ]);
+
+  const HIGH_CONTRAST_BORDER_WIDTH_KEYS = new Set(['borderWidth']);
+
+  const isHexColor = (value) =>
+    typeof value === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
+
+  const normalizeHex = (hex) => {
+    const raw = hex.slice(1);
+    if (raw.length === 3) {
+      return raw
+        .split('')
+        .map((char) => char + char)
+        .join('');
+    }
+    return raw;
+  };
+
+  const hexToRgb = (hex) => {
+    const normalized = normalizeHex(hex);
+    const intValue = Number.parseInt(normalized, 16);
+    return {
+      r: (intValue >> 16) & 255,
+      g: (intValue >> 8) & 255,
+      b: intValue & 255,
+    };
+  };
+
+  const contrastedStyle = { ...themedStyle };
+  const darkMode = getThemeMode() === THEME_MODE_DARK;
+  const edgeColor = darkMode ? '#94A3B8' : '#000000';
+  const uniformBackground = getThemeColors(darkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT).pageBg;
+
+  const contrastTextColor = (value) => {
+    if (!isHexColor(value)) {
+      return value;
+    }
+
+    const { r, g, b } = hexToRgb(value);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    const isGray = delta <= 20;
+    const isGreen = g >= r + 20 && g >= b + 20;
+    const isBlue = b >= r + 20 && b >= g + 20;
+
+    if (isGray) {
+      return darkMode ? '#F8FAFC' : '#0F172A';
+    }
+
+    if (isGreen) {
+      return darkMode ? '#86EFAC' : '#166534';
+    }
+
+    if (isBlue) {
+      return darkMode ? '#93C5FD' : '#1E3A8A';
+    }
+
+    // For other hues, bias toward strong readable foreground per mode.
+    return darkMode ? '#F8FAFC' : '#0F172A';
+  };
+
+  Object.entries(contrastedStyle).forEach(([key, value]) => {
+    if (HIGH_CONTRAST_BACKGROUND_KEYS.has(key) && isHexColor(value)) {
+      contrastedStyle[key] = uniformBackground;
+      return;
+    }
+
+    if (HIGH_CONTRAST_EDGE_COLOR_KEYS.has(key) && isHexColor(value)) {
+      contrastedStyle[key] = edgeColor;
+      return;
+    }
+
+    if (HIGH_CONTRAST_TEXT_COLOR_KEYS.has(key)) {
+      contrastedStyle[key] = contrastTextColor(value);
+      return;
+    }
+
+    if (HIGH_CONTRAST_BORDER_WIDTH_KEYS.has(key) && typeof value === 'number') {
+      contrastedStyle[key] = Math.max(value, 2);
+      return;
+    }
+
+    if (key === 'fontWeight' && (typeof value === 'string' || typeof value === 'number')) {
+      contrastedStyle[key] = '700';
+    }
+  });
+
+  return contrastedStyle;
 };
 
 const createScaledStyleProxy = (styles) =>
@@ -199,24 +319,32 @@ export const installTextScaling = () => {
 
 const TextScaleContext = createContext(null);
 
-export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
-  const initialSettings = accessibilitySettingsService.getAccessibilitySettings(userId);
+export function TextScaleProvider({ children, userId = DEFAULT_USER_ID, settingsService = accessibilitySettingsService }) {
+  const initialSettings = settingsService.getAccessibilitySettings(userId);
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
   const initialDarkMode = Boolean(initialSettings?.darkModeEnabled);
+  const initialHighContrast = Boolean(initialSettings?.highContrastEnabled);
+  const initialColorBlindMode = Boolean(initialSettings?.colorBlindModeEnabled);
+  const initialHapticEnabled = initialSettings?.hapticEnabled ?? true;
 
   currentTextScale = initialScale;
+  currentHighContrastEnabled = initialHighContrast;
   setThemeMode(initialDarkMode ? THEME_MODE_DARK : THEME_MODE_LIGHT);
+  setColorBlindModeEnabled(initialColorBlindMode);
   const [textScale, setTextScaleState] = useState(initialScale);
   const [darkModeEnabled, setDarkModeEnabledState] = useState(initialDarkMode);
+  const [highContrastEnabled, setHighContrastEnabledState] = useState(initialHighContrast);
+  const [colorBlindModeEnabled, setColorBlindModeEnabledState] = useState(initialColorBlindMode);
+  const [hapticEnabled, setHapticEnabledState] = useState(initialHapticEnabled);
 
   const updateTextScale = useCallback(
     (nextScale) => {
       const normalized = normalizeTextScale(nextScale);
       currentTextScale = normalized;
       setTextScaleState(normalized);
-      accessibilitySettingsService.updateTextScale(userId, normalized);
+      settingsService.updateTextScale(userId, normalized);
     },
-    [userId]
+    [userId, settingsService]
   );
 
   const updateDarkMode = useCallback(
@@ -224,9 +352,42 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       const nextEnabled = Boolean(enabled);
       setThemeMode(nextEnabled ? THEME_MODE_DARK : THEME_MODE_LIGHT);
       setDarkModeEnabledState(nextEnabled);
-      accessibilitySettingsService.setDarkModeEnabled(userId, nextEnabled);
+      settingsService.setDarkModeEnabled(userId, nextEnabled);
     },
-    [userId]
+    [userId, settingsService]
+  );
+
+  const updateHighContrast = useCallback((enabled) => {
+    const nextEnabled = Boolean(enabled);
+    currentHighContrastEnabled = nextEnabled;
+    setHighContrastEnabledState(nextEnabled);
+  }, []);
+
+  const updateColorBlindMode = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setColorBlindModeEnabled(nextEnabled);
+      setColorBlindModeEnabledState(nextEnabled);
+
+      const currentSettings = settingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.colorBlindModeEnabled) !== nextEnabled) {
+        settingsService.toggleColorBlindMode(userId);
+      }
+    },
+    [userId, settingsService]
+  );
+
+  const updateHapticEnabled = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      setHapticEnabledState(nextEnabled);
+
+      const currentSettings = settingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.hapticEnabled) !== nextEnabled) {
+        settingsService.toggleHaptic(userId);
+      }
+    },
+    [userId, settingsService]
   );
 
   const value = useMemo(
@@ -235,8 +396,14 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID }) {
       setTextScale: updateTextScale,
       darkModeEnabled,
       setDarkModeEnabled: updateDarkMode,
+      highContrastEnabled,
+      setHighContrastEnabled: updateHighContrast,
+      colorBlindModeEnabled,
+      setColorBlindModeEnabled: updateColorBlindMode,
+      hapticEnabled,
+      setHapticEnabled: updateHapticEnabled,
     }),
-    [textScale, updateTextScale, darkModeEnabled, updateDarkMode]
+    [textScale, updateTextScale, darkModeEnabled, updateDarkMode, colorBlindModeEnabled, updateColorBlindMode, hapticEnabled, updateHapticEnabled, highContrastEnabled, updateHighContrast]
   );
 
   return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;

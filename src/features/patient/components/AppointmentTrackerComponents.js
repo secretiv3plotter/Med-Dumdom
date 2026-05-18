@@ -45,18 +45,13 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
     >
       <View style={styles.appointmentListHeader}>
         <View style={styles.cardHeaderBlock}>
-          <Text 
-            style={[styles.cardHeaderName, { fontSize: finalFontSize }]} 
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
+          <Text style={[styles.cardHeaderName, { fontSize: finalFontSize }]}>
             {appointment.concern}
           </Text>
           <Text style={styles.cardHeaderMeta}>
             {`${formatDate(appointment.dateSched)} at ${formatTime(appointment.timeSched)}`}
           </Text>
-          <Text style={styles.cardHeaderMeta} numberOfLines={1}>{appointment.address}</Text>
+          <Text style={styles.cardHeaderMeta}>{appointment.address}</Text>
         </View>
         <StatusBadge statusStyle={statusStyle} />
       </View>
@@ -117,6 +112,7 @@ export function AppointmentDetailsContent({ appointment, observedNow, onStatusCh
               onPress={() => onStatusChange(appointment, 'clear')}
               variant="outline"
               style={[styles.scheduleActionButton, styles.revertStatusButton]}
+              pressedStyle={styles.revertStatusButtonPressed}
               textStyle={styles.revertStatusButtonText}
               preserveFontSize
             />
@@ -162,14 +158,11 @@ function StatusBadge({ statusStyle }) {
 
   return (
     <View style={[styles.statusBadge, { backgroundColor: statusStyle.bgColor }]}>
-      <Text 
+      <Text
         style={[
-          styles.statusText, 
+          styles.statusText,
           { color: statusStyle.textColor, fontSize: finalFontSize }
-        ]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
+        ]}
       >
         {label}
       </Text>
@@ -294,6 +287,10 @@ const styles = StyleSheet.create({
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
     borderColor: colors.error,
+  },
+  revertStatusButtonPressed: {
+    backgroundColor: '#FECACA',
+    borderColor: '#B91C1C',
   },
   revertStatusButtonText: {
     color: colors.error,

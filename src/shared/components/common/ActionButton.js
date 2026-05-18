@@ -62,9 +62,9 @@ export default function ActionButton({
         outline ? { backgroundColor: colors.surface, borderColor: colors.brand } : { backgroundColor: colors.brand },
         pressed && !disabled && (outline ? styles.outlinePressed : styles.solidPressed),
         pressed && !disabled && (outline ? { backgroundColor: pressedBackgroundColor, borderColor: colors.brandText } : null),
+        style,
         pressed && !disabled && pressedStyle,
         disabled && styles.disabled,
-        style,
       ]}
     >
       <Text 

@@ -292,7 +292,9 @@ export default class MedEntry {
       if (!hasSubsequent) {
         const intervalMinutes = getIntervalMinutes(currentEntry);
         const currentActivatedAt = new Date(currentEntry.activatedAt);
-        const nextActivatedAt = new Date(currentActivatedAt.getTime() + intervalMinutes * 60000);
+        const nextActivatedAt = intervalMinutes
+          ? new Date(currentActivatedAt.getTime() + intervalMinutes * 60000)
+          : takenDateTime;
         
         const nextEntry = {
           ...currentEntry,
@@ -335,7 +337,9 @@ export default class MedEntry {
       if (!hasSubsequent) {
         const intervalMinutes = getIntervalMinutes(currentEntry);
         const currentActivatedAt = new Date(currentEntry.activatedAt);
-        const nextActivatedAt = new Date(currentActivatedAt.getTime() + intervalMinutes * 60000);
+        const nextActivatedAt = intervalMinutes
+          ? new Date(currentActivatedAt.getTime() + intervalMinutes * 60000)
+          : resolvedSkippedDateTime;
         
         const nextEntry = {
           ...currentEntry,

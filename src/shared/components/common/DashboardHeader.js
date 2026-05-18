@@ -6,6 +6,7 @@ import { accessibility, colors, moderateScale, spacing } from '../../theme';
 const HEADER_ACTION_ICON_SIZE = moderateScale(30);
 const HELP_ICON_SIZE = moderateScale(34);
 const HEADER_ACTION_TOUCH_SIZE = accessibility.minTouchTarget + spacing.xs;
+const SETTINGS_ACTION_LABEL_WIDTH = moderateScale(72);
 const HEADER_ACTION_ICON_OFFSET = { marginBottom: moderateScale(-6) };
 
 export default function DashboardHeader({
@@ -36,16 +37,18 @@ export default function DashboardHeader({
       <View style={styles.rightGroup}>
         <HelpButton
           label="Settings"
+          truncateLabel
           icon="settings"
           iconSize={HEADER_ACTION_ICON_SIZE}
           iconColor={headerActionColor}
-          style={styles.headerActionButton}
+          style={[styles.headerActionButton, styles.settingsActionButton]}
           iconWrapStyle={[styles.headerActionIconWrap, HEADER_ACTION_ICON_OFFSET]}
           textStyle={styles.headerActionText}
           onPress={onSettingsPress}
           disabled={settingsDisabled}
         />
         <HelpButton
+          truncateLabel
           onPress={onHelpPress}
           disabled={helpDisabled}
           icon="help-circle"
@@ -69,7 +72,7 @@ const styles = StyleSheet.create({
   },
   leftGroup: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexShrink: 1,
   },
   rightGroup: {
@@ -81,6 +84,10 @@ const styles = StyleSheet.create({
     width: HEADER_ACTION_TOUCH_SIZE,
     minWidth: HEADER_ACTION_TOUCH_SIZE,
     gap: spacing.xxs,
+  },
+  settingsActionButton: {
+    width: SETTINGS_ACTION_LABEL_WIDTH,
+    minWidth: SETTINGS_ACTION_LABEL_WIDTH,
   },
   headerActionIconWrap: {
     width: HEADER_ACTION_TOUCH_SIZE,

@@ -103,6 +103,8 @@ export default function HelpAndSupportScreen({ navigation }) {
           {HELP_CATEGORY_LABELS.map((category) => (
             <Pressable
               key={category}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${category} help topics`}
               onPress={() => setSelectedCategory(category)}
               style={[
                 styles.categoryChip,

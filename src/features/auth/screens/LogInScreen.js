@@ -76,6 +76,8 @@ export default function LogInScreen({ navigation }) {
           />
           <Text style={styles.signupPrompt}>Don't have an account?</Text>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign up"
             onPress={() => navigation?.navigate?.(ROUTES.SIGN_UP)}
             unstable_pressDelay={0}
             style={({ pressed }) => pressed && styles.linkPressed}

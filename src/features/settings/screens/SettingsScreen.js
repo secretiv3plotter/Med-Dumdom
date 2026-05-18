@@ -112,6 +112,8 @@ export default function SettingsScreen({ navigation }) {
                 },
               ]}
               onPress={() => navigation?.navigate?.(item.route)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.title}. ${item.subtitle}`}
             >
               <Ionicons name={item.icon} size={scaleLayoutValue(28)} color={colors.brandText} />
               <View style={[styles.optionTextBlock, { gap: scaleLayoutValue(2) }]}>

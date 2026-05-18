@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -11,6 +11,7 @@ import ToggleButton from '../../../shared/components/common/ToggleButton';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import Slider from '@react-native-community/slider';
@@ -30,22 +31,20 @@ const CURRENT_USER_ID = 'current-user';
 
 const ACCESSIBILITY_TOGGLES = [
   { key: 'highContrastEnabled', label: 'High contrast', toggle: 'toggleHighContrast' },
-  { key: 'reducedMotionEnabled', label: 'Reduced motion', toggle: 'toggleReducedMotion' },
-  { key: 'screenReaderSupportEnabled', label: 'Screen reader support', toggle: 'toggleScreenReaderSupport' },
   { key: 'hapticEnabled', label: 'Haptic feedback', toggle: 'toggleHaptic' },
-  { key: 'speechToTextEnabled', label: 'Speech to text', toggle: 'toggleSpeechToText' },
-  { key: 'assistiveDeviceEnabled', label: 'Assistive device support', toggle: 'toggleAssistiveDevice' },
-  { key: 'voiceTypingEnabled', label: 'Voice typing', toggle: 'toggleVoiceTyping' },
   { key: 'colorBlindModeEnabled', label: 'Color blind mode', toggle: 'toggleColorBlindMode' },
-  { key: 'easyModeEnabled', label: 'Easy mode', toggle: 'toggleEasyMode' },
   { key: 'darkModeEnabled', label: 'Dark mode', toggle: 'toggleDarkMode' },
 ];
 
-export default function AccessibilitySettingsScreen({ navigation }) {
-  const [settings, setSettings] = useState(() =>
-    accessibilitySettingsService.getAccessibilitySettings(CURRENT_USER_ID)
+export default function AccessibilitySettingsScreen({ navigation, realm = null }) {
+  const settingsRepository = useMemo(
+    () => (realm ? new RealmSettingsPreferenceRepository(realm) : accessibilitySettingsService),
+    [realm]
   );
-  const { setTextScale, setDarkModeEnabled } = useTextScale();
+  const [settings, setSettings] = useState(() =>
+    settingsRepository.getAccessibilitySettings(CURRENT_USER_ID)
+  );
+  const { setTextScale, setDarkModeEnabled, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
   const footerNav = useScrollAwareFooterNav();
 
@@ -59,7 +58,28 @@ export default function AccessibilitySettingsScreen({ navigation }) {
     setInputValue(nextScale.toFixed(1));
     setTextScale(nextScale);
     setDarkModeEnabled(Boolean(settings.darkModeEnabled));
-  }, [settings.textScale, settings.textSizeLevel, settings.darkModeEnabled, setTextScale, setDarkModeEnabled]);
+    setColorBlindModeEnabled(Boolean(settings.colorBlindModeEnabled));
+    setHapticEnabled(Boolean(settings.hapticEnabled ?? true));
+    setHighContrastEnabled(Boolean(settings.highContrastEnabled));
+  }, [
+    
+    settings.textScale,
+   
+    settings.textSizeLevel,
+   
+    settings.darkModeEnabled,
+    settings.colorBlindModeEnabled,
+    settings.hapticEnabled,
+   
+    settings.highContrastEnabled,
+    setTextScale,
+   
+    setDarkModeEnabled,
+    setColorBlindModeEnabled,
+    setHapticEnabled,
+  ,
+    setHighContrastEnabled,
+  ]);
 
   const commitTextScale = (value) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -72,7 +92,7 @@ export default function AccessibilitySettingsScreen({ navigation }) {
       Math.max(MIN_TEXT_SCALE, Number(parsed.toFixed(1)))
     );
 
-    const updatedSettings = accessibilitySettingsService.updateTextScale(
+    const updatedSettings = settingsRepository.updateTextScale(
       CURRENT_USER_ID,
       clamped
     );
@@ -92,11 +112,22 @@ export default function AccessibilitySettingsScreen({ navigation }) {
   };
 
   const toggleSetting = (toggleMethod) => {
-    const updatedSettings = accessibilitySettingsService[toggleMethod](CURRENT_USER_ID);
+    const updatedSettings = settingsRepository[toggleMethod](CURRENT_USER_ID);
     setSettings(updatedSettings);
 
     if (toggleMethod === 'toggleDarkMode') {
       setDarkModeEnabled(updatedSettings.darkModeEnabled);
+    }
+
+    if (toggleMethod === 'toggleColorBlindMode') {
+      setColorBlindModeEnabled(updatedSettings.colorBlindModeEnabled);
+    }
+
+    if (toggleMethod === 'toggleHaptic') {
+      setHapticEnabled(updatedSettings.hapticEnabled ?? true);
+    }
+    if (toggleMethod === 'toggleHighContrast') {
+      setHighContrastEnabled(updatedSettings.highContrastEnabled);
     }
   };
 

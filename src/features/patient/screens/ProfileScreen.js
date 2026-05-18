@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  TouchableOpacity,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -28,6 +32,7 @@ import TextCard from '../../../shared/components/common/TextCard';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
@@ -40,10 +45,10 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 const FALLBACK_PROFILE = {
-  fullName: 'Jane Doe',
+  fullName: '',
   profilePicture: '',
-  birthDate: new Date('1975-06-15'),
-  address: 'Cebu City',
+  birthDate: null,
+  address: '',
 };
 
 const toDraft = (profile) => ({
@@ -70,25 +75,30 @@ const formatBirthDate = (birthDate) => {
   });
 };
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
+  const profileRepository = useMemo(
+    () => (realm ? new RealmUserRepository(realm) : personalProfileService),
+    [realm]
+  );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
+    const currentProfile = profileRepository.getProfile(CURRENT_USER_ID);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return personalProfileService.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+    return profileRepository.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
   const [showSavedDialog, setShowSavedDialog] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const timeoutRef = useRef(null);
 
   useEffect(() => {
@@ -104,6 +114,10 @@ export default function ProfileScreen({ navigation }) {
     };
   }, []);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [profile.profilePicture]);
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
@@ -112,9 +126,43 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
+    const savedProfile = profileRepository.saveProfile(CURRENT_USER_ID, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
+  };
+
+  const handleChangeProfilePicture = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please allow photo library access to change your profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      const selectedImageUri = result.assets[0]?.uri || '';
+      if (!selectedImageUri) {
+        return;
+      }
+
+      setAvatarLoadFailed(false);
+      setDraft((current) => ({ ...current, profilePicture: selectedImageUri }));
+      if (!isEditing) {
+        setIsEditing(true);
+      }
+    } catch (error) {
+      Alert.alert('Unable to update picture', 'Something went wrong while selecting your profile picture.');
+    }
   };
 
   const onCancel = () => {
@@ -138,7 +186,7 @@ export default function ProfileScreen({ navigation }) {
 
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
-      profilePicture: draft.profilePicture.trim(),
+      profilePicture: draft.profilePicture?.trim() || '',
       birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
@@ -157,7 +205,8 @@ export default function ProfileScreen({ navigation }) {
     }, 3000);
   };
 
-  const displayPicture = profile.profilePicture?.trim();
+  const displayPicture = (isEditing ? draft.profilePicture : profile.profilePicture)?.trim();
+  const hasValidDisplayPicture = Boolean(displayPicture) && !avatarLoadFailed;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -199,13 +248,27 @@ export default function ProfileScreen({ navigation }) {
 
           <TextCard cardStyle={styles.profileCardTop}>
             <View style={styles.avatarShell}>
-              {displayPicture ? (
-                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+              {hasValidDisplayPicture ? (
+                <Image
+                  source={{ uri: displayPicture }}
+                  style={styles.profileImage}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
               ) : (
                 <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
+            <View style={styles.photoPickerRow}>
+              <TouchableOpacity
+                onPress={handleChangeProfilePicture}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile picture"
+                style={styles.photoPickerValue}
+              >
+                <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
+              </TouchableOpacity>
+            </View>
           </TextCard>
 
           <TextCard cardStyle={styles.profileCard}>
@@ -234,13 +297,6 @@ export default function ProfileScreen({ navigation }) {
                   value={draft.fullName}
                   onChangeText={(value) => setDraft((current) => ({ ...current, fullName: value }))}
                   placeholder="Enter full name"
-                />
-
-                <Text style={styles.label}>Profile picture URL:</Text>
-                <InputBar
-                  value={draft.profilePicture}
-                  onChangeText={(value) => setDraft((current) => ({ ...current, profilePicture: value }))}
-                  placeholder="Enter profile picture URL or file path"
                 />
 
                 <NativeDateTimeField
@@ -323,8 +379,8 @@ export default function ProfileScreen({ navigation }) {
           animationType="fade"
           onRequestClose={() => setShowConfirmSave(false)}
         >
-          <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
-            <Pressable style={styles.dialogWrap} onPress={() => {}}>
+          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
+            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
               <DialogBox
                 title="Are you Sure?"
                 message="You are about to save changes."
@@ -393,6 +449,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileImage: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   profileCard: {
     backgroundColor: colors.surface,
     borderColor: '#C9D6EA',
@@ -404,6 +468,27 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     color: colors.title,
     fontWeight: '700',
+  },
+  photoPickerRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: spacing.xs,
+  },
+  photoPickerValue: {
+    backgroundColor: colors.surface,
+    width: '72%',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.lg,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+  },
+  photoPickerValueText: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    textAlign: 'center',
   },
   metaRow: {
     flexDirection: 'row',
@@ -428,22 +513,27 @@ const styles = StyleSheet.create({
   infoTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: spacing.xs,
   },
   infoTitleGroup: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    paddingRight: spacing.xs,
   },
   infoTitle: {
     ...typography.body,
     color: colors.title,
     fontWeight: '700',
+    flexShrink: 1,
   },
   editActionWrap: {
-    minWidth: 0,
+    flexShrink: 0,
     alignItems: 'flex-end',
+    marginLeft: spacing.xs,
   },
   editActionButton: {
     minWidth: 0,
