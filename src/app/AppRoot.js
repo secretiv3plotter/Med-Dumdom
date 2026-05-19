@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
@@ -9,6 +9,12 @@ import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
 import { FirebaseProvider, useFirebase } from '../localdb/firebase/FirebaseAuthContext';
+import FirebaseSyncService from '../sync/FirebaseSyncService';
+import RealmMedTrackerRepository from '../localdb/realm/RealmMedTrackerRepository';
+import RealmApptTrackerRepository from '../localdb/realm/RealmApptTrackerRepository';
+import RealmMedUnitRepository from '../localdb/realm/RealmMedUnitRepository';
+import RealmUserRepository from '../localdb/realm/RealmUserRepository';
+import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -95,6 +101,27 @@ function AppContent() {
       setHistory([{ routeName: ROUTES.HOME, params: {} }]);
     }
   }, [currentUser]); // intentionally only re-runs when auth state changes, not on every route change
+
+  const hasSyncedOnStartup = useRef(false);
+  useEffect(() => {
+    if (currentUser === undefined || currentUser === null || !firebase?.db || !realm) {
+      if (currentUser === null) hasSyncedOnStartup.current = false;
+      return;
+    }
+    if (hasSyncedOnStartup.current) return;
+    hasSyncedOnStartup.current = true;
+    const syncService = new FirebaseSyncService({
+      firestoreDb: firebase.db,
+      medRepository: new RealmMedTrackerRepository(realm),
+      apptRepository: new RealmApptTrackerRepository(realm),
+      medUnitRepository: new RealmMedUnitRepository(realm),
+      userRepository: new RealmUserRepository(realm),
+      settingsRepository: new RealmSettingsPreferenceRepository(realm),
+    });
+    syncService.syncAll(currentUser.uid).catch((err) => {
+      console.warn('Startup sync failed:', err);
+    });
+  }, [currentUser, firebase, realm]);
 
   const navigation = useMemo(
     () => ({
