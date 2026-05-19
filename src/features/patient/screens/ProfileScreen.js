@@ -20,6 +20,11 @@ import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
+import FirebaseSyncService from '../../../sync/FirebaseSyncService';
+import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
+import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import {
   BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
@@ -131,6 +136,24 @@ export default function ProfileScreen({ navigation, realm = null }) {
 
   const confirmLogOut = async () => {
     setShowConfirmLogOut(false);
+    if (firebase?.db && realm) {
+      try {
+        const userId = firebase.auth?.currentUser?.uid;
+        if (userId) {
+          const syncService = new FirebaseSyncService({
+            firestoreDb: firebase.db,
+            medRepository: new RealmMedTrackerRepository(realm),
+            apptRepository: new RealmApptTrackerRepository(realm),
+            medUnitRepository: new RealmMedUnitRepository(realm),
+            userRepository: new RealmUserRepository(realm),
+            settingsRepository: new RealmSettingsPreferenceRepository(realm),
+          });
+          await syncService.syncAll(userId);
+        }
+      } catch (syncErr) {
+        console.warn('Pre-logout sync failed, logging out anyway:', syncErr);
+      }
+    }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('_med_dumdom_secure_db_');
     }
