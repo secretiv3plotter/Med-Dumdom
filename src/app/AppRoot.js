@@ -84,7 +84,7 @@ const AUTH_ROUTES = new Set([ROUTES.LOG_IN, ROUTES.SIGN_UP]);
 
 function AppContent() {
   const realm = useRealm();
-  const { currentUser } = useFirebase();
+  const { firebase, currentUser } = useFirebase();
   const { textScale, darkModeEnabled, hapticEnabled } = useTextScale();
   const [history, setHistory] = useState([{ routeName: ROUTES.LOG_IN, params: {} }]);
   const currentEntry = history[history.length - 1];
