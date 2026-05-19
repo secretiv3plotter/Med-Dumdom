@@ -3,7 +3,6 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -29,10 +28,7 @@ export default function LogInScreen({ navigation }) {
 
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(firebase.auth, email.trim(), password);
-      const userId = userCredential.user.uid;
-
-      navigation?.navigate?.(ROUTES.HOME);
+      await signInWithEmailAndPassword(firebase.auth, email.trim(), password);
     } catch (err) {
       const message =
         err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'
