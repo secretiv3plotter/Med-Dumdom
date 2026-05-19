@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
@@ -13,17 +13,20 @@ export default function SignUpScreen({ navigation }) {
   const { firebase } = useFirebase();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const isFormComplete = email.trim().length > 0 && password.trim().length > 0;
 
   const handleSignUpPress = async () => {
+    setErrorMessage('');
+
     if (!isFormComplete) {
-      Alert.alert('Incomplete details', 'Please complete email and password.');
+      setErrorMessage('Please enter your email and password.');
       return;
     }
 
     if (!firebase) {
-      Alert.alert('Not ready', 'Still connecting to the server. Please try again.');
+      setErrorMessage('Still connecting. Please try again in a moment.');
       return;
     }
 
@@ -38,8 +41,8 @@ export default function SignUpScreen({ navigation }) {
           ? 'Please enter a valid email address.'
           : err.code === 'auth/weak-password'
           ? 'Password must be at least 6 characters.'
-          : 'Sign up failed. Please check your connection and try again.';
-      Alert.alert('Sign Up Failed', message);
+          : `Sign up failed (${err.code ?? 'unknown'}). Check your connection and try again.`;
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +69,15 @@ export default function SignUpScreen({ navigation }) {
           />
           <Text style={styles.fieldLabel}>Password:</Text>
           <InputBar
-            placeholder="Enter your password"
+            placeholder="Enter your password (min. 6 characters)"
             accessibilityLabel="Password"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
+          {errorMessage ? (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          ) : null}
           <ActionButton
             label={isLoading ? "Creating Account..." : "Sign Up"}
             onPress={handleSignUpPress}
@@ -142,6 +148,13 @@ const styles = StyleSheet.create({
     fontSize: getFontSize(16),
     fontWeight: '500',
     color: colors.body,
+  },
+  errorText: {
+    fontSize: getFontSize(14),
+    color: colors.error,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
   title: {
     fontSize: getFontSize(36),
