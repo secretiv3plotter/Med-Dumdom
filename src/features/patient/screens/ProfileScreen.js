@@ -352,6 +352,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
                   value={draft.birthDate}
                   onChange={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
                   optional
+                  maximumDate={new Date()}
                 />
 
                 <Text style={styles.label}>Address:</Text>
