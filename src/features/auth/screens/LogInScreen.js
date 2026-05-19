@@ -5,6 +5,7 @@ import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import { ROUTES } from '../../../app/navigation/routes';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 
