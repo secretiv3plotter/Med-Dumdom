@@ -259,7 +259,7 @@ export class WebRealm {
   // Async saving in the background (write-behind cache)
   async saveAsync() {
     if (!this.key) return;
-    
+
     try {
       const plaintext = JSON.stringify(this.collections);
       const encryptedObj = await encryptData(plaintext, this.key);
@@ -268,20 +268,27 @@ export class WebRealm {
       console.error("Background encrypted database save failed:", err);
     }
   }
-  
+
+  // Waits for any in-flight saveAsync to complete before proceeding
+  async flush() {
+    if (this._pendingSave) {
+      await this._pendingSave;
+    }
+  }
+
   // PERFECT REALM SCHEMA PARITY (100% synchronous CRUD methods)
   write(callback) {
     if (this.isInTransaction) {
       return callback();
     }
-    
+
     this.isInTransaction = true;
     try {
       const result = callback();
       // Sync memory state complete! Trigger reactive UI update instantly
       this.notifyListeners();
-      // Save securely in the background asynchronously
-      this.saveAsync();
+      // Save securely in the background, track the promise so flush() can await it
+      this._pendingSave = this.saveAsync();
       return result;
     } finally {
       this.isInTransaction = false;

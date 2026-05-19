@@ -154,6 +154,9 @@ export default function ProfileScreen({ navigation, realm = null }) {
         console.warn('Pre-logout sync failed, logging out anyway:', syncErr);
       }
     }
+    if (realm && typeof realm.flush === 'function') {
+      await realm.flush();
+    }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('_med_dumdom_secure_db_');
     }

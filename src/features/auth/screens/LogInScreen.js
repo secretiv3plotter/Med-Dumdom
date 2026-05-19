@@ -50,6 +50,9 @@ export default function LogInScreen({ navigation }) {
           settingsRepository: realm ? new RealmSettingsPreferenceRepository(realm) : null,
         });
         await syncService.syncAll(userId);
+        if (realm && typeof realm.flush === 'function') {
+          await realm.flush();
+        }
       } catch (syncErr) {
         console.warn('Sync failed, continuing offline:', syncErr);
       }
