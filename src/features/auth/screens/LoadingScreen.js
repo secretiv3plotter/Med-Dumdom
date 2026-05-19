@@ -9,6 +9,7 @@ import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerR
 import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
 import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
+import personalProfileService from '../../../domain/services/PersonalProfileService';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, spacing, typography } from '../../../shared/theme';
 
@@ -38,7 +39,12 @@ export default function LoadingScreen({ navigation, realm: realmProp = null }) {
       }
 
       if (!cancelled) {
-        navigation?.reset?.(ROUTES.HOME);
+        const profileRepo = realm
+          ? new RealmUserRepository(realm)
+          : personalProfileService;
+        const profile = currentUser ? profileRepo.getProfile(currentUser.uid) : null;
+        const hasProfile = Boolean(profile?.fullName?.trim());
+        navigation?.reset?.(hasProfile ? ROUTES.HOME : ROUTES.PROFILE_SETUP);
       }
     }
 

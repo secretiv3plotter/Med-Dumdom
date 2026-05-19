@@ -30,7 +30,6 @@ export default function SignUpScreen({ navigation }) {
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(firebase.auth, email.trim(), password);
-      navigation?.navigate?.(ROUTES.HOME);
     } catch (err) {
       const message =
         err.code === 'auth/email-already-in-use'
