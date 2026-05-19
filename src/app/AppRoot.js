@@ -14,7 +14,6 @@ import RealmMedTrackerRepository from '../localdb/realm/RealmMedTrackerRepositor
 import RealmApptTrackerRepository from '../localdb/realm/RealmApptTrackerRepository';
 import RealmMedUnitRepository from '../localdb/realm/RealmMedUnitRepository';
 import RealmUserRepository from '../localdb/realm/RealmUserRepository';
-import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
