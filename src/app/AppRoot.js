@@ -118,8 +118,36 @@ function AppContent() {
       settingsRepository: new RealmSettingsPreferenceRepository(realm),
     });
     syncService.syncAll(currentUser.uid).catch((err) => {
-      console.warn('Startup sync failed:', err);
+      console.error('Startup sync failed:', err);
     });
+  }, [currentUser, firebase, realm]);
+
+  useEffect(() => {
+    if (!realm || !currentUser || !firebase?.db) return;
+    let debounceTimer = null;
+    const handleChange = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const syncService = new FirebaseSyncService({
+            firestoreDb: firebase.db,
+            medRepository: new RealmMedTrackerRepository(realm),
+            apptRepository: new RealmApptTrackerRepository(realm),
+            medUnitRepository: new RealmMedUnitRepository(realm),
+            userRepository: new RealmUserRepository(realm),
+            settingsRepository: new RealmSettingsPreferenceRepository(realm),
+          });
+          await syncService.syncAll(currentUser.uid);
+        } catch (err) {
+          console.error('Auto-sync failed:', err);
+        }
+      }, 3000);
+    };
+    realm.addListener('change', handleChange);
+    return () => {
+      realm.removeListener('change', handleChange);
+      clearTimeout(debounceTimer);
+    };
   }, [currentUser, firebase, realm]);
 
   const navigation = useMemo(

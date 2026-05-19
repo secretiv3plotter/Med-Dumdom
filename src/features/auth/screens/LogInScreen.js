@@ -54,7 +54,7 @@ export default function LogInScreen({ navigation }) {
           await realm.flush();
         }
       } catch (syncErr) {
-        console.warn('Sync failed, continuing offline:', syncErr);
+        console.error('Sync failed, continuing offline:', syncErr);
       }
 
       navigation?.navigate?.(ROUTES.HOME);

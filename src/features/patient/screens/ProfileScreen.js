@@ -149,7 +149,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
           await syncService.syncAll(userId);
         }
       } catch (syncErr) {
-        console.warn('Pre-logout sync failed, logging out anyway:', syncErr);
+        console.error('Pre-logout sync failed, logging out anyway:', syncErr);
       }
     }
     if (realm && typeof realm.flush === 'function') {
