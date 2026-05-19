@@ -6,18 +6,10 @@ import InputBar from '../../../shared/components/common/InputBar';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
-import { useRealm } from '../../../localdb/realm/RealmContext';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
-import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
-import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
-import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
-import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
-import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
-import FirebaseSyncService from '../../../sync/FirebaseSyncService';
 
 export default function LogInScreen({ navigation }) {
-  const realm = useRealm();
   const { firebase } = useFirebase();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,23 +31,6 @@ export default function LogInScreen({ navigation }) {
     try {
       const userCredential = await signInWithEmailAndPassword(firebase.auth, email.trim(), password);
       const userId = userCredential.user.uid;
-
-      try {
-        const syncService = new FirebaseSyncService({
-          firestoreDb: firebase.db,
-          medRepository: realm ? new RealmMedTrackerRepository(realm) : null,
-          apptRepository: realm ? new RealmApptTrackerRepository(realm) : null,
-          medUnitRepository: realm ? new RealmMedUnitRepository(realm) : null,
-          userRepository: realm ? new RealmUserRepository(realm) : null,
-          settingsRepository: realm ? new RealmSettingsPreferenceRepository(realm) : null,
-        });
-        await syncService.syncAll(userId);
-        if (realm && typeof realm.flush === 'function') {
-          await realm.flush();
-        }
-      } catch (syncErr) {
-        console.error('Sync failed, continuing offline:', syncErr);
-      }
 
       navigation?.navigate?.(ROUTES.HOME);
     } catch (err) {

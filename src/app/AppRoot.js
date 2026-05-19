@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
@@ -97,30 +97,9 @@ function AppContent() {
       setHistory([{ routeName: ROUTES.LOG_IN, params: {} }]);
     }
     if (currentUser !== null && AUTH_ROUTES.has(currentRoute)) {
-      setHistory([{ routeName: ROUTES.HOME, params: {} }]);
+      setHistory([{ routeName: ROUTES.LOADING, params: {} }]);
     }
   }, [currentUser]); // intentionally only re-runs when auth state changes, not on every route change
-
-  const hasSyncedOnStartup = useRef(false);
-  useEffect(() => {
-    if (currentUser === undefined || currentUser === null || !firebase?.db || !realm) {
-      if (currentUser === null) hasSyncedOnStartup.current = false;
-      return;
-    }
-    if (hasSyncedOnStartup.current) return;
-    hasSyncedOnStartup.current = true;
-    const syncService = new FirebaseSyncService({
-      firestoreDb: firebase.db,
-      medRepository: new RealmMedTrackerRepository(realm),
-      apptRepository: new RealmApptTrackerRepository(realm),
-      medUnitRepository: new RealmMedUnitRepository(realm),
-      userRepository: new RealmUserRepository(realm),
-      settingsRepository: new RealmSettingsPreferenceRepository(realm),
-    });
-    syncService.syncAll(currentUser.uid).catch((err) => {
-      console.error('Startup sync failed:', err);
-    });
-  }, [currentUser, firebase, realm]);
 
   useEffect(() => {
     if (!realm || !currentUser || !firebase?.db) return;

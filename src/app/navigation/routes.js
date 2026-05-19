@@ -1,6 +1,7 @@
 export const ROUTES = {
   SIGN_UP: 'SignUp',
   LOG_IN: 'LogIn',
+  LOADING: 'Loading',
   SETTINGS: 'SettingsScreen',
   HOME: 'PatientDashboard',
   PATIENT_DASHBOARD: 'PatientDashboard',
