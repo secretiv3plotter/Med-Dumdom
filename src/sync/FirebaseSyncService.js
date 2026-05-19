@@ -44,15 +44,15 @@ export default class FirebaseSyncService {
       : null;
   }
 
-  async syncAll(userId) {
+  async syncAll(userId, localUserId = userId) {
     const results = {};
 
     if (this.medSyncService) {
-      results.medicines = await this.medSyncService.syncAll(userId);
+      results.medicines = await this.medSyncService.syncAll(userId, localUserId);
     }
 
     if (this.apptSyncService) {
-      results.appointments = await this.apptSyncService.syncAll(userId);
+      results.appointments = await this.apptSyncService.syncAll(userId, localUserId);
     }
 
     if (this.medUnitSyncService) {
@@ -60,7 +60,7 @@ export default class FirebaseSyncService {
     }
 
     if (this.userSettingsSyncService) {
-      results.userSettings = await this.userSettingsSyncService.syncAll(userId);
+      results.userSettings = await this.userSettingsSyncService.syncAll(userId, localUserId);
     }
 
     return results;

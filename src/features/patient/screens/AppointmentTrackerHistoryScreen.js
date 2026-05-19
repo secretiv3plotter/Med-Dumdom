@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
@@ -21,7 +22,6 @@ import useScrollAwareFooterNav from '../../../shared/components/common/useScroll
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
-const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
 const FOOTER_NAV_Z_INDEX = 30;
 const APPOINTMENT_ACCENT = '#52B788';
@@ -183,6 +183,7 @@ const groupRecordsByDate = (records) => {
 };
 
 export default function AppointmentTrackerHistoryScreen({ navigation, realm = null }) {
+  const { currentUser } = useFirebase();
   const [version, setVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
@@ -201,7 +202,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
   );
 
   const records = useMemo(
-    () => activeApptTrackerService.listPreviousApptRecords(CURRENT_USER_ID).map(normalizeRecord).filter(Boolean),
+    () => activeApptTrackerService.listPreviousApptRecords(currentUser.uid).map(normalizeRecord).filter(Boolean),
     [activeApptTrackerService, version]
   );
 
@@ -245,7 +246,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
     }
 
     activeApptTrackerService.deleteApptTrackerHistoryRecords(
-      CURRENT_USER_ID,
+      currentUser.uid,
       pendingDeleteTarget.historyIds
     );
     setSelectedRecord((currentRecord) => (

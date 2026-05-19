@@ -15,6 +15,7 @@ import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRep
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import {
   formatDoseWithUnit,
   formatTime,
@@ -30,8 +31,6 @@ const TAB_KEY_TO_ROUTE = {
   appointment: ROUTES.APPOINTMENT_TRACKER,
   med: ROUTES.MED_TRACKER,
 };
-
-const CURRENT_USER_ID = 'current-user';
 
 const STATUS_RANKS = {
   due: 0,
@@ -137,6 +136,7 @@ const buildMostDueAppointment = (appointments, now) => {
 };
 
 export default function PatientDashboardScreen({ navigation, realm = null }) {
+  const { currentUser } = useFirebase();
   const fallbackPatientName = navigation?.currentParams?.patientName || 'Patient';
   const [patientFirstName, setPatientFirstName] = useState(fallbackPatientName);
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
@@ -161,7 +161,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   );
 
   const refreshProfileSummary = () => {
-    const profile = activeProfileService.getProfile(CURRENT_USER_ID);
+    const profile = activeProfileService.getProfile(currentUser.uid);
     const firstName = String(profile?.fullName || '')
       .trim()
       .split(/\s+/)[0];
@@ -171,7 +171,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   };
 
   const refreshAccessibilitySettings = () => {
-    const settings = activeSettingsService.getAccessibilitySettings(CURRENT_USER_ID);
+    const settings = activeSettingsService.getAccessibilitySettings(currentUser.uid);
     const nextTextSizeLevel = Number(settings?.textSizeLevel);
     setTextSizeLevel(Number.isNaN(nextTextSizeLevel) ? 1 : nextTextSizeLevel);
   };
@@ -209,7 +209,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   const footerNav = useScrollAwareFooterNav();
   const mostDueMedSchedule = useMemo(() => {
     try {
-      return buildMostDueMedSchedule(activeMedTrackerService.listMedEntries(CURRENT_USER_ID), observedNow);
+      return buildMostDueMedSchedule(activeMedTrackerService.listMedEntries(currentUser.uid), observedNow);
     } catch (error) {
       console.warn('Failed to load dashboard medicine schedule:', error);
       return null;
@@ -218,7 +218,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
 
   const mostDueAppointment = useMemo(() => {
     try {
-      return buildMostDueAppointment(activeApptTrackerService.listApptEntries(CURRENT_USER_ID), observedNow);
+      return buildMostDueAppointment(activeApptTrackerService.listApptEntries(currentUser.uid), observedNow);
     } catch (error) {
       console.warn('Failed to load dashboard appointment schedule:', error);
       return null;

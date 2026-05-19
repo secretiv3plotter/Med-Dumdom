@@ -12,6 +12,7 @@ import ThemedScrollView from '../../../shared/components/common/ThemedScrollView
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, radius, spacing, typography } from '../../../shared/theme';
 import Slider from '@react-native-community/slider';
@@ -27,8 +28,6 @@ const TAB_KEY_TO_ROUTE = {
   med: ROUTES.MED_TRACKER,
 };
 
-const CURRENT_USER_ID = 'current-user';
-
 const ACCESSIBILITY_TOGGLES = [
   { key: 'highContrastEnabled', label: 'High contrast', toggle: 'toggleHighContrast' },
   { key: 'hapticEnabled', label: 'Haptic feedback', toggle: 'toggleHaptic' },
@@ -37,12 +36,13 @@ const ACCESSIBILITY_TOGGLES = [
 ];
 
 export default function AccessibilitySettingsScreen({ navigation, realm = null }) {
+  const { currentUser } = useFirebase();
   const settingsRepository = useMemo(
     () => (realm ? new RealmSettingsPreferenceRepository(realm) : accessibilitySettingsService),
     [realm]
   );
   const [settings, setSettings] = useState(() =>
-    settingsRepository.getAccessibilitySettings(CURRENT_USER_ID)
+    settingsRepository.getAccessibilitySettings(currentUser.uid)
   );
   const { setTextScale, setDarkModeEnabled, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
   const pinHeader = Number(settings.textScale ?? settings.textSizeLevel ?? 1.0) < 1.5;
@@ -93,7 +93,7 @@ export default function AccessibilitySettingsScreen({ navigation, realm = null }
     );
 
     const updatedSettings = settingsRepository.updateTextScale(
-      CURRENT_USER_ID,
+      currentUser.uid,
       clamped
     );
 
@@ -112,7 +112,7 @@ export default function AccessibilitySettingsScreen({ navigation, realm = null }
   };
 
   const toggleSetting = (toggleMethod) => {
-    const updatedSettings = settingsRepository[toggleMethod](CURRENT_USER_ID);
+    const updatedSettings = settingsRepository[toggleMethod](currentUser.uid);
     setSettings(updatedSettings);
 
     if (toggleMethod === 'toggleDarkMode') {

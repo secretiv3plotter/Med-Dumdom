@@ -107,18 +107,18 @@ export default class FirebaseMedSyncService {
     return collection(this.firestoreDb, 'users', String(userId), MEDICINES_COLLECTION);
   }
 
-  async syncAll(userId) {
-    const pushed = await this.pushPendingChanges(userId);
-    const pulled = await this.pullRemoteChanges(userId);
-    const historyPushed = await this.pushPendingHistoryChanges(userId);
-    const historyPulled = await this.pullRemoteHistoryChanges(userId);
+  async syncAll(userId, localUserId = userId) {
+    const pushed = await this.pushPendingChanges(userId, localUserId);
+    const pulled = await this.pullRemoteChanges(userId, localUserId);
+    const historyPushed = await this.pushPendingHistoryChanges(userId, localUserId);
+    const historyPulled = await this.pullRemoteHistoryChanges(userId, localUserId);
     return { pushed, pulled, historyPushed, historyPulled };
   }
 
-  async pushPendingChanges(userId) {
+  async pushPendingChanges(userId, localUserId = userId) {
     const { deleteDoc, doc, setDoc } = await this.getFirestoreApi();
     const medicinesCollection = await this.getUserMedicinesCollection(userId);
-    const changes = this.localRepository.listPendingMedSyncChanges(userId);
+    const changes = this.localRepository.listPendingMedSyncChanges(localUserId);
     let pushed = 0;
 
     for (const change of changes) {
@@ -126,31 +126,31 @@ export default class FirebaseMedSyncService {
         const documentRef = doc(medicinesCollection, change.medEntryId);
 
         if (change.syncOperation === 'create' && change.isDeleted) {
-          this.localRepository.hardDeleteMedEntry(userId, change.medEntryId);
+          this.localRepository.hardDeleteMedEntry(localUserId, change.medEntryId);
           pushed += 1;
           continue;
         }
 
         if (change.syncOperation === 'delete' || change.isDeleted) {
           await deleteDoc(documentRef);
-          this.localRepository.hardDeleteMedEntry(userId, change.medEntryId);
+          this.localRepository.hardDeleteMedEntry(localUserId, change.medEntryId);
           pushed += 1;
           continue;
         }
 
         const payload = serializeMedEntryForFirestore(change);
         await setDoc(documentRef, payload, { merge: true });
-        this.localRepository.markMedEntrySynced(userId, change.medEntryId, payload.remoteUpdatedAt);
+        this.localRepository.markMedEntrySynced(localUserId, change.medEntryId, payload.remoteUpdatedAt);
         pushed += 1;
       } catch (error) {
-        this.localRepository.markMedEntrySyncError(userId, change.medEntryId, error);
+        this.localRepository.markMedEntrySyncError(localUserId, change.medEntryId, error);
       }
     }
 
     return pushed;
   }
 
-  async pullRemoteChanges(userId) {
+  async pullRemoteChanges(userId, localUserId = userId) {
     const { getDocs } = await this.getFirestoreApi();
     const medicinesCollection = await this.getUserMedicinesCollection(userId);
     const snapshot = await getDocs(medicinesCollection);
@@ -158,7 +158,7 @@ export default class FirebaseMedSyncService {
 
     snapshot.forEach((documentSnapshot) => {
       const remoteData = documentSnapshot.data();
-      this.localRepository.upsertRemoteMedEntry(userId, {
+      this.localRepository.upsertRemoteMedEntry(localUserId, {
         ...remoteData,
         medEntryId: remoteData.medEntryId || documentSnapshot.id,
       });
@@ -173,14 +173,14 @@ export default class FirebaseMedSyncService {
     return collection(this.firestoreDb, 'users', String(userId), 'medicineHistory');
   }
 
-  async pushPendingHistoryChanges(userId) {
+  async pushPendingHistoryChanges(userId, localUserId = userId) {
     if (typeof this.localRepository.listPendingMedHistorySyncChanges !== 'function') {
       return 0;
     }
 
     const { deleteDoc, doc, setDoc } = await this.getFirestoreApi();
     const historyCollection = await this.getUserMedicineHistoryCollection(userId);
-    const changes = this.localRepository.listPendingMedHistorySyncChanges(userId);
+    const changes = this.localRepository.listPendingMedHistorySyncChanges(localUserId);
     let pushed = 0;
 
     for (const change of changes) {
@@ -188,14 +188,14 @@ export default class FirebaseMedSyncService {
         const documentRef = doc(historyCollection, change.historyId);
 
         if (change.syncOperation === 'create' && change.isDeleted) {
-          this.localRepository.hardDeleteMedHistory(userId, change.historyId);
+          this.localRepository.hardDeleteMedHistory(localUserId, change.historyId);
           pushed += 1;
           continue;
         }
 
         if (change.syncOperation === 'delete' || change.isDeleted) {
           await deleteDoc(documentRef);
-          this.localRepository.hardDeleteMedHistory(userId, change.historyId);
+          this.localRepository.hardDeleteMedHistory(localUserId, change.historyId);
           pushed += 1;
           continue;
         }
@@ -205,17 +205,17 @@ export default class FirebaseMedSyncService {
           remoteUpdatedAt: new Date().toISOString(),
         };
         await setDoc(documentRef, payload, { merge: true });
-        this.localRepository.markMedHistorySynced(userId, change.historyId, payload.remoteUpdatedAt);
+        this.localRepository.markMedHistorySynced(localUserId, change.historyId, payload.remoteUpdatedAt);
         pushed += 1;
       } catch (error) {
-        this.localRepository.markMedHistorySyncError(userId, change.historyId, error);
+        this.localRepository.markMedHistorySyncError(localUserId, change.historyId, error);
       }
     }
 
     return pushed;
   }
 
-  async pullRemoteHistoryChanges(userId) {
+  async pullRemoteHistoryChanges(userId, localUserId = userId) {
     if (typeof this.localRepository.upsertRemoteMedHistory !== 'function') {
       return 0;
     }
@@ -227,7 +227,7 @@ export default class FirebaseMedSyncService {
 
     snapshot.forEach((documentSnapshot) => {
       const remoteData = documentSnapshot.data();
-      this.localRepository.upsertRemoteMedHistory(userId, {
+      this.localRepository.upsertRemoteMedHistory(localUserId, {
         ...remoteData,
         historyId: remoteData.historyId || documentSnapshot.id,
       });

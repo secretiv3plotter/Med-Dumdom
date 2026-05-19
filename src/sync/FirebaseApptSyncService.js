@@ -92,18 +92,18 @@ export default class FirebaseApptSyncService {
     return collection(this.firestoreDb, 'users', String(userId), APPOINTMENTS_COLLECTION);
   }
 
-  async syncAll(userId) {
-    const pushed = await this.pushPendingChanges(userId);
-    const pulled = await this.pullRemoteChanges(userId);
-    const historyPushed = await this.pushPendingHistoryChanges(userId);
-    const historyPulled = await this.pullRemoteHistoryChanges(userId);
+  async syncAll(userId, localUserId = userId) {
+    const pushed = await this.pushPendingChanges(userId, localUserId);
+    const pulled = await this.pullRemoteChanges(userId, localUserId);
+    const historyPushed = await this.pushPendingHistoryChanges(userId, localUserId);
+    const historyPulled = await this.pullRemoteHistoryChanges(userId, localUserId);
     return { pushed, pulled, historyPushed, historyPulled };
   }
 
-  async pushPendingChanges(userId) {
+  async pushPendingChanges(userId, localUserId = userId) {
     const { deleteDoc, doc, setDoc } = await this.getFirestoreApi();
     const appointmentsCollection = await this.getUserAppointmentsCollection(userId);
-    const changes = this.localRepository.listPendingApptSyncChanges(userId);
+    const changes = this.localRepository.listPendingApptSyncChanges(localUserId);
     let pushed = 0;
 
     for (const change of changes) {
@@ -111,31 +111,31 @@ export default class FirebaseApptSyncService {
         const documentRef = doc(appointmentsCollection, change.apptEntryId);
 
         if (change.syncOperation === 'create' && change.isDeleted) {
-          this.localRepository.hardDeleteApptEntry(userId, change.apptEntryId);
+          this.localRepository.hardDeleteApptEntry(localUserId, change.apptEntryId);
           pushed += 1;
           continue;
         }
 
         if (change.syncOperation === 'delete' || change.isDeleted) {
           await deleteDoc(documentRef);
-          this.localRepository.hardDeleteApptEntry(userId, change.apptEntryId);
+          this.localRepository.hardDeleteApptEntry(localUserId, change.apptEntryId);
           pushed += 1;
           continue;
         }
 
         const payload = serializeApptEntryForFirestore(change);
         await setDoc(documentRef, payload, { merge: true });
-        this.localRepository.markApptEntrySynced(userId, change.apptEntryId, payload.remoteUpdatedAt);
+        this.localRepository.markApptEntrySynced(localUserId, change.apptEntryId, payload.remoteUpdatedAt);
         pushed += 1;
       } catch (error) {
-        this.localRepository.markApptEntrySyncError(userId, change.apptEntryId, error);
+        this.localRepository.markApptEntrySyncError(localUserId, change.apptEntryId, error);
       }
     }
 
     return pushed;
   }
 
-  async pullRemoteChanges(userId) {
+  async pullRemoteChanges(userId, localUserId = userId) {
     const { getDocs } = await this.getFirestoreApi();
     const appointmentsCollection = await this.getUserAppointmentsCollection(userId);
     const snapshot = await getDocs(appointmentsCollection);
@@ -143,7 +143,7 @@ export default class FirebaseApptSyncService {
 
     snapshot.forEach((documentSnapshot) => {
       const remoteData = documentSnapshot.data();
-      this.localRepository.upsertRemoteApptEntry(userId, {
+      this.localRepository.upsertRemoteApptEntry(localUserId, {
         ...remoteData,
         apptEntryId: remoteData.apptEntryId || documentSnapshot.id,
       });
@@ -158,14 +158,14 @@ export default class FirebaseApptSyncService {
     return collection(this.firestoreDb, 'users', String(userId), 'appointmentHistory');
   }
 
-  async pushPendingHistoryChanges(userId) {
+  async pushPendingHistoryChanges(userId, localUserId = userId) {
     if (typeof this.localRepository.listPendingApptHistorySyncChanges !== 'function') {
       return 0;
     }
 
     const { deleteDoc, doc, setDoc } = await this.getFirestoreApi();
     const historyCollection = await this.getUserAppointmentHistoryCollection(userId);
-    const changes = this.localRepository.listPendingApptHistorySyncChanges(userId);
+    const changes = this.localRepository.listPendingApptHistorySyncChanges(localUserId);
     let pushed = 0;
 
     for (const change of changes) {
@@ -173,14 +173,14 @@ export default class FirebaseApptSyncService {
         const documentRef = doc(historyCollection, change.historyId);
 
         if (change.syncOperation === 'create' && change.isDeleted) {
-          this.localRepository.hardDeleteApptHistory(userId, change.historyId);
+          this.localRepository.hardDeleteApptHistory(localUserId, change.historyId);
           pushed += 1;
           continue;
         }
 
         if (change.syncOperation === 'delete' || change.isDeleted) {
           await deleteDoc(documentRef);
-          this.localRepository.hardDeleteApptHistory(userId, change.historyId);
+          this.localRepository.hardDeleteApptHistory(localUserId, change.historyId);
           pushed += 1;
           continue;
         }
@@ -190,17 +190,17 @@ export default class FirebaseApptSyncService {
           remoteUpdatedAt: new Date().toISOString(),
         };
         await setDoc(documentRef, payload, { merge: true });
-        this.localRepository.markApptHistorySynced(userId, change.historyId, payload.remoteUpdatedAt);
+        this.localRepository.markApptHistorySynced(localUserId, change.historyId, payload.remoteUpdatedAt);
         pushed += 1;
       } catch (error) {
-        this.localRepository.markApptHistorySyncError(userId, change.historyId, error);
+        this.localRepository.markApptHistorySyncError(localUserId, change.historyId, error);
       }
     }
 
     return pushed;
   }
 
-  async pullRemoteHistoryChanges(userId) {
+  async pullRemoteHistoryChanges(userId, localUserId = userId) {
     if (typeof this.localRepository.upsertRemoteApptHistory !== 'function') {
       return 0;
     }
@@ -212,7 +212,7 @@ export default class FirebaseApptSyncService {
 
     snapshot.forEach((documentSnapshot) => {
       const remoteData = documentSnapshot.data();
-      this.localRepository.upsertRemoteApptHistory(userId, {
+      this.localRepository.upsertRemoteApptHistory(localUserId, {
         ...remoteData,
         historyId: remoteData.historyId || documentSnapshot.id,
       });

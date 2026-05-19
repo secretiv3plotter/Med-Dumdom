@@ -13,6 +13,7 @@ import LargePopup from '../../../shared/components/common/LargePopup';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
@@ -37,7 +38,6 @@ import {
   uniqueDescending,
 } from '../utils/medTrackerHistoryUtils';
 
-const CURRENT_USER_ID = 'current-user';
 const CONTENT_BOTTOM_PADDING = moderateScale(150);
 const FOOTER_NAV_Z_INDEX = 30;
 
@@ -65,6 +65,7 @@ const buildDayGroups = (records) =>
   }, {})).sort((firstDay, secondDay) => String(secondDay.dayKey).localeCompare(String(firstDay.dayKey)));
 
 export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
+  const { currentUser } = useFirebase();
   const [version, setVersion] = useState(0);
   const [selectedMedKey, setSelectedMedKey] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
@@ -82,7 +83,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
       return [];
     }
 
-    return new RealmMedTrackerRepository(realm).listMedTrackerDailyHistory(CURRENT_USER_ID);
+    return new RealmMedTrackerRepository(realm).listMedTrackerDailyHistory(currentUser.uid);
   }, [realm, version]);
 
   const filteredHistoryRecords = useMemo(() => {
@@ -168,7 +169,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
     }
 
     new RealmMedTrackerRepository(realm).deleteMedTrackerDailyHistoryRecords(
-      CURRENT_USER_ID,
+      currentUser.uid,
       pendingDeleteTarget.historyIds
     );
     setSelectedScheduleRecord((currentRecord) => (

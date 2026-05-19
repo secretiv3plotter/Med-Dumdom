@@ -14,6 +14,7 @@ import {
 import { MEDICINE_EDITOR_STEPS, MEDICINE_SCHEDULE_TYPES } from '../constants/medTrackerEditorSteps';
 import medTrackerService from '../../../domain/services/MedTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
@@ -42,7 +43,6 @@ const DEFAULT_UNITS = [
   { unitId: 'def-capsule', name: 'capsule', isCustom: false },
 ];
 
-const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 
@@ -107,6 +107,7 @@ const EMPTY_SCHEDULE_DRAFT = {
 };
 
 export default function MedTrackerScreen({ navigation, realm = null, trackerService = medTrackerService }) {
+  const { currentUser } = useFirebase();
   const [version, setVersion] = useState(0);
   const [selectedMedicineId, setSelectedMedicineId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
@@ -133,7 +134,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     [realm, trackerService],
   );
 
-  const medicines = useMemo(() => activeMedTrackerService.listMedEntries(CURRENT_USER_ID), [activeMedTrackerService, version]);
+  const medicines = useMemo(() => activeMedTrackerService.listMedEntries(currentUser.uid), [activeMedTrackerService, version]);
 
   useEffect(() => {
     if (!realm) return;
@@ -336,7 +337,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    activeMedTrackerService.deleteMedEntry(CURRENT_USER_ID, pendingDeleteMedicine.medEntryId);
+    activeMedTrackerService.deleteMedEntry(currentUser.uid, pendingDeleteMedicine.medEntryId);
     setPendingDeleteMedicine(null);
     setIsDetailsVisible(false);
     setSelectedMedicineId(null);
@@ -403,11 +404,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     }
 
     if (targetStatus === 'clear' || currentStatus === targetStatus) {
-      activeMedTrackerService.clearMedScheduleStatus(CURRENT_USER_ID, medEntryId, scheduleIndex);
+      activeMedTrackerService.clearMedScheduleStatus(currentUser.uid, medEntryId, scheduleIndex);
     } else if (targetStatus === 'taken') {
-      activeMedTrackerService.markMedScheduleTaken(CURRENT_USER_ID, medEntryId, scheduleIndex, new Date());
+      activeMedTrackerService.markMedScheduleTaken(currentUser.uid, medEntryId, scheduleIndex, new Date());
     } else {
-      activeMedTrackerService.markMedScheduleSkipped(CURRENT_USER_ID, medEntryId, scheduleIndex, new Date());
+      activeMedTrackerService.markMedScheduleSkipped(currentUser.uid, medEntryId, scheduleIndex, new Date());
     }
 
     refresh();
@@ -849,9 +850,9 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     };
 
     if (editorMode === 'edit' && selectedMedicine) {
-      activeMedTrackerService.updateMedEntry(CURRENT_USER_ID, selectedMedicine.medEntryId, payload);
+      activeMedTrackerService.updateMedEntry(currentUser.uid, selectedMedicine.medEntryId, payload);
     } else {
-      activeMedTrackerService.addMedEntry(CURRENT_USER_ID, payload);
+      activeMedTrackerService.addMedEntry(currentUser.uid, payload);
     }
 
     resetEditor();

@@ -43,8 +43,6 @@ import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
 
-const CURRENT_USER_ID = 'current-user';
-
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
   appointment: ROUTES.APPOINTMENT_TRACKER,
@@ -85,7 +83,7 @@ const formatBirthDate = (birthDate) => {
 export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
-  const { firebase } = useFirebase();
+  const { firebase, currentUser } = useFirebase();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
   const profileRepository = useMemo(
@@ -94,12 +92,12 @@ export default function ProfileScreen({ navigation, realm = null }) {
   );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = profileRepository.getProfile(CURRENT_USER_ID);
+    const currentProfile = profileRepository.getProfile(currentUser.uid);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return profileRepository.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+    return profileRepository.saveProfile(currentUser.uid, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
@@ -169,7 +167,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = profileRepository.saveProfile(CURRENT_USER_ID, nextProfile);
+    const savedProfile = profileRepository.saveProfile(currentUser.uid, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
   };
