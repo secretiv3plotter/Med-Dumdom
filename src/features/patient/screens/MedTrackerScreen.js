@@ -84,12 +84,14 @@ const oneMinuteBefore = (dateValue) => new Date(dateValue.getTime() - 60000);
 const getInitialScheduleDraft = (scheduleType) => ({
   doseSize: '',
   scheduledTime: '',
+  scheduledTimes: [],
   intervalHours: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 1 : '',
   intervalMinutes: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 0 : '',
   intervalDays: '',
   intervalWeeks: '',
   intervalMonths: '',
   dayOfWeek: '',
+  dayOfWeeks: [],
   monthOfYear: '',
   dayOfMonth: '',
 });
@@ -123,12 +125,14 @@ const getScheduleTypeFromEntries = (entries = []) => {
 const EMPTY_SCHEDULE_DRAFT = {
   doseSize: '',
   scheduledTime: '',
+  scheduledTimes: [],
   intervalHours: '',
   intervalMinutes: '',
   intervalDays: '',
   intervalWeeks: '',
   intervalMonths: '',
   dayOfWeek: '',
+  dayOfWeeks: [],
   monthOfYear: '',
   dayOfMonth: '',
 };
@@ -226,6 +230,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       upcoming: 3,
       missed: 4,
       completed: 5,
+      inactive: 6,
     };
 
     return [...visibleMedicines].sort((left, right) => {
@@ -486,6 +491,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const isEveryWeeksInterval = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_EVERY_WEEKS;
     const isMonthlyInterval = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY;
     const isAsNeeded = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.AS_NEEDED;
+    const isDaily = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.DAILY;
+    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY;
     const isIntervalSchedule = isHourly || isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval;
     const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
 
@@ -496,7 +503,14 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       : isMonthlyInterval
       ? 0
       : Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
-    const scheduledTime = isIntervalSchedule || isAsNeeded ? '00:00' : normalizeTimeInput(scheduleDraft.scheduledTime);
+    const draftTimes = [
+      ...(Array.isArray(scheduleDraft.scheduledTimes) ? scheduleDraft.scheduledTimes : []),
+      scheduleDraft.scheduledTime,
+    ]
+      .map((timeValue) => normalizeTimeInput(timeValue))
+      .filter(Boolean);
+    const scheduledTimes = Array.from(new Set(draftTimes)).sort();
+    const scheduledTime = isIntervalSchedule || isAsNeeded ? '00:00' : (isDaily || isWeekly) ? scheduledTimes[0] : normalizeTimeInput(scheduleDraft.scheduledTime);
     const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : scheduledTime || '00:00') || new Date();
     const activatedAt = isIntervalSchedule
       ? isMonthlyInterval
@@ -510,7 +524,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       activatedAt,
     };
     if (!scheduledTime) {
-      setFormError('Enter a valid scheduled time.');
+      setFormError(isDaily || isWeekly ? 'Add at least one valid scheduled time.' : 'Enter a valid scheduled time.');
       return;
     }
     if (!isMonthlyInterval && isIntervalSchedule && intervalTotalMinutes <= 0) {
@@ -522,13 +536,17 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY;
     const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || isMonthlyInterval;
-    const dayOfWeek = isWeekly ? scheduleDraft.dayOfWeek : '';
+    const draftDaysOfWeek = [
+      ...(Array.isArray(scheduleDraft.dayOfWeeks) ? scheduleDraft.dayOfWeeks : []),
+      scheduleDraft.dayOfWeek,
+    ].filter(Boolean);
+    const dayOfWeeks = Array.from(new Set(draftDaysOfWeek));
+    const dayOfWeek = isWeekly ? dayOfWeeks[0] || '' : '';
     const monthOfYear = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY ? scheduleDraft.monthOfYear : '';
     const dayOfMonth = isMonthly ? parsePositiveInteger(scheduleDraft.dayOfMonth) : null;
-    if (isWeekly && !dayOfWeek) {
-      setFormError('Select a day of the week for the schedule item.');
+    if (isWeekly && !dayOfWeeks.length) {
+      setFormError('Add at least one day of the week for the schedule item.');
       return;
     }
     if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && !monthOfYear) {
@@ -544,9 +562,9 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const nextEntry = {
+    const buildScheduleEntry = (timeValue) => ({
       doseSize,
-      scheduledTime,
+      scheduledTime: timeValue,
       intervalMinutes: isIntervalSchedule && !isMonthlyInterval ? intervalTotalMinutes : null,
       intervalUnit: isAsNeeded ? 'asNeeded' : isWeeklyInterval ? 'days' : isEveryWeeksInterval ? 'weeks' : isMonthlyInterval ? 'months' : '',
       intervalCount: isMonthlyInterval ? parsePositiveInteger(scheduleDraft.intervalMonths) : null,
@@ -554,7 +572,9 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       monthOfYear,
       dayOfMonth,
       ...scheduleStatusDefaults,
-    };
+    });
+
+    const nextEntry = buildScheduleEntry(scheduledTime);
 
     if (isIntervalSchedule && hasIntervalSchedule) {
       setScheduleEntries([nextEntry]);
@@ -563,7 +583,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const nextEntries = [nextEntry];
+    const nextEntries = isDaily
+      ? scheduledTimes.map(buildScheduleEntry)
+      : isWeekly
+      ? dayOfWeeks.flatMap((weekday) =>
+          scheduledTimes.map((timeValue) => ({
+            ...buildScheduleEntry(timeValue),
+            dayOfWeek: weekday,
+          }))
+        )
+      : [nextEntry];
 
     if (nextEntries.some((entry) => hasDuplicateScheduleEntry(scheduleEntries, entry, null))) {
       setFormError('This schedule item already exists.');

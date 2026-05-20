@@ -275,7 +275,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
         <Text style={styles.sectionLabel}>
           {sectionLabelText}
         </Text>
-        {getSchedulesEarliestToLatest(medicine.dailySched).map(({ entry, index }) => (
+        {getSchedulesEarliestToLatest(medicine.dailySched, observedNow).map(({ entry, index }) => (
           <View key={`${medicine.medEntryId}-schedule-${index}`} style={styles.scheduleCardWrapper}>
             <MedicineDetailsScheduleCard
               entry={entry}

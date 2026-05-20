@@ -37,6 +37,7 @@ const STATUS_RANKS = {
   missed: 1,
   pending: 2,
   upcoming: 3,
+  inactive: 4,
 };
 
 const parseDateTime = (dateValue, timeValue) => {
@@ -93,7 +94,7 @@ const buildMostDueMedSchedule = (medicines, now) => {
         sortMinutes: scheduleSortMinutes(entry),
       };
     })
-  ).filter((item) => !item.isAsNeeded && !['taken', 'skipped', 'completed'].includes(item.status));
+  ).filter((item) => !item.isAsNeeded && !['taken', 'skipped', 'completed', 'inactive'].includes(item.status));
 
   return candidates.sort((left, right) =>
     left.rank - right.rank ||

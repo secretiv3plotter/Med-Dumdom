@@ -1,4 +1,5 @@
 import MedEntry from '../../domain/models/MedEntryModel';
+import { getIntervalOccurrenceDateTime } from '../../domain/models/medEntryModelUtils';
 
 const DEFAULT_PATIENT_EMAIL = 'current-user@local.invalid';
 const STALE_MARKED_SCHEDULE_MS = 24 * 60 * 60 * 1000;
@@ -228,13 +229,84 @@ const isIntervalScheduleEntry = (entry) =>
 
 const getMarkedScheduleDate = (entry) => toNullableDate(entry?.takenAt || entry?.skippedAt);
 
-const isStaleMarkedSchedule = (entry, now) => {
-  if (entry?.status !== 'taken' && entry?.status !== 'skipped') {
+const getScheduledDateTimeForDate = (scheduleEntry, dateValue) => {
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
+  if (scheduleMinutes === null) {
+    return null;
+  }
+
+  const scheduleDateTime = new Date(dateValue.getTime());
+  scheduleDateTime.setHours(Math.floor(scheduleMinutes / 60), scheduleMinutes % 60, 0, 0);
+  return scheduleDateTime;
+};
+
+const getLatestScheduleOccurrenceDateTime = (entryModel, scheduleEntry, now) => {
+  if (isIntervalScheduleEntry(scheduleEntry)) {
+    return getIntervalOccurrenceDateTime(scheduleEntry, now);
+  }
+
+  if (scheduleEntry?.intervalUnit === 'asNeeded') {
+    return null;
+  }
+
+  for (let dayOffset = 0; dayOffset <= 370; dayOffset += 1) {
+    const candidateDay = new Date(now.getTime());
+    candidateDay.setDate(candidateDay.getDate() - dayOffset);
+    candidateDay.setHours(0, 0, 0, 0);
+
+    if (!entryModel.isActiveOnDate(candidateDay) || !isScheduleEntryForDate(scheduleEntry, candidateDay)) {
+      continue;
+    }
+
+    const occurrence = getScheduledDateTimeForDate(scheduleEntry, candidateDay);
+    if (occurrence && occurrence <= now) {
+      return occurrence;
+    }
+  }
+
+  return null;
+};
+
+const getScheduleStatusChangedAt = (entryModel, scheduleEntry, scheduleIndex, now) => {
+  const markedAt = getMarkedScheduleDate(scheduleEntry);
+  if (markedAt) {
+    return markedAt;
+  }
+
+  const status = entryModel.getScheduleStatus(scheduleIndex, now, now);
+  if (status === 'upcoming' || status === 'pending') {
+    return null;
+  }
+
+  return getLatestScheduleOccurrenceDateTime(entryModel, scheduleEntry, now);
+};
+
+const isStaleActionableSchedule = (entryModel, scheduleEntry, scheduleIndex, now) => {
+  const markedAt = getMarkedScheduleDate(scheduleEntry);
+  if (markedAt) {
+    return now.getTime() - markedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+  }
+
+  const status = entryModel.getScheduleStatus(scheduleIndex, now, now);
+  if (status === 'upcoming' || status === 'pending') {
     return false;
   }
 
-  const markedAt = getMarkedScheduleDate(entry);
-  return !!markedAt && now.getTime() - markedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+  const changedAt = getScheduleStatusChangedAt(entryModel, scheduleEntry, scheduleIndex, now);
+  return !!changedAt && now.getTime() - changedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+};
+
+const toHistoricalScheduleEntry = (scheduleEntry) => {
+  if (scheduleEntry?.status === 'taken' || scheduleEntry?.status === 'skipped') {
+    return scheduleEntry;
+  }
+
+  return {
+    ...scheduleEntry,
+    status: 'missed',
+    takenAt: null,
+    skippedAt: null,
+  };
 };
 
 const toHistoryModel = (entry) => ({
@@ -303,65 +375,12 @@ const toPlainMedHistory = (entry) => ({
   createdAt: toIsoStringOrNull(entry.createdAt),
 });
 
-const hasPreviousDayStatus = (entry, currentDayKey) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    const statusDate = scheduleEntry.takenAt || scheduleEntry.skippedAt;
-    return statusDate && dateKey(statusDate) < currentDayKey;
-  });
-
-const hasSameDayStatus = (entry, currentDayKey) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    const statusDate = scheduleEntry.takenAt || scheduleEntry.skippedAt;
-    return statusDate && dateKey(statusDate) === currentDayKey;
-  });
-
-const hasFreshMarkedScheduleForDate = (entry, scheduleDate, now) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    if (!isScheduleEntryForDate(scheduleEntry, scheduleDate)) {
-      return false;
-    }
-
-    if (scheduleEntry.status !== 'taken' && scheduleEntry.status !== 'skipped') {
-      return false;
-    }
-
-    const markedAt = getMarkedScheduleDate(scheduleEntry);
-    return !!markedAt &&
-      dateKey(markedAt) === dateKey(scheduleDate) &&
-      now.getTime() - markedAt.getTime() < STALE_MARKED_SCHEDULE_MS;
-  });
-
 const toMinutes = (timeValue) => {
   const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
   return match ? Number(match[1]) * 60 + Number(match[2]) : null;
 };
 
 const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
-
-const shouldRunDailyRollover = (entry, now) => {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const firstScheduleMinutes = Array.from(entry.dailySched || [])
-    .map((scheduleEntry) => toMinutes(scheduleEffectiveTime(scheduleEntry)))
-    .filter((minutes) => minutes !== null)
-    .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
-
-  if (firstScheduleMinutes === undefined) {
-    return false;
-  }
-
-  const resetStartMinutes =
-    Array.from(entry.dailySched || []).length === 1
-      ? Math.max(0, firstScheduleMinutes - 60)
-      : firstScheduleMinutes;
-
-  return currentMinutes >= resetStartMinutes;
-};
-
-const previousDay = (now) => {
-  const date = new Date(now.getTime());
-  date.setDate(date.getDate() - 1);
-  return date;
-};
 
 export default class RealmMedTrackerRepository {
   constructor(realm) {
@@ -548,9 +567,28 @@ export default class RealmMedTrackerRepository {
   }
 
   archiveStaleMarkedSchedules(userId, entryModel, existingCreatedAt = null, now = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
     const staleScheduleItems = entryModel.dailySched
-      .map((scheduleEntry, scheduleIndex) => ({ scheduleEntry, scheduleIndex, markedAt: getMarkedScheduleDate(scheduleEntry) }))
-      .filter(({ scheduleEntry }) => isStaleMarkedSchedule(scheduleEntry, now));
+      .map((scheduleEntry, scheduleIndex) => ({
+        scheduleEntry: toHistoricalScheduleEntry(scheduleEntry),
+        scheduleIndex,
+        markedAt: getScheduleStatusChangedAt(entryModel, scheduleEntry, scheduleIndex, now),
+        currentScheduleEntry: scheduleEntry,
+      }))
+      .filter(({ currentScheduleEntry, scheduleIndex }) =>
+        isStaleActionableSchedule(entryModel, currentScheduleEntry, scheduleIndex, now)
+      )
+      .filter(({ scheduleIndex, markedAt }) => {
+        const historyDateKey = dateKey(markedAt);
+        const historyId = `${normalizedUserId}-${entryModel.medEntryId}-${historyDateKey}`;
+        const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
+        if (!existingHistory) {
+          return true;
+        }
+
+        return !Array.from(existingHistory.dailySchedFinalStatuses || [])
+          .some((historyEntry) => Number(historyEntry.scheduleIndex || 0) === Number(scheduleIndex));
+      });
 
     if (!staleScheduleItems.length) {
       return null;
@@ -596,22 +634,8 @@ export default class RealmMedTrackerRepository {
   }
 
   persistResetIfNeeded(userId, entry, now = new Date()) {
-    const currentDayKey = dateKey(now);
-    const yesterday = previousDay(now);
-    const yesterdayKey = dateKey(yesterday);
     const archivedModel = this.archiveStaleMarkedSchedules(userId, toMedEntryModel(entry), entry.createdAt, now);
     const entryModel = archivedModel || toMedEntryModel(entry);
-    const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', `${normalizeUserId(userId)}-${entryModel.medEntryId}-${yesterdayKey}`);
-    const shouldSnapshotYesterday =
-      !existingHistory &&
-      entryModel.isActiveOnDate(yesterday) &&
-      shouldRunDailyRollover(entryModel, now) &&
-      !hasFreshMarkedScheduleForDate(entryModel, yesterday, now) &&
-      (hasPreviousDayStatus(entryModel, currentDayKey) || !hasSameDayStatus(entryModel, currentDayKey));
-
-    if (shouldSnapshotYesterday) {
-      this.snapshotDailyHistory(userId, entryModel, yesterday);
-    }
 
     const model = entryModel;
     const didReset = model.resetDailyScheduleStatusesIfNeeded(now);
