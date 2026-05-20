@@ -50,9 +50,6 @@ export default function SignUpScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.layer}>
-        <View style={styles.imageWrapper}>
-          <Image source={require('../../../assets/people.png')} style={styles.bottomImage} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
-        </View>
         <View style={styles.center} pointerEvents="box-none">
           <View style={[styles.formCard, {
             backdropFilter: 'blur(12px)',
@@ -114,7 +111,7 @@ export default function SignUpScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.pageBg,
+    backgroundColor: 'transparent',
   },
   layer: {
     flex: 1,
@@ -204,15 +201,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica',
     color: colors.body,
     textAlign: 'center',
-  },
-  imageWrapper: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '22%',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
   },
   bottomImage: {
     width: '100%',

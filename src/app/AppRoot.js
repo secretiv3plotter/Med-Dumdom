@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, BackHandler, Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -222,10 +222,21 @@ function AppContent() {
 
   return (
     <>
+      {AUTH_ROUTES.has(currentRoute) && (
+        <View style={styles.authPeopleWrapper} pointerEvents="none">
+          <Image
+            source={require('../assets/people.png')}
+            style={styles.authPeopleImage}
+            resizeMode="contain"
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+          />
+        </View>
+      )}
       <Animated.View key={screenKey} style={{ flex: 1, transform: [{ translateX }] }} onTouchStart={handleGlobalTouch}>
         <CurrentScreen {...screenProps} />
       </Animated.View>
-<StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
+      <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
   );
 }
@@ -313,6 +324,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  authPeopleWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '22%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  authPeopleImage: {
     width: '100%',
     height: '100%',
   },
