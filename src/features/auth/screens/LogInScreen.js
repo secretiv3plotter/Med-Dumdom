@@ -50,13 +50,13 @@ export default function LogInScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.layer}>
-      <View style={styles.iconWrapper}>
-        <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
-      </View>
       <View style={styles.imageWrapper}>
         <Image source={require('../../../assets/people.png')} style={styles.bottomImage} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
       </View>
-      <View style={styles.center} pointerEvents="box-none">
+      <View style={styles.column} pointerEvents="box-none">
+        <View style={styles.iconSection} pointerEvents="none">
+          <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
+        </View>
         <View style={[styles.formCard, {
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -107,6 +107,7 @@ export default function LogInScreen({ navigation }) {
             </Pressable>
           </View>
         </View>
+        <View style={styles.bottomSpacer} pointerEvents="none" />
       </View>
       </View>
     </SafeAreaView>
@@ -122,15 +123,19 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  center: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    justifyContent: 'center',
+  column: {
+    flex: 1,
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
+  },
+  iconSection: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomSpacer: {
+    flex: 1,
   },
   formCard: {
     width: '105%',
@@ -146,18 +151,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  iconWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '10%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   splashIcon: {
     width: '50%',
-    height: '70%',
+    height: 42,
   },
   formSection: {
     width: '100%',

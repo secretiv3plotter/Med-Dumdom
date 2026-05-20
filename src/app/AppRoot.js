@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -189,16 +189,9 @@ function AppContent() {
     return () => document.removeEventListener('click', listener, true);
   }, [hapticEnabled]);
 
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const translateX = useRef(new Animated.Value(0)).current;
-  const iconTop = useRef(new Animated.Value(0)).current;
   const prevRouteRef = useRef(currentRoute);
-  const [showOverlayIcon, setShowOverlayIcon] = useState(false);
-
-  // LogInScreen: splash icon is in iconWrapper, top: 0, height: '10%' → center ≈ 5% of height
-  // SignUpScreen: splash icon is inside formCard titleBlock, formCard is centered → icon ≈ 35% from top
-  const LOGIN_ICON_TOP = windowHeight * 0.04;
-  const SIGNUP_ICON_TOP = windowHeight * 0.32;
 
   useEffect(() => {
     const prevRoute = prevRouteRef.current;
@@ -207,25 +200,13 @@ function AppContent() {
       (prevRoute === ROUTES.LOG_IN && currentRoute === ROUTES.SIGN_UP) ||
       (prevRoute === ROUTES.SIGN_UP && currentRoute === ROUTES.LOG_IN);
     if (!isAuthSlide) return;
-
-    const toSignUp = currentRoute === ROUTES.SIGN_UP;
-    const direction = toSignUp ? 1 : -1;
+    const direction = currentRoute === ROUTES.SIGN_UP ? 1 : -1;
     translateX.setValue(direction * windowWidth);
-    iconTop.setValue(toSignUp ? LOGIN_ICON_TOP : SIGNUP_ICON_TOP);
-    setShowOverlayIcon(true);
-
-    Animated.parallel([
-      Animated.timing(translateX, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconTop, {
-        toValue: toSignUp ? SIGNUP_ICON_TOP : LOGIN_ICON_TOP,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-    ]).start(() => setShowOverlayIcon(false));
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   }, [currentRoute]);
 
   if (currentUser === undefined) {
@@ -244,15 +225,7 @@ function AppContent() {
       <Animated.View key={screenKey} style={{ flex: 1, transform: [{ translateX }] }} onTouchStart={handleGlobalTouch}>
         <CurrentScreen {...screenProps} />
       </Animated.View>
-      {showOverlayIcon && (
-        <Animated.Image
-          source={require('../assets/splash-icon.png')}
-          style={[styles.overlayIcon, { top: iconTop, left: windowWidth * 0.25 }]}
-          resizeMode="contain"
-          pointerEvents="none"
-        />
-      )}
-      <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
+<StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
   );
 }
@@ -342,12 +315,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     height: '100%',
-  },
-  overlayIcon: {
-    position: 'absolute',
-    width: '50%',
-    height: 60,
-    zIndex: 999,
   },
   phoneFrame: {
     width: 420,
