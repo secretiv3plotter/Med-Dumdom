@@ -14,11 +14,11 @@ export function FirebaseProvider({ children }) {
     let unsubscribe = () => {};
 
     try {
-      const { app, auth, db } = initializeFirebaseClient(firebaseConfig);
+      const { app, auth, db, storage } = initializeFirebaseClient(firebaseConfig);
       unsubscribe = onAuthStateChanged(auth, (user) => {
         setCurrentUser(user ?? null);
       });
-      setFirebase({ app, auth, db });
+      setFirebase({ app, auth, db, storage });
     } catch (err) {
       console.error('Firebase initialization failed:', err);
       setCurrentUser(null);

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 export const initializeFirebaseClient = (firebaseConfig) => {
   if (!firebaseConfig || typeof firebaseConfig !== 'object') {
@@ -13,5 +14,6 @@ export const initializeFirebaseClient = (firebaseConfig) => {
     app,
     auth: getAuth(app),
     db: getFirestore(app),
+    storage: getStorage(app),
   };
 };

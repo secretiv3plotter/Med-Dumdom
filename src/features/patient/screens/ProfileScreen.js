@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ROUTES } from '../../../app/navigation/routes';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
@@ -106,6 +107,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   const [showSavedDialog, setShowSavedDialog] = useState(false);
   const [showConfirmLogOut, setShowConfirmLogOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const timeoutRef = useRef(null);
 
   useEffect(() => {
@@ -206,7 +208,10 @@ export default function ProfileScreen({ navigation, realm = null }) {
     }
   };
 
-  const confirmSaveChanges = () => {
+  const confirmSaveChanges = async () => {
+    setShowConfirmSave(false);
+    setIsSaving(true);
+
     let parsedBirthDate = null;
     if (draft.birthDate) {
       const parts = String(draft.birthDate).split('-');
@@ -221,16 +226,33 @@ export default function ProfileScreen({ navigation, realm = null }) {
       }
     }
 
+    let resolvedPicture = draft.profilePicture?.trim() || '';
+
+    // Upload to Firebase Storage if the picture is a local/blob URI (not already a hosted URL)
+    if (resolvedPicture && !resolvedPicture.startsWith('https://') && firebase?.storage && currentUser?.uid) {
+      try {
+        const blob = await fetch(resolvedPicture).then((r) => r.blob());
+        const storageRef = ref(firebase.storage, `users/${currentUser.uid}/profile_picture`);
+        await uploadBytes(storageRef, blob);
+        resolvedPicture = await getDownloadURL(storageRef);
+      } catch (err) {
+        console.error('Profile picture upload failed:', err);
+        Alert.alert('Upload failed', 'Could not upload your profile picture. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+    }
+
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
-      profilePicture: draft.profilePicture?.trim() || '',
+      profilePicture: resolvedPicture,
       birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
 
     syncDraft(nextProfile);
-    setShowConfirmSave(false);
     setIsEditing(false);
+    setIsSaving(false);
     setShowSavedDialog(true);
 
     if (timeoutRef.current) {
@@ -434,7 +456,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
                 message="You are about to save changes."
                 actions={[
                   { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmSave(false) },
-                  { label: 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges },
+                  { label: isSaving ? 'Saving...' : 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges, disabled: isSaving },
                 ]}
               />
             </Pressable>
