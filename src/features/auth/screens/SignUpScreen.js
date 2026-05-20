@@ -51,7 +51,7 @@ export default function SignUpScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <View style={styles.layer}>
         <View style={styles.imageWrapper}>
-          <Image source={require('../../../assets/people.png')} style={styles.bottomImage} resizeMode="contain" />
+          <Image source={require('../../../assets/people.png')} style={styles.bottomImage} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
         </View>
         <View style={styles.center} pointerEvents="box-none">
           <View style={[styles.formCard, {
@@ -62,39 +62,41 @@ export default function SignUpScreen({ navigation }) {
           }]}>
             <View style={styles.titleBlock}>
               <Text style={styles.title}>Welcome to</Text>
-              <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" />
+              <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" accessible={false} importantForAccessibility="no-hide-descendants" />
               <Text style={styles.subtitle}>Let's get started.</Text>
             </View>
             <View style={styles.formSection}>
-              <Text style={styles.fieldLabel}>Email:</Text>
+              <Text style={styles.fieldLabel} accessible={false} importantForAccessibility="no">Email:</Text>
               <InputBar
                 placeholder="Enter your email"
-                accessibilityLabel="Email"
+                accessibilityLabel="Email address"
+                accessibilityHint="Enter the email address you want to register with"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
               />
-              <Text style={styles.fieldLabel}>Password:</Text>
+              <Text style={styles.fieldLabel} accessible={false} importantForAccessibility="no">Password:</Text>
               <InputBar
                 placeholder="Enter your password"
                 accessibilityLabel="Password"
+                accessibilityHint="Must be at least 6 characters"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
               />
               {errorMessage ? (
-                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="polite">{errorMessage}</Text>
               ) : null}
               <ActionButton
-                label={isLoading ? "Creating Account..." : "Sign Up"}
+                label={isLoading ? "Creating account..." : "Sign Up"}
                 onPress={handleSignUpPress}
                 disabled={!isFormComplete || isLoading}
                 style={styles.signUpButton}
               />
-              <Text style={styles.loginPrompt}>Already have an account?</Text>
+              <Text style={styles.loginPrompt} accessible={false} importantForAccessibility="no">Already have an account?</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Log in"
+                accessibilityLabel="Log in to your existing account"
                 onPress={() => navigation?.navigate?.(ROUTES.LOG_IN)}
                 unstable_pressDelay={0}
                 style={({ pressed }) => pressed && styles.linkPressed}
