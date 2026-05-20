@@ -151,6 +151,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [pendingScheduleAction, setPendingScheduleAction] = useState(null);
   const [pendingDeleteMedicine, setPendingDeleteMedicine] = useState(null);
   const [pendingDeleteScheduleIndex, setPendingDeleteScheduleIndex] = useState(null);
+  const [showConfirmSaveMedicine, setShowConfirmSaveMedicine] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [footerNavHeight, setFooterNavHeight] = useState(0);
   const [observedNow, setObservedNow] = useState(() => new Date());
@@ -203,7 +204,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
   const units = useMemo(() => {
     if (realm) {
-      return Array.from(realm.objects('MedUnit')).filter((u) => u.unitId !== 'seeded-marker');
+      return new RealmMedUnitRepository(realm).listMedUnits();
     }
     return DEFAULT_UNITS;
   }, [realm, version]);
@@ -946,7 +947,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         onCancel={resetEditor}
         onPreviousStep={goToPreviousEditorStep}
         onNextStep={editorStep === MEDICINE_EDITOR_STEPS.DETAILS ? goToScheduleTypeStep : goToScheduleStep}
-        onSaveMedicine={saveMedicine}
+        onSaveMedicine={() => { if (editorMode === 'edit') { setShowConfirmSaveMedicine(true); } else { saveMedicine(); } }}
       />
 
       {pendingScheduleAction ? (
@@ -983,6 +984,17 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           confirmLabel="Delete"
           onCancel={() => setPendingDeleteScheduleIndex(null)}
           onConfirm={confirmDeleteScheduleEntry}
+        />
+      ) : null}
+
+      {showConfirmSaveMedicine ? (
+        <ConfirmationDialogModal
+          visible={true}
+          title="Save changes?"
+          message="Are you sure you want to save your changes to this medicine?"
+          confirmLabel="Save"
+          onCancel={() => setShowConfirmSaveMedicine(false)}
+          onConfirm={() => { setShowConfirmSaveMedicine(false); saveMedicine(); }}
         />
       ) : null}
 
