@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRealm } from '../../../localdb/realm/RealmContext';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
@@ -55,6 +55,7 @@ export default function LoadingScreen({ navigation, realm: realmProp = null }) {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
+        <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" />
         <ActivityIndicator size="large" color={colors.brand} />
         <Text style={styles.label}>Loading your data...</Text>
       </View>
@@ -72,6 +73,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  splashIcon: {
+    width: 220,
+    height: 60,
+    marginBottom: spacing.md,
   },
   label: {
     ...typography.body,
