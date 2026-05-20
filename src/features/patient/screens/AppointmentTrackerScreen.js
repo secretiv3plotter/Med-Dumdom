@@ -18,6 +18,7 @@ import ThemedScrollView from '../../../shared/components/common/ThemedScrollView
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
@@ -37,7 +38,6 @@ import {
   startOfToday,
 } from '../utils/apptTrackerUtils';
 
-const CURRENT_USER_ID = 'current-user';
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
@@ -76,6 +76,7 @@ const isRecentlyResolved = (appointment, now = new Date()) => {
 };
 
 export default function AppointmentTrackerScreen({ navigation, realm = null, trackerService = apptTrackerService }) {
+  const { currentUser } = useFirebase();
   const [version, setVersion] = useState(0);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
@@ -100,7 +101,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   );
 
   const appointments = useMemo(
-    () => activeApptTrackerService.listApptEntries(CURRENT_USER_ID),
+    () => activeApptTrackerService.listApptEntries(currentUser.uid),
     [activeApptTrackerService, version]
   );
 
@@ -232,7 +233,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       return;
     }
 
-    activeApptTrackerService.deleteApptEntry(CURRENT_USER_ID, pendingDeleteAppointment.apptEntryId);
+    activeApptTrackerService.deleteApptEntry(currentUser.uid, pendingDeleteAppointment.apptEntryId);
     setPendingDeleteAppointment(null);
     setIsEditingDetails(false);
     setIsDetailsVisible(false);
@@ -245,7 +246,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       return;
     }
 
-    activeApptTrackerService.updateApptEntry(CURRENT_USER_ID, selectedAppointment.apptEntryId, {
+    activeApptTrackerService.updateApptEntry(currentUser.uid, selectedAppointment.apptEntryId, {
       concern: draftDetails.concern.trim() || selectedAppointment.concern,
       address: draftDetails.address.trim() || selectedAppointment.address,
       doctorName: draftDetails.doctorName.trim(),
@@ -271,9 +272,9 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       });
       return;
     } else if (targetStatus === 'completed') {
-      activeApptTrackerService.markApptCompleted(CURRENT_USER_ID, appointment.apptEntryId, new Date());
+      activeApptTrackerService.markApptCompleted(currentUser.uid, appointment.apptEntryId, new Date());
     } else {
-      activeApptTrackerService.markApptSkipped(CURRENT_USER_ID, appointment.apptEntryId, new Date());
+      activeApptTrackerService.markApptSkipped(currentUser.uid, appointment.apptEntryId, new Date());
     }
 
     refresh();
@@ -286,9 +287,9 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
 
     const appointment = appointments.find((entry) => entry.apptEntryId === pendingRevertAppointment.apptEntryId);
     if (appointment?.isCompleted) {
-      activeApptTrackerService.undoApptCompleted(CURRENT_USER_ID, pendingRevertAppointment.apptEntryId);
+      activeApptTrackerService.undoApptCompleted(currentUser.uid, pendingRevertAppointment.apptEntryId);
     } else if (appointment?.isSkipped) {
-      activeApptTrackerService.undoApptSkipped(CURRENT_USER_ID, pendingRevertAppointment.apptEntryId);
+      activeApptTrackerService.undoApptSkipped(currentUser.uid, pendingRevertAppointment.apptEntryId);
     }
 
     setPendingRevertAppointment(null);
@@ -314,7 +315,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       return;
     }
 
-    activeApptTrackerService.addApptEntry(CURRENT_USER_ID, {
+    activeApptTrackerService.addApptEntry(currentUser.uid, {
       concern: formState.concern.trim(),
       address: formState.address.trim(),
       doctorName: formState.doctorName.trim(),

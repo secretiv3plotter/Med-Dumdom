@@ -1,4 +1,5 @@
 //text based button (currently only solid and outline variants)
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, radius, spacing, typography } from '../../theme';
 import { scaleFontSize, scaleLayoutValue, useTextScale } from '../../theme/textScale';
@@ -10,10 +11,12 @@ export default function ActionButton({
   style,
   pressedStyle,
   textStyle,
+  pressedTextStyle,
   disabled = false,
   preserveFontSize = false,
   hitSlop = { top: 8, bottom: 8, left: 8, right: 8 },
 }) {
+  const [isPressed, setIsPressed] = useState(false);
   const { darkModeEnabled } = useTextScale();
   const outline = variant === 'outline';
   const labelLength = label ? label.length : 0;
@@ -47,6 +50,8 @@ export default function ActionButton({
       hitSlop={hitSlop}
       unstable_pressDelay={0}
       onPress={onPress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       accessible
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -69,9 +74,10 @@ export default function ActionButton({
     >
       <Text 
         style={[
-          styles.text, 
-          outline ? styles.outlineText : styles.solidText, 
+          styles.text,
+          outline ? styles.outlineText : styles.solidText,
           textStyle,
+          isPressed && !disabled && pressedTextStyle,
           { fontSize: finalFontSize }
         ]} 
         numberOfLines={1}

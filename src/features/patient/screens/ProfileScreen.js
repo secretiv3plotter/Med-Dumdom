@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  TouchableOpacity,
   StyleSheet,
   Text,
   View,
@@ -15,15 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ROUTES } from '../../../app/navigation/routes';
-import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import {
-  BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
-import { CancelButton, EditButton } from '../../../shared/components/common/CrudButton';
+import { EditButton } from '../../../shared/components/common/CrudButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
@@ -32,10 +31,9 @@ import TextCard from '../../../shared/components/common/TextCard';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import { colors, moderateScale, radius, spacing, typography } from '../../../shared/theme';
 import { useTextScale } from '../../../shared/theme/textScale';
-
-const CURRENT_USER_ID = 'current-user';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -44,10 +42,10 @@ const TAB_KEY_TO_ROUTE = {
 };
 
 const FALLBACK_PROFILE = {
-  fullName: 'Jane Doe',
+  fullName: '',
   profilePicture: '',
-  birthDate: new Date('1975-06-15'),
-  address: 'Cebu City',
+  birthDate: null,
+  address: '',
 };
 
 const toDraft = (profile) => ({
@@ -74,27 +72,32 @@ const formatBirthDate = (birthDate) => {
   });
 };
 
-export default function ProfileScreen({ navigation }) {
+export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
+  const { firebase, currentUser } = useFirebase();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
+  const profileRepository = useMemo(
+    () => (realm ? new RealmUserRepository(realm) : personalProfileService),
+    [realm]
+  );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = personalProfileService.getProfile(CURRENT_USER_ID);
+    const currentProfile = profileRepository.getProfile(currentUser.uid);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return personalProfileService.saveProfile(CURRENT_USER_ID, FALLBACK_PROFILE);
+    return profileRepository.saveProfile(currentUser.uid, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
-  const [showSavedDialog, setShowSavedDialog] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const timeoutRef = useRef(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [pendingPicture, setPendingPicture] = useState(null);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -103,9 +106,6 @@ export default function ProfileScreen({ navigation }) {
     return () => {
       showSub.remove();
       hideSub.remove();
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
     };
   }, []);
 
@@ -121,7 +121,7 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = personalProfileService.saveProfile(CURRENT_USER_ID, nextProfile);
+    const savedProfile = profileRepository.saveProfile(currentUser.uid, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
   };
@@ -151,16 +151,48 @@ export default function ProfileScreen({ navigation }) {
       }
 
       setAvatarLoadFailed(false);
-      setDraft((current) => ({ ...current, profilePicture: selectedImageUri }));
-      if (!isEditing) {
-        setIsEditing(true);
-      }
+      setPendingPicture(selectedImageUri);
     } catch (error) {
       Alert.alert('Unable to update picture', 'Something went wrong while selecting your profile picture.');
     }
   };
 
-  const confirmSaveChanges = () => {
+  const savePicture = async () => {
+    if (!pendingPicture) return;
+    setIsSaving(true);
+    let resolvedUrl = pendingPicture;
+    if (!resolvedUrl.startsWith('https://') && firebase?.storage && currentUser?.uid) {
+      try {
+        const blob = await fetch(resolvedUrl).then((r) => r.blob());
+        const storageRef = ref(firebase.storage, `users/${currentUser.uid}/profile_picture`);
+        await uploadBytes(storageRef, blob);
+        resolvedUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        console.error('Profile picture upload failed:', err);
+        Alert.alert('Upload failed', 'Could not upload your profile picture. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+    }
+    const savedProfile = profileRepository.saveProfile(currentUser.uid, {
+      ...profile,
+      profilePicture: resolvedUrl,
+    });
+    setProfile(savedProfile);
+    setDraft(toDraft(savedProfile));
+    setPendingPicture(null);
+    setIsSaving(false);
+  };
+
+  const cancelPicture = () => {
+    setPendingPicture(null);
+    setAvatarLoadFailed(false);
+  };
+
+  const confirmSaveChanges = async () => {
+    setShowConfirmSave(false);
+    setIsSaving(true);
+
     let parsedBirthDate = null;
     if (draft.birthDate) {
       const parts = String(draft.birthDate).split('-');
@@ -177,26 +209,26 @@ export default function ProfileScreen({ navigation }) {
 
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
-      profilePicture: draft.profilePicture?.trim() || '',
+      profilePicture: profile.profilePicture?.trim() || '',
       birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
 
     syncDraft(nextProfile);
-    setShowConfirmSave(false);
     setIsEditing(false);
-    setShowSavedDialog(true);
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = setTimeout(() => {
-      setShowSavedDialog(false);
-    }, 3000);
+    setIsSaving(false);
   };
 
-  const displayPicture = (isEditing ? draft.profilePicture : profile.profilePicture)?.trim();
+  const committedAvatarSource = useMemo(
+    () => (profile.profilePicture?.trim() ? { uri: profile.profilePicture.trim() } : null),
+    [profile.profilePicture]
+  );
+  const pendingAvatarSource = useMemo(
+    () => (pendingPicture ? { uri: pendingPicture } : null),
+    [pendingPicture]
+  );
+  const avatarSource = pendingAvatarSource ?? committedAvatarSource;
+  const displayPicture = avatarSource?.uri ?? null;
   const hasValidDisplayPicture = Boolean(displayPicture) && !avatarLoadFailed;
 
   return (
@@ -241,53 +273,97 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.avatarShell}>
               {hasValidDisplayPicture ? (
                 <Image
-                  source={{ uri: displayPicture }}
+                  source={avatarSource}
                   style={styles.profileImage}
                   onError={() => setAvatarLoadFailed(true)}
+                  accessible
+                  accessibilityRole="image"
+                  accessibilityLabel={profile.fullName ? `${profile.fullName}'s profile picture` : 'Profile picture'}
                 />
               ) : (
-                <Ionicons name="person-circle-outline" size={108} color={colors.brandText} />
+                <View
+                  style={styles.avatarPlaceholder}
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <Ionicons name="person" size={54} color={colors.surface} />
+                </View>
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
             <View style={styles.photoPickerRow}>
-              <TouchableOpacity
-                onPress={handleChangeProfilePicture}
-                accessibilityRole="button"
-                accessibilityLabel="Change profile picture"
-                style={styles.photoPickerValue}
-              >
-                <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
-              </TouchableOpacity>
+              {pendingPicture ? (
+                <View style={styles.pictureSaveRow}>
+                  <Pressable
+                    onPress={cancelPicture}
+                    disabled={isSaving}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel profile picture change"
+                    accessibilityHint="Discards the selected image and keeps your current picture"
+                    accessibilityState={{ disabled: isSaving }}
+                    style={({ pressed }) => [
+                      styles.pictureActionButton,
+                      styles.pictureCancelButton,
+                      pressed && styles.pictureCancelButtonPressed,
+                      isSaving && styles.pictureActionDisabled,
+                    ]}
+                  >
+                    <Text style={[styles.pictureActionText, styles.pictureCancelText]}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={savePicture}
+                    disabled={isSaving}
+                    accessibilityRole="button"
+                    accessibilityLabel={isSaving ? 'Saving profile picture' : 'Save profile picture'}
+                    accessibilityHint="Uploads and saves the selected image to your profile"
+                    accessibilityState={{ disabled: isSaving }}
+                    style={({ pressed }) => [
+                      styles.pictureActionButton,
+                      styles.pictureSaveButton,
+                      pressed && styles.pictureSaveButtonPressed,
+                      isSaving && styles.pictureActionDisabled,
+                    ]}
+                  >
+                    <Text style={[styles.pictureActionText, styles.pictureSaveText]}>
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handleChangeProfilePicture}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change profile picture"
+                  accessibilityHint="Opens your photo library to pick a new image"
+                  style={({ pressed }) => [
+                    styles.photoPickerValue,
+                    pressed && styles.photoPickerValuePressed,
+                  ]}
+                >
+                  <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
+                </Pressable>
+              )}
             </View>
           </TextCard>
 
           <TextCard cardStyle={styles.profileCard}>
             <View style={styles.infoTitleRow}>
               <View style={styles.infoTitleGroup}>
-                <Text style={styles.infoTitle}>Personal Information</Text>
+                <Text style={styles.infoTitle} accessibilityRole="header">Personal Information</Text>
               </View>
-              <View style={styles.editActionWrap}>
-                {!isEditing ? (
-                  <Pressable
+              {!isEditing ? (
+                <View style={styles.editActionWrap}>
+                  <EditButton
                     onPress={() => setIsEditing(true)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit"
-                    style={({ pressed }) => [
-                      styles.editActionButton,
-                      pressed && styles.editActionPressed,
-                    ]}
-                  >
-                    <Ionicons
-                      name="create-outline"
-                      size={moderateScale(38)}
-                      color={colors.title}
-                    />
-                    <Text style={[styles.editActionText, styles.editTextBlack]}>Edit</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-                          </View>
+                    iconSize={moderateScale(32)}
+                    iconColorOverride={colors.title}
+                    style={styles.editActionButton}
+                    circleStyle={styles.editActionCircle}
+                    textStyle={[styles.editActionText, styles.editTextBlack]}
+                  />
+                </View>
+              ) : null}
+            </View>
 
             {isEditing ? (
               <>
@@ -296,15 +372,18 @@ export default function ProfileScreen({ navigation }) {
                   value={draft.fullName}
                   onChangeText={(value) => setDraft((current) => ({ ...current, fullName: value }))}
                   placeholder="Enter full name"
+                  accessibilityLabel="Full name"
+                  accessibilityHint="Type your full name"
                 />
 
+                <Text style={styles.label}>Birth date:</Text>
                 <NativeDateTimeField
-                  label="Birth date"
                   placeholder="Select birth date"
                   accessibilityLabel="Birth date"
                   value={draft.birthDate}
                   onChange={(value) => setDraft((current) => ({ ...current, birthDate: value }))}
                   optional
+                  maximumDate={new Date()}
                 />
 
                 <Text style={styles.label}>Address:</Text>
@@ -312,43 +391,71 @@ export default function ProfileScreen({ navigation }) {
                   value={draft.address}
                   onChangeText={(value) => setDraft((current) => ({ ...current, address: value }))}
                   placeholder="Enter address"
+                  accessibilityLabel="Address"
+                  accessibilityHint="Type your home address"
                 />
               </>
             ) : (
               <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Birth date:</Text>
-                  <Text style={styles.infoValue}>
-                    {formatBirthDate(profile.birthDate)}
+                <View accessible accessibilityLabel={`Full name: ${profile.fullName || 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Full name:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.fullName && styles.infoValueEmpty]}>
+                    {profile.fullName || ' '}
                   </Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Age:</Text>
-                  <Text style={styles.infoValue}>{profile.birthDate ? String(profile.age) : '--'}</Text>
+                <View accessible accessibilityLabel={`Birth date: ${profile.birthDate ? formatBirthDate(profile.birthDate) : 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Birth date:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.birthDate && styles.infoValueEmpty]}>
+                    {profile.birthDate ? formatBirthDate(profile.birthDate) : ' '}
+                  </Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Address:</Text>
-                  <Text style={styles.infoValue}>{profile.address || '--'}</Text>
+                <View accessible accessibilityLabel={`Age: ${profile.birthDate ? String(profile.age) : 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Age:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.birthDate && styles.infoValueEmpty]}>
+                    {profile.birthDate ? String(profile.age) : ' '}
+                  </Text>
+                </View>
+                <View accessible accessibilityLabel={`Address: ${profile.address || 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Address:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.address && styles.infoValueEmpty]}>
+                    {profile.address || ' '}
+                  </Text>
                 </View>
               </>
             )}
           </TextCard>
 
           {isEditing ? (
-            <View style={styles.editActionsRow}>
-              <ActionButton
-                label="Cancel"
-                variant="outline"
+            <View style={styles.editButtonRow}>
+              <Pressable
                 onPress={() => setIsEditing(false)}
-                style={styles.editFooterButton}
-              />
-              <ActionButton
-                label="Save Changes"
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing"
+                accessibilityHint="Discards your unsaved changes to personal information"
+                style={({ pressed }) => [
+                  styles.editRowButton,
+                  styles.cancelEditButton,
+                  pressed && styles.cancelEditButtonPressed,
+                ]}
+              >
+                <Text style={[styles.editRowButtonText, styles.cancelEditButtonText]}>Cancel</Text>
+              </Pressable>
+              <Pressable
                 onPress={() => setShowConfirmSave(true)}
-                style={styles.editFooterButton}
-              />
+                accessibilityRole="button"
+                accessibilityLabel="Save changes"
+                accessibilityHint="Opens a confirmation dialog before saving your personal information"
+                style={({ pressed }) => [
+                  styles.editRowButton,
+                  styles.saveEditButton,
+                  pressed && styles.saveEditButtonPressed,
+                ]}
+              >
+                <Text style={[styles.editRowButtonText, styles.saveEditButtonText]}>Save</Text>
+              </Pressable>
             </View>
           ) : null}
+
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
@@ -374,16 +481,17 @@ export default function ProfileScreen({ navigation }) {
           transparent
           visible={true}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setShowConfirmSave(false)}
         >
-          <Pressable style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
-            <Pressable style={styles.dialogWrap} onPress={() => {}}>
+          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
+            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
               <DialogBox
                 title="Are you Sure?"
                 message="You are about to save changes."
                 actions={[
                   { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmSave(false) },
-                  { label: 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges },
+                  { label: isSaving ? 'Saving...' : 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges, disabled: isSaving },
                 ]}
               />
             </Pressable>
@@ -391,21 +499,6 @@ export default function ProfileScreen({ navigation }) {
         </Modal>
       ) : null}
 
-      {showSavedDialog ? (
-        <Modal transparent visible={true} animationType="fade">
-          <View style={styles.overlay}>
-            <View style={styles.dialogWrap}>
-              <DialogBox
-                title="Changes saved"
-                message=""
-                actions={[]}
-                cardStyle={styles.savedDialogCard}
-                titleStyle={styles.savedDialogTitle}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -446,6 +539,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPlaceholder: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   profileImage: {
     width: 108,
     height: 108,
@@ -472,6 +573,10 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: spacing.xs,
   },
+  photoPickerValuePressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
   photoPickerValue: {
     backgroundColor: colors.surface,
     width: '72%',
@@ -486,6 +591,50 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.brandText,
     textAlign: 'center',
+  },
+  pictureSaveRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  pictureActionButton: {
+    flex: 1,
+    maxWidth: 120,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  pictureSaveButton: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  pictureSaveButtonPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
+  },
+  pictureCancelButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  pictureCancelButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  pictureActionDisabled: {
+    opacity: 0.5,
+  },
+  pictureActionText: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+  },
+  pictureSaveText: {
+    color: colors.surface,
+  },
+  pictureCancelText: {
+    color: colors.title,
   },
   metaRow: {
     flexDirection: 'row',
@@ -522,9 +671,8 @@ const styles = StyleSheet.create({
     paddingRight: spacing.xs,
   },
   infoTitle: {
-    ...typography.body,
+    ...typography.titleSmall,
     color: colors.title,
-    fontWeight: '700',
     flexShrink: 1,
   },
   editActionWrap: {
@@ -533,20 +681,15 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   editActionButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
     minWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    backgroundColor: 'transparent',
   },
-  editActionPressed: {
-    opacity: 0.7,
+  editActionCircle: {
+    width: 36,
+    height: 36,
   },
   editActionText: {
     ...typography.bodySmall,
     fontWeight: '700',
-    marginTop: 2,
   },
   editTextBlack: {
     color: colors.title,
@@ -565,20 +708,65 @@ const styles = StyleSheet.create({
   infoLabel: {
     ...typography.bodySmall,
     color: colors.title,
-    fontWeight: '700',
     width: 82,
   },
   infoValue: {
     ...typography.bodySmall,
-    color: colors.brandText,
+    color: colors.title,
     backgroundColor: colors.surface,
     flex: 1,
     textAlign: 'center',
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: colors.title,
     borderRadius: radius.lg,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
+  },
+  infoValueEmpty: {
+    color: colors.bodyMuted,
+    borderColor: colors.border,
+  },
+  editButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  editRowButton: {
+    width: 120,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  editRowButtonText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cancelEditButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  cancelEditButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  cancelEditButtonText: {
+    color: colors.title,
+  },
+  saveEditButton: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  saveEditButtonPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
+  },
+  saveEditButtonText: {
+    color: colors.surface,
   },
   footerNav: {
     position: 'absolute',
@@ -600,16 +788,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
-  savedDialogCard: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-  },
-  savedDialogTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    color: colors.brandText,
-  },
   title: {
     ...typography.title,
     color: colors.title,
@@ -618,7 +796,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.xxs,
     backgroundColor: colors.pageBg,
-    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
     paddingTop: BACK_HEADER_TOP_OFFSET,
     paddingBottom: spacing.xxs,
   },
@@ -626,15 +803,5 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.bodyMuted,
     textAlign: 'left',
-  },
-  editActionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  editFooterButton: {
-    flex: 1,
-    minWidth: 100,
   },
 });

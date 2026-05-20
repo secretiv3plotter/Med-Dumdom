@@ -1,5 +1,7 @@
 import { ROUTES } from './routes';
 import LogInScreen from '../../features/auth/screens/LogInScreen';
+import LoadingScreen from '../../features/auth/screens/LoadingScreen';
+import ProfileSetupScreen from '../../features/auth/screens/ProfileSetupScreen';
 import SignUpScreen from '../../features/auth/screens/SignUpScreen';
 import AppointmentTrackerHistoryScreen from '../../features/patient/screens/AppointmentTrackerHistoryScreen';
 import AppointmentTrackerScreen from '../../features/patient/screens/AppointmentTrackerScreen';
@@ -14,6 +16,8 @@ import HelpAndSupportScreen from '../../features/support/screens/HelpAndSupportS
 export const SCREEN_REGISTRY = {
   [ROUTES.SIGN_UP]: SignUpScreen,
   [ROUTES.LOG_IN]: LogInScreen,
+  [ROUTES.LOADING]: LoadingScreen,
+  [ROUTES.PROFILE_SETUP]: ProfileSetupScreen,
   [ROUTES.SETTINGS]: SettingsScreen,
   [ROUTES.HOME]: PatientDashboardScreen,
   [ROUTES.PATIENT_DASHBOARD]: PatientDashboardScreen,

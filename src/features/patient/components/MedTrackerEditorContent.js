@@ -16,6 +16,7 @@ export function MedTrackerEditorContent({
   scheduleEntries,
   editingScheduleIndex,
   formError,
+  originalScheduleType,
   setFormState,
   setScheduleDraft,
   onSelectScheduleType,
@@ -64,6 +65,7 @@ export function MedTrackerEditorContent({
       ) : isScheduleTypeStep ? (
         <MedicineScheduleTypeStep
           selectedScheduleType={selectedScheduleType}
+          originalScheduleType={editorMode === 'edit' ? originalScheduleType : null}
           onSelectScheduleType={onSelectScheduleType}
         />
       ) : (
@@ -87,22 +89,22 @@ export function MedTrackerEditorContent({
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
       <View style={styles.footerActionsRow}>
-        <ActionButton label="Cancel" variant="outline" onPress={onCancel} style={styles.footerButton} />
+        <ActionButton label="Cancel" variant="outline" onPress={onCancel} style={styles.footerSecondaryButton} />
         {isDetailsStep ? (
-          <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
+          <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerPrimaryButton} />
         ) : isScheduleTypeStep ? (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
-            <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
+            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerSecondaryButton} />
+            <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerPrimaryButton} />
           </>
         ) : (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
+            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerSecondaryButton} />
             <ActionButton
               label={editorMode === 'edit' ? 'Save Medicine' : 'Add Medicine'}
               variant="solid"
               onPress={onSaveMedicine}
-              style={styles.footerButton}
+              style={styles.footerPrimaryButton}
             />
           </>
         )}
@@ -128,8 +130,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  footerButton: {
+  footerSecondaryButton: {
     flex: 1,
     minWidth: 100,
+  },
+  footerPrimaryButton: {
+    flex: 1.6,
+    minWidth: 140,
   },
 });

@@ -1,7 +1,19 @@
 import MedEntry from '../../domain/models/MedEntryModel';
+import { getIntervalOccurrenceDateTime } from '../../domain/models/medEntryModelUtils';
 
 const DEFAULT_PATIENT_EMAIL = 'current-user@local.invalid';
 const STALE_MARKED_SCHEDULE_MS = 24 * 60 * 60 * 1000;
+const SYNC_STATUS = {
+  PENDING: 'pending',
+  SYNCED: 'synced',
+  ERROR: 'error',
+};
+
+const SYNC_OPERATION = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+};
 
 const normalizeUserId = (userId) => {
   const normalizedUserId = String(userId || '').trim();
@@ -26,12 +38,21 @@ const toDate = (value) => {
     return null;
   }
 
+  if (typeof value.toDate === 'function') {
+    return value.toDate();
+  }
+
   return value instanceof Date ? new Date(value.getTime()) : new Date(value);
 };
 
 const toNullableDate = (value) => {
   const date = toDate(value);
   return date && !Number.isNaN(date.getTime()) ? date : null;
+};
+
+const toIsoStringOrNull = (value) => {
+  const date = toNullableDate(value);
+  return date ? date.toISOString() : null;
 };
 
 const sumScheduleDoseSizes = (dailySched = []) =>
@@ -107,6 +128,22 @@ const toModelScheduleEntry = (entry) => ({
   activatedAt: entry.activatedAt || null,
 });
 
+const toPlainScheduleEntry = (entry) => ({
+  doseSize: Number(entry.doseSize || 0),
+  scheduledTime: entry.scheduledTime || null,
+  intervalMinutes: entry.intervalMinutes || null,
+  intervalUnit: entry.intervalUnit || '',
+  intervalCount: entry.intervalCount || null,
+  dayOfWeek: entry.dayOfWeek || '',
+  monthOfYear: entry.monthOfYear || '',
+  dayOfMonth: entry.dayOfMonth || null,
+  instructions: entry.instructions || '',
+  status: entry.status || 'pending',
+  takenAt: toIsoStringOrNull(entry.takenAt),
+  skippedAt: toIsoStringOrNull(entry.skippedAt),
+  activatedAt: toIsoStringOrNull(entry.activatedAt),
+});
+
 const toMedEntryModel = (entry) =>
   new MedEntry({
     medEntryId: entry.medEntryId,
@@ -123,6 +160,33 @@ const toMedEntryModel = (entry) =>
     updatedAt: entry.updatedAt || null,
     totalPrescribedDoses: entry.totalPrescribedDoses ?? null,
   });
+
+const toPlainMedEntry = (entry) => ({
+  medEntryId: entry.medEntryId,
+  patientUserId: entry.patientUserId,
+  medName: entry.medName,
+  unitStrength: entry.unitStrength || '',
+  unit: entry.unit,
+  totalDailyAmount: Number(entry.totalDailyAmount || 0),
+  dailySched: Array.from(entry.dailySched || []).map(toPlainScheduleEntry),
+  startDate: toIsoStringOrNull(entry.startDate),
+  endDate: toIsoStringOrNull(entry.endDate),
+  instructions: entry.instructions || '',
+  prescriberContact: entry.prescriberContact || '',
+  totalPrescribedDoses: entry.totalPrescribedDoses ?? null,
+  isDeleted: Boolean(entry.isDeleted),
+  deletedAt: toIsoStringOrNull(entry.deletedAt),
+  syncStatus: entry.syncStatus || SYNC_STATUS.SYNCED,
+  syncOperation: entry.syncOperation || '',
+  syncError: entry.syncError || '',
+  lastSyncedAt: toIsoStringOrNull(entry.lastSyncedAt),
+  localUpdatedAt: toIsoStringOrNull(entry.localUpdatedAt),
+  remoteUpdatedAt: toIsoStringOrNull(entry.remoteUpdatedAt),
+  syncVersion: Number(entry.syncVersion || 0),
+  syncDeviceId: entry.syncDeviceId || '',
+  createdAt: toIsoStringOrNull(entry.createdAt),
+  updatedAt: toIsoStringOrNull(entry.updatedAt),
+});
 
 const toHistoryScheduleEntry = (entry, index = 0) => ({
   scheduleIndex: Number(entry.scheduleIndex ?? index),
@@ -165,13 +229,84 @@ const isIntervalScheduleEntry = (entry) =>
 
 const getMarkedScheduleDate = (entry) => toNullableDate(entry?.takenAt || entry?.skippedAt);
 
-const isStaleMarkedSchedule = (entry, now) => {
-  if (entry?.status !== 'taken' && entry?.status !== 'skipped') {
+const getScheduledDateTimeForDate = (scheduleEntry, dateValue) => {
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(scheduleEntry));
+  if (scheduleMinutes === null) {
+    return null;
+  }
+
+  const scheduleDateTime = new Date(dateValue.getTime());
+  scheduleDateTime.setHours(Math.floor(scheduleMinutes / 60), scheduleMinutes % 60, 0, 0);
+  return scheduleDateTime;
+};
+
+const getLatestScheduleOccurrenceDateTime = (entryModel, scheduleEntry, now) => {
+  if (isIntervalScheduleEntry(scheduleEntry)) {
+    return getIntervalOccurrenceDateTime(scheduleEntry, now);
+  }
+
+  if (scheduleEntry?.intervalUnit === 'asNeeded') {
+    return null;
+  }
+
+  for (let dayOffset = 0; dayOffset <= 370; dayOffset += 1) {
+    const candidateDay = new Date(now.getTime());
+    candidateDay.setDate(candidateDay.getDate() - dayOffset);
+    candidateDay.setHours(0, 0, 0, 0);
+
+    if (!entryModel.isActiveOnDate(candidateDay) || !isScheduleEntryForDate(scheduleEntry, candidateDay)) {
+      continue;
+    }
+
+    const occurrence = getScheduledDateTimeForDate(scheduleEntry, candidateDay);
+    if (occurrence && occurrence <= now) {
+      return occurrence;
+    }
+  }
+
+  return null;
+};
+
+const getScheduleStatusChangedAt = (entryModel, scheduleEntry, scheduleIndex, now) => {
+  const markedAt = getMarkedScheduleDate(scheduleEntry);
+  if (markedAt) {
+    return markedAt;
+  }
+
+  const status = entryModel.getScheduleStatus(scheduleIndex, now, now);
+  if (status === 'upcoming' || status === 'pending') {
+    return null;
+  }
+
+  return getLatestScheduleOccurrenceDateTime(entryModel, scheduleEntry, now);
+};
+
+const isStaleActionableSchedule = (entryModel, scheduleEntry, scheduleIndex, now) => {
+  const markedAt = getMarkedScheduleDate(scheduleEntry);
+  if (markedAt) {
+    return now.getTime() - markedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+  }
+
+  const status = entryModel.getScheduleStatus(scheduleIndex, now, now);
+  if (status === 'upcoming' || status === 'pending') {
     return false;
   }
 
-  const markedAt = getMarkedScheduleDate(entry);
-  return !!markedAt && now.getTime() - markedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+  const changedAt = getScheduleStatusChangedAt(entryModel, scheduleEntry, scheduleIndex, now);
+  return !!changedAt && now.getTime() - changedAt.getTime() >= STALE_MARKED_SCHEDULE_MS;
+};
+
+const toHistoricalScheduleEntry = (scheduleEntry) => {
+  if (scheduleEntry?.status === 'taken' || scheduleEntry?.status === 'skipped') {
+    return scheduleEntry;
+  }
+
+  return {
+    ...scheduleEntry,
+    status: 'missed',
+    takenAt: null,
+    skippedAt: null,
+  };
 };
 
 const toHistoryModel = (entry) => ({
@@ -194,33 +329,51 @@ const toHistoryModel = (entry) => ({
   createdAt: entry.createdAt,
 });
 
-const hasPreviousDayStatus = (entry, currentDayKey) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    const statusDate = scheduleEntry.takenAt || scheduleEntry.skippedAt;
-    return statusDate && dateKey(statusDate) < currentDayKey;
-  });
+const toPlainHistoryScheduleEntry = (entry) => ({
+  scheduleIndex: Number(entry.scheduleIndex ?? 0),
+  doseSize: Number(entry.doseSize || 0),
+  scheduledTime: entry.scheduledTime || null,
+  intervalMinutes: entry.intervalMinutes || null,
+  intervalUnit: entry.intervalUnit || '',
+  intervalCount: entry.intervalCount || null,
+  dayOfWeek: entry.dayOfWeek || '',
+  monthOfYear: entry.monthOfYear || '',
+  dayOfMonth: entry.dayOfMonth || null,
+  instructions: entry.instructions || '',
+  finalStatus: entry.finalStatus || 'missed',
+  takenAt: toIsoStringOrNull(entry.takenAt),
+  skippedAt: toIsoStringOrNull(entry.skippedAt),
+  activatedAt: toIsoStringOrNull(entry.activatedAt),
+  resolvedAt: toIsoStringOrNull(entry.resolvedAt),
+});
 
-const hasSameDayStatus = (entry, currentDayKey) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    const statusDate = scheduleEntry.takenAt || scheduleEntry.skippedAt;
-    return statusDate && dateKey(statusDate) === currentDayKey;
-  });
-
-const hasFreshMarkedScheduleForDate = (entry, scheduleDate, now) =>
-  Array.from(entry.dailySched || []).some((scheduleEntry) => {
-    if (!isScheduleEntryForDate(scheduleEntry, scheduleDate)) {
-      return false;
-    }
-
-    if (scheduleEntry.status !== 'taken' && scheduleEntry.status !== 'skipped') {
-      return false;
-    }
-
-    const markedAt = getMarkedScheduleDate(scheduleEntry);
-    return !!markedAt &&
-      dateKey(markedAt) === dateKey(scheduleDate) &&
-      now.getTime() - markedAt.getTime() < STALE_MARKED_SCHEDULE_MS;
-  });
+const toPlainMedHistory = (entry) => ({
+  historyId: entry.historyId,
+  patientUserId: entry.patientUserId,
+  medEntryId: entry.medEntryId,
+  historyDate: entry.historyDate,
+  medName: entry.medName,
+  unitStrength: entry.unitStrength || '',
+  unit: entry.unit,
+  totalDailyAmount: Number(entry.totalDailyAmount || 0),
+  startDate: toIsoStringOrNull(entry.startDate),
+  endDate: toIsoStringOrNull(entry.endDate),
+  instructions: entry.instructions || '',
+  prescriberContact: entry.prescriberContact || '',
+  dailySchedFinalStatuses: Array.from(entry.dailySchedFinalStatuses || []).map(toPlainHistoryScheduleEntry),
+  completedAllSchedules: Boolean(entry.completedAllSchedules),
+  isDeleted: Boolean(entry.isDeleted),
+  deletedAt: toIsoStringOrNull(entry.deletedAt),
+  syncStatus: entry.syncStatus || SYNC_STATUS.SYNCED,
+  syncOperation: entry.syncOperation || '',
+  syncError: entry.syncError || '',
+  lastSyncedAt: toIsoStringOrNull(entry.lastSyncedAt),
+  localUpdatedAt: toIsoStringOrNull(entry.localUpdatedAt),
+  remoteUpdatedAt: toIsoStringOrNull(entry.remoteUpdatedAt),
+  syncVersion: Number(entry.syncVersion || 0),
+  syncDeviceId: entry.syncDeviceId || '',
+  createdAt: toIsoStringOrNull(entry.createdAt),
+});
 
 const toMinutes = (timeValue) => {
   const match = String(timeValue || '').match(/^(\d{2}):(\d{2})$/);
@@ -228,31 +381,6 @@ const toMinutes = (timeValue) => {
 };
 
 const scheduleEffectiveTime = (entry) => entry.scheduledTime || '';
-
-const shouldRunDailyRollover = (entry, now) => {
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const firstScheduleMinutes = Array.from(entry.dailySched || [])
-    .map((scheduleEntry) => toMinutes(scheduleEffectiveTime(scheduleEntry)))
-    .filter((minutes) => minutes !== null)
-    .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
-
-  if (firstScheduleMinutes === undefined) {
-    return false;
-  }
-
-  const resetStartMinutes =
-    Array.from(entry.dailySched || []).length === 1
-      ? Math.max(0, firstScheduleMinutes - 60)
-      : firstScheduleMinutes;
-
-  return currentMinutes >= resetStartMinutes;
-};
-
-const previousDay = (now) => {
-  const date = new Date(now.getTime());
-  date.setDate(date.getDate() - 1);
-  return date;
-};
 
 export default class RealmMedTrackerRepository {
   constructor(realm) {
@@ -288,9 +416,19 @@ export default class RealmMedTrackerRepository {
     return this.realm.write(callback);
   }
 
-  persistMedEntry(userId, medEntry, existingCreatedAt = null) {
+  persistMedEntry(userId, medEntry, existingCreatedAt = null, syncOptions = {}) {
     const normalizedUserId = normalizeUserId(userId);
     const now = new Date();
+    const existingEntry = medEntry.medEntryId
+      ? this.realm.objectForPrimaryKey('MedEntry', medEntry.medEntryId)
+      : null;
+    const markPending = syncOptions.markPending !== false;
+    const operation = syncOptions.operation ||
+      (existingEntry?.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : existingEntry ? SYNC_OPERATION.UPDATE : SYNC_OPERATION.CREATE);
+    const localUpdatedAt = syncOptions.localUpdatedAt ? toNullableDate(syncOptions.localUpdatedAt) : now;
+    const createdAt = existingCreatedAt || existingEntry?.createdAt || now;
+    const syncVersion = Number(syncOptions.syncVersion ?? existingEntry?.syncVersion ?? 0) + (markPending ? 1 : 0);
+
     return this.realm.create(
       'MedEntry',
       {
@@ -306,9 +444,17 @@ export default class RealmMedTrackerRepository {
         instructions: medEntry.instructions || '',
         prescriberContact: medEntry.prescriberContact || '',
         totalPrescribedDoses: medEntry.totalPrescribedDoses,
-        isDeleted: false,
-        deletedAt: null,
-        createdAt: existingCreatedAt || now,
+        isDeleted: Boolean(syncOptions.isDeleted ?? medEntry.isDeleted ?? false),
+        deletedAt: toNullableDate(syncOptions.deletedAt ?? medEntry.deletedAt),
+        syncStatus: syncOptions.syncStatus || (markPending ? SYNC_STATUS.PENDING : existingEntry?.syncStatus || SYNC_STATUS.SYNCED),
+        syncOperation: syncOptions.syncOperation ?? (markPending ? operation : existingEntry?.syncOperation || ''),
+        syncError: syncOptions.syncError ?? (markPending ? '' : existingEntry?.syncError || ''),
+        lastSyncedAt: toNullableDate(syncOptions.lastSyncedAt ?? existingEntry?.lastSyncedAt),
+        localUpdatedAt,
+        remoteUpdatedAt: toNullableDate(syncOptions.remoteUpdatedAt ?? existingEntry?.remoteUpdatedAt),
+        syncVersion,
+        syncDeviceId: syncOptions.syncDeviceId ?? existingEntry?.syncDeviceId ?? '',
+        createdAt,
         updatedAt: now,
       },
       'modified',
@@ -346,6 +492,14 @@ export default class RealmMedTrackerRepository {
         completedAllSchedules: activeSchedules.every((scheduleEntry) => scheduleEntry.status === 'taken'),
         isDeleted: false,
         deletedAt: null,
+        syncStatus: SYNC_STATUS.PENDING,
+        syncOperation: SYNC_OPERATION.CREATE,
+        syncError: '',
+        lastSyncedAt: null,
+        localUpdatedAt: new Date(),
+        remoteUpdatedAt: null,
+        syncVersion: 1,
+        syncDeviceId: '',
         createdAt: new Date(),
       },
       'modified',
@@ -398,6 +552,14 @@ export default class RealmMedTrackerRepository {
         completedAllSchedules: dailySchedFinalStatuses.every((scheduleEntry) => scheduleEntry.finalStatus === 'taken'),
         isDeleted: false,
         deletedAt: null,
+        syncStatus: SYNC_STATUS.PENDING,
+        syncOperation: existingHistory?.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.UPDATE,
+        syncError: '',
+        lastSyncedAt: toNullableDate(existingHistory?.lastSyncedAt),
+        localUpdatedAt: new Date(),
+        remoteUpdatedAt: toNullableDate(existingHistory?.remoteUpdatedAt),
+        syncVersion: Number(existingHistory?.syncVersion || 0) + 1,
+        syncDeviceId: existingHistory?.syncDeviceId || '',
         createdAt: existingHistory?.createdAt || new Date(),
       },
       'modified',
@@ -405,9 +567,28 @@ export default class RealmMedTrackerRepository {
   }
 
   archiveStaleMarkedSchedules(userId, entryModel, existingCreatedAt = null, now = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
     const staleScheduleItems = entryModel.dailySched
-      .map((scheduleEntry, scheduleIndex) => ({ scheduleEntry, scheduleIndex, markedAt: getMarkedScheduleDate(scheduleEntry) }))
-      .filter(({ scheduleEntry }) => isStaleMarkedSchedule(scheduleEntry, now));
+      .map((scheduleEntry, scheduleIndex) => ({
+        scheduleEntry: toHistoricalScheduleEntry(scheduleEntry),
+        scheduleIndex,
+        markedAt: getScheduleStatusChangedAt(entryModel, scheduleEntry, scheduleIndex, now),
+        currentScheduleEntry: scheduleEntry,
+      }))
+      .filter(({ currentScheduleEntry, scheduleIndex }) =>
+        isStaleActionableSchedule(entryModel, currentScheduleEntry, scheduleIndex, now)
+      )
+      .filter(({ scheduleIndex, markedAt }) => {
+        const historyDateKey = dateKey(markedAt);
+        const historyId = `${normalizedUserId}-${entryModel.medEntryId}-${historyDateKey}`;
+        const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
+        if (!existingHistory) {
+          return true;
+        }
+
+        return !Array.from(existingHistory.dailySchedFinalStatuses || [])
+          .some((historyEntry) => Number(historyEntry.scheduleIndex || 0) === Number(scheduleIndex));
+      });
 
     if (!staleScheduleItems.length) {
       return null;
@@ -453,22 +634,8 @@ export default class RealmMedTrackerRepository {
   }
 
   persistResetIfNeeded(userId, entry, now = new Date()) {
-    const currentDayKey = dateKey(now);
-    const yesterday = previousDay(now);
-    const yesterdayKey = dateKey(yesterday);
     const archivedModel = this.archiveStaleMarkedSchedules(userId, toMedEntryModel(entry), entry.createdAt, now);
     const entryModel = archivedModel || toMedEntryModel(entry);
-    const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', `${normalizeUserId(userId)}-${entryModel.medEntryId}-${yesterdayKey}`);
-    const shouldSnapshotYesterday =
-      !existingHistory &&
-      entryModel.isActiveOnDate(yesterday) &&
-      shouldRunDailyRollover(entryModel, now) &&
-      !hasFreshMarkedScheduleForDate(entryModel, yesterday, now) &&
-      (hasPreviousDayStatus(entryModel, currentDayKey) || !hasSameDayStatus(entryModel, currentDayKey));
-
-    if (shouldSnapshotYesterday) {
-      this.snapshotDailyHistory(userId, entryModel, yesterday);
-    }
 
     const model = entryModel;
     const didReset = model.resetDailyScheduleStatusesIfNeeded(now);
@@ -511,7 +678,14 @@ export default class RealmMedTrackerRepository {
         throw new Error(`Med tracker history not found: ${historyId}`);
       }
 
-      this.realm.delete(entry);
+      const now = new Date();
+      entry.isDeleted = true;
+      entry.deletedAt = now;
+      entry.syncStatus = SYNC_STATUS.PENDING;
+      entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+      entry.syncError = '';
+      entry.localUpdatedAt = now;
+      entry.syncVersion = Number(entry.syncVersion || 0) + 1;
       return true;
     });
   }
@@ -528,7 +702,14 @@ export default class RealmMedTrackerRepository {
       normalizedHistoryIds.forEach((historyId) => {
         const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
         if (entry && entry.patientUserId === normalizedUserId) {
-          this.realm.delete(entry);
+          const now = new Date();
+          entry.isDeleted = true;
+          entry.deletedAt = now;
+          entry.syncStatus = SYNC_STATUS.PENDING;
+          entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+          entry.syncError = '';
+          entry.localUpdatedAt = now;
+          entry.syncVersion = Number(entry.syncVersion || 0) + 1;
           deletedCount += 1;
         }
       });
@@ -539,8 +720,10 @@ export default class RealmMedTrackerRepository {
 
   deleteSoftDeletedRecords(userId) {
     const normalizedUserId = normalizeUserId(userId);
-    const deletedEntries = this.realm.objects('MedEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
-    const deletedHistory = this.realm.objects('MedTrackerDailyHistory').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId);
+    const deletedEntries = this.realm.objects('MedEntry').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId)
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.SYNCED && !entry.syncOperation);
+    const deletedHistory = this.realm.objects('MedTrackerDailyHistory').filtered('patientUserId == $0 AND isDeleted == true', normalizedUserId)
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.SYNCED && !entry.syncOperation);
     const deletedCount = deletedEntries.length + deletedHistory.length;
 
     if (deletedEntries.length) {
@@ -626,8 +809,249 @@ export default class RealmMedTrackerRepository {
   deleteMedEntry(userId, medEntryId) {
     return this.write(() => {
       const entry = this.getActiveEntry(userId, medEntryId);
+      const now = new Date();
+      entry.isDeleted = true;
+      entry.deletedAt = now;
+      entry.syncStatus = SYNC_STATUS.PENDING;
+      entry.syncOperation = entry.syncOperation === SYNC_OPERATION.CREATE ? SYNC_OPERATION.CREATE : SYNC_OPERATION.DELETE;
+      entry.syncError = '';
+      entry.localUpdatedAt = now;
+      entry.syncVersion = Number(entry.syncVersion || 0) + 1;
+      entry.updatedAt = now;
+      return true;
+    });
+  }
+
+  listPendingMedSyncChanges(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    return Array.from(this.realm.objects('MedEntry').filtered('patientUserId == $0', normalizedUserId))
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.PENDING || entry.syncStatus === SYNC_STATUS.ERROR)
+      .map(toPlainMedEntry)
+      .sort((firstEntry, secondEntry) =>
+        String(firstEntry.localUpdatedAt || firstEntry.updatedAt || '').localeCompare(String(secondEntry.localUpdatedAt || secondEntry.updatedAt || ''))
+      );
+  }
+
+  markMedEntrySynced(userId, medEntryId, remoteUpdatedAt = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedMedEntryId = normalizeMedEntryId(medEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedEntry', normalizedMedEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
+      const syncedAt = new Date();
+      entry.syncStatus = SYNC_STATUS.SYNCED;
+      entry.syncOperation = '';
+      entry.syncError = '';
+      entry.lastSyncedAt = syncedAt;
+      entry.remoteUpdatedAt = toNullableDate(remoteUpdatedAt) || syncedAt;
+      return true;
+    });
+  }
+
+  markMedEntrySyncError(userId, medEntryId, error) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedMedEntryId = normalizeMedEntryId(medEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedEntry', normalizedMedEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
+      entry.syncStatus = SYNC_STATUS.ERROR;
+      entry.syncError = error instanceof Error ? error.message : String(error || 'Sync failed.');
+      return true;
+    });
+  }
+
+  hardDeleteMedEntry(userId, medEntryId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedMedEntryId = normalizeMedEntryId(medEntryId);
+
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedEntry', normalizedMedEntryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) {
+        return false;
+      }
+
       this.realm.delete(entry);
       return true;
+    });
+  }
+
+  upsertRemoteMedEntry(userId, remoteData = {}) {
+    const normalizedUserId = normalizeUserId(userId);
+    const medEntryId = normalizeMedEntryId(remoteData.medEntryId || remoteData.id);
+    const remoteUpdatedAt = toNullableDate(remoteData.remoteUpdatedAt || remoteData.updatedAt || remoteData.lastSyncedAt) || new Date();
+
+    return this.write(() => {
+      this.ensurePatientUser(normalizedUserId);
+      const existingEntry = this.realm.objectForPrimaryKey('MedEntry', medEntryId);
+      const localUpdatedAt = toNullableDate(existingEntry?.localUpdatedAt || existingEntry?.updatedAt);
+      const hasUnpushedLocalChange =
+        existingEntry &&
+        (existingEntry.syncStatus === SYNC_STATUS.PENDING || existingEntry.syncStatus === SYNC_STATUS.ERROR) &&
+        localUpdatedAt &&
+        localUpdatedAt.getTime() >= remoteUpdatedAt.getTime();
+
+      if (hasUnpushedLocalChange) {
+        return toPlainMedEntry(existingEntry);
+      }
+
+      const medEntry = new MedEntry({
+        medEntryId,
+        medName: remoteData.medName,
+        unitStrength: remoteData.unitStrength || '',
+        unit: remoteData.unit,
+        totalDailyAmount: Number(remoteData.totalDailyAmount || 0),
+        dailySched: Array.isArray(remoteData.dailySched) ? remoteData.dailySched : [],
+        startDate: toNullableDate(remoteData.startDate) || new Date(),
+        endDate: toNullableDate(remoteData.endDate),
+        instructions: remoteData.instructions || '',
+        prescriberContact: remoteData.prescriberContact || '',
+        createdAt: toNullableDate(remoteData.createdAt),
+        updatedAt: toNullableDate(remoteData.updatedAt),
+        totalPrescribedDoses: remoteData.totalPrescribedDoses ?? null,
+      });
+
+      const savedEntry = this.persistMedEntry(normalizedUserId, medEntry, toNullableDate(remoteData.createdAt), {
+        markPending: false,
+        isDeleted: Boolean(remoteData.isDeleted),
+        deletedAt: toNullableDate(remoteData.deletedAt),
+        syncStatus: SYNC_STATUS.SYNCED,
+        syncOperation: '',
+        syncError: '',
+        lastSyncedAt: new Date(),
+        localUpdatedAt: remoteUpdatedAt,
+        remoteUpdatedAt,
+        syncVersion: Number(remoteData.syncVersion || existingEntry?.syncVersion || 0),
+        syncDeviceId: remoteData.syncDeviceId || existingEntry?.syncDeviceId || '',
+      });
+
+      return toPlainMedEntry(savedEntry);
+    });
+  }
+
+  listPendingMedHistorySyncChanges(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    return Array.from(this.realm.objects('MedTrackerDailyHistory').filtered('patientUserId == $0', normalizedUserId))
+      .filter((entry) => entry.syncStatus === SYNC_STATUS.PENDING || entry.syncStatus === SYNC_STATUS.ERROR)
+      .map(toPlainMedHistory);
+  }
+
+  markMedHistorySynced(userId, historyId, remoteUpdatedAt = new Date()) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      const syncedAt = new Date();
+      entry.syncStatus = SYNC_STATUS.SYNCED;
+      entry.syncOperation = '';
+      entry.syncError = '';
+      entry.lastSyncedAt = syncedAt;
+      entry.remoteUpdatedAt = toNullableDate(remoteUpdatedAt) || syncedAt;
+      return true;
+    });
+  }
+
+  markMedHistorySyncError(userId, historyId, error) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      entry.syncStatus = SYNC_STATUS.ERROR;
+      entry.syncError = error instanceof Error ? error.message : String(error || 'Sync failed.');
+      return true;
+    });
+  }
+
+  hardDeleteMedHistory(userId, historyId) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedHistoryId = String(historyId || '').trim();
+    return this.write(() => {
+      const entry = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', normalizedHistoryId);
+      if (!entry || entry.patientUserId !== normalizedUserId) return false;
+
+      this.realm.delete(entry);
+      return true;
+    });
+  }
+
+  upsertRemoteMedHistory(userId, remoteData = {}) {
+    const normalizedUserId = normalizeUserId(userId);
+    const historyId = String(remoteData.historyId || remoteData.id || '').trim();
+    if (!historyId) {
+      throw new RangeError('historyId cannot be empty.');
+    }
+
+    return this.write(() => {
+      const existingHistory = this.realm.objectForPrimaryKey('MedTrackerDailyHistory', historyId);
+      const remoteUpdatedAt = toNullableDate(remoteData.remoteUpdatedAt || remoteData.createdAt || remoteData.lastSyncedAt) || new Date();
+      const localUpdatedAt = toNullableDate(existingHistory?.localUpdatedAt || existingHistory?.createdAt);
+      if (
+        existingHistory &&
+        (existingHistory.syncStatus === SYNC_STATUS.PENDING || existingHistory.syncStatus === SYNC_STATUS.ERROR) &&
+        localUpdatedAt &&
+        localUpdatedAt.getTime() >= remoteUpdatedAt.getTime()
+      ) {
+        return toPlainMedHistory(existingHistory);
+      }
+
+      const savedHistory = this.realm.create('MedTrackerDailyHistory', {
+        historyId,
+        patientUserId: normalizedUserId,
+        medEntryId: remoteData.medEntryId || '',
+        historyDate: remoteData.historyDate || '',
+        medName: remoteData.medName || '',
+        unitStrength: remoteData.unitStrength || '',
+        unit: remoteData.unit || '',
+        totalDailyAmount: Number(remoteData.totalDailyAmount || 0),
+        startDate: toNullableDate(remoteData.startDate) || new Date(),
+        endDate: toNullableDate(remoteData.endDate),
+        instructions: remoteData.instructions || '',
+        prescriberContact: remoteData.prescriberContact || '',
+        dailySchedFinalStatuses: Array.isArray(remoteData.dailySchedFinalStatuses)
+          ? remoteData.dailySchedFinalStatuses.map((scheduleEntry, index) => ({
+              scheduleIndex: Number(scheduleEntry.scheduleIndex ?? index),
+              doseSize: Number(scheduleEntry.doseSize || 0),
+              scheduledTime: scheduleEntry.scheduledTime ?? null,
+              intervalMinutes: scheduleEntry.intervalMinutes ? Number(scheduleEntry.intervalMinutes) : null,
+              intervalUnit: scheduleEntry.intervalUnit ?? '',
+              intervalCount: scheduleEntry.intervalCount ? Number(scheduleEntry.intervalCount) : null,
+              dayOfWeek: scheduleEntry.dayOfWeek ?? '',
+              monthOfYear: scheduleEntry.monthOfYear ?? '',
+              dayOfMonth: scheduleEntry.dayOfMonth ? Number(scheduleEntry.dayOfMonth) : null,
+              instructions: scheduleEntry.instructions ?? '',
+              finalStatus: scheduleEntry.finalStatus || 'missed',
+              takenAt: toNullableDate(scheduleEntry.takenAt),
+              skippedAt: toNullableDate(scheduleEntry.skippedAt),
+              activatedAt: toNullableDate(scheduleEntry.activatedAt),
+              resolvedAt: toNullableDate(scheduleEntry.resolvedAt),
+            }))
+          : [],
+        completedAllSchedules: Boolean(remoteData.completedAllSchedules),
+        isDeleted: Boolean(remoteData.isDeleted),
+        deletedAt: toNullableDate(remoteData.deletedAt),
+        syncStatus: SYNC_STATUS.SYNCED,
+        syncOperation: '',
+        syncError: '',
+        lastSyncedAt: new Date(),
+        localUpdatedAt: remoteUpdatedAt,
+        remoteUpdatedAt,
+        syncVersion: Number(remoteData.syncVersion || existingHistory?.syncVersion || 0),
+        syncDeviceId: remoteData.syncDeviceId || existingHistory?.syncDeviceId || '',
+        createdAt: toNullableDate(remoteData.createdAt) || existingHistory?.createdAt || new Date(),
+      }, 'modified');
+
+      return toPlainMedHistory(savedHistory);
     });
   }
 

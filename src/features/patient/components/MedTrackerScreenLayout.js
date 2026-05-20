@@ -25,7 +25,10 @@ export function MedTrackerHeader({ onBack, onCreate, pinHeader = true }) {
         <Text style={styles.title}>Medicines</Text>
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
-      <AddButton onPress={onCreate} iconOnly />
+      <View style={styles.addButtonWrap}>
+        <AddButton onPress={onCreate} iconOnly />
+        <Text style={styles.addButtonLabel}>Add</Text>
+      </View>
     </View>
   );
 
@@ -46,7 +49,10 @@ export function MedTrackerHeaderContent({ onCreate }) {
         <Text style={styles.title}>Medicines</Text>
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
-      <AddButton onPress={onCreate} iconOnly />
+      <View style={styles.addButtonWrap}>
+        <AddButton onPress={onCreate} iconOnly />
+        <Text style={styles.addButtonLabel}>Add</Text>
+      </View>
     </View>
   );
 }
@@ -94,7 +100,17 @@ export function MedicineListSection({
             <Text style={styles.emptyTitle}>No medicines found.</Text>
             <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
           </View>
-        ) : null}
+        ) : (
+          <View
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel="No medicines added yet. Tap the Add button at the top to add your first medicine."
+            style={styles.emptyCard}
+          >
+            <Text style={styles.emptyTitle}>No medicines yet.</Text>
+            <Text style={styles.emptyText}>Tap the <Text style={styles.emptyTextBold}>Add</Text> button at the top to add your first medicine.</Text>
+          </View>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Review previous records"
@@ -199,6 +215,7 @@ export function MedicineEditorPopup({
   scheduleEntries,
   editingScheduleIndex,
   formError,
+  originalScheduleType,
   setFormState,
   setScheduleDraft,
   onSelectScheduleType,
@@ -239,6 +256,7 @@ export function MedicineEditorPopup({
         scheduleEntries={scheduleEntries}
         editingScheduleIndex={editingScheduleIndex}
         formError={formError}
+        originalScheduleType={originalScheduleType}
         setFormState={setFormState}
         setScheduleDraft={setScheduleDraft}
         onSelectScheduleType={onSelectScheduleType}
@@ -316,6 +334,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  addButtonWrap: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  addButtonLabel: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    fontWeight: '600',
+  },
   headerBlock: {
     marginBottom: spacing.sm,
   },
@@ -359,6 +386,10 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
+  },
+  emptyTextBold: {
+    fontWeight: '700',
+    color: colors.brandText,
   },
   historyBar: {
     minHeight: 48,

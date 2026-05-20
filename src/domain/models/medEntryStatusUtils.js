@@ -202,10 +202,27 @@ export const isActiveOnDate = (medEntry, currDate = new Date()) => {
   return true;
 };
 
+export const isPastEndDate = (medEntry, currDate = new Date()) => {
+  const currentDay = normalizeOptionalDate(currDate, 'currDate');
+  const endDay = normalizeOptionalDate(medEntry.endDate, 'endDate');
+
+  if (!currentDay || !endDay) {
+    return false;
+  }
+
+  currentDay.setHours(0, 0, 0, 0);
+  endDay.setHours(0, 0, 0, 0);
+  return currentDay > endDay;
+};
+
 export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date(), currDate = new Date(), syncTakenStatus) => {
   resetDailyScheduleStatusesIfNeeded(medEntry, currTime instanceof Date ? currTime : currDate, syncTakenStatus);
   ensureScheduleIndex(medEntry.dailySched, scheduleIndex);
   const scheduleEntry = medEntry.dailySched[scheduleIndex];
+
+  if (isPastEndDate(medEntry, currDate)) {
+    return 'inactive';
+  }
 
   if (!isActiveOnDate(medEntry, currDate)) {
     return 'upcoming';

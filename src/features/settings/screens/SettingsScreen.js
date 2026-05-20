@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, Pressable, View } from 'react-native';
+import { Alert, Modal, StyleSheet, Text, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { signOut } from 'firebase/auth';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -16,6 +17,13 @@ import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { scaleLayoutValue, useTextScale } from '../../../shared/theme/textScale';
+import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
+import FirebaseSyncService from '../../../sync/FirebaseSyncService';
+import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
+import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
+import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
+import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 
 const SETTINGS_ITEMS = [
   {
@@ -33,16 +41,52 @@ const TAB_KEY_TO_ROUTE = {
   med: ROUTES.MED_TRACKER,
 };
 
-export default function SettingsScreen({ navigation }) {
+export default function SettingsScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || null;
   const { textScale } = useTextScale();
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
+  const { firebase } = useFirebase();
 
   const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showConfirmLogOut, setShowConfirmLogOut] = useState(false);
+
+  const confirmLogOut = async () => {
+    setShowConfirmLogOut(false);
+    if (firebase?.db && realm) {
+      try {
+        const userId = firebase.auth?.currentUser?.uid;
+        if (userId) {
+          const syncService = new FirebaseSyncService({
+            firestoreDb: firebase.db,
+            medRepository: new RealmMedTrackerRepository(realm),
+            apptRepository: new RealmApptTrackerRepository(realm),
+            medUnitRepository: new RealmMedUnitRepository(realm),
+            userRepository: new RealmUserRepository(realm),
+            settingsRepository: new RealmSettingsPreferenceRepository(realm),
+          });
+          await syncService.syncAll(userId);
+        }
+      } catch (syncErr) {
+        console.error('Pre-logout sync failed, logging out anyway:', syncErr);
+      }
+    }
+    if (realm && typeof realm.flush === 'function') {
+      await realm.flush();
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('_med_dumdom_secure_db_');
+    }
+    if (realm && typeof realm.clearCollections === 'function') {
+      realm.clearCollections();
+    }
+    if (firebase?.auth) {
+      await signOut(firebase.auth);
+    }
+  };
 
   const canChangePassword = currentPassword.trim().length > 0 && newPassword.trim().length > 0;
 
@@ -99,6 +143,26 @@ export default function SettingsScreen({ navigation }) {
         ) : null}
 
         <View style={styles.sectionCard}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.optionCard,
+              pressed && styles.optionCardPressed,
+              styles.optionCardDivider,
+              {
+                paddingVertical: scaleLayoutValue(spacing.xxs),
+                gap: scaleLayoutValue(spacing.lg),
+              },
+            ]}
+            onPress={() => setShowConfirmLogOut(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Log out of your account"
+          >
+            <Ionicons name="log-out-outline" size={scaleLayoutValue(28)} color={colors.error ?? '#DC2626'} />
+            <View style={[styles.optionTextBlock, { gap: scaleLayoutValue(2) }]}>
+              <Text style={[styles.optionTitle, styles.logoutOptionTitle]}>Log Out</Text>
+              <Text style={styles.optionSubtitle}>Sign out of your account.</Text>
+            </View>
+          </Pressable>
           {SETTINGS_ITEMS.map((item, index) => (
             <Pressable
               key={item.key}
@@ -191,6 +255,28 @@ export default function SettingsScreen({ navigation }) {
           hidden={!footerNav.isVisible}
         />
       </View>
+      {showConfirmLogOut ? (
+        <Modal
+          transparent
+          visible={true}
+          animationType="fade"
+          onRequestClose={() => setShowConfirmLogOut(false)}
+        >
+          <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowConfirmLogOut(false)}>
+            <Pressable accessible={false} style={styles.dialogContainer} onPress={() => {}}>
+              <DialogBox
+                title="Log Out?"
+                message="Are you sure you want to log out?"
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmLogOut(false) },
+                  { label: 'Log Out', variant: 'solid', onPress: confirmLogOut },
+                ]}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
       {showDeleteDialog ? (
         <View style={styles.dialogOverlay}>
           <View style={styles.dialogContainer}>
@@ -319,6 +405,9 @@ const styles = StyleSheet.create({
     fontSize: getFontSize(18),
     fontWeight: '700',
     color: colors.brandText,
+  },
+  logoutOptionTitle: {
+    color: colors.error ?? '#DC2626',
   },
   optionSubtitle: {
     fontSize: getFontSize(16),

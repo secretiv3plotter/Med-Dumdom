@@ -332,16 +332,44 @@ export const getScheduleDayLabel = (entry) => {
   return '';
 };
 
-export const getSchedulesEarliestToLatest = (dailySched = []) =>
+const getNextScheduleOccurrenceTime = (entry, now = new Date()) => {
+  if (isIntervalScheduleEntry(entry)) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(entry));
+  if (scheduleMinutes === null) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const currentDateTime = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+  if (Number.isNaN(currentDateTime.getTime())) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  for (let dayOffset = 0; dayOffset <= 370; dayOffset += 1) {
+    const candidateDate = new Date(currentDateTime.getTime());
+    candidateDate.setDate(candidateDate.getDate() + dayOffset);
+    candidateDate.setHours(Math.floor(scheduleMinutes / 60), scheduleMinutes % 60, 0, 0);
+
+    if (candidateDate < currentDateTime || !isScheduleEntryForDate(entry, candidateDate)) {
+      continue;
+    }
+
+    return candidateDate.getTime();
+  }
+
+  return Number.POSITIVE_INFINITY;
+};
+
+export const getSchedulesEarliestToLatest = (dailySched = [], now = new Date()) =>
   dailySched
     .map((entry, index) => ({
       entry,
       index,
-      sortMinutes: isIntervalScheduleEntry(entry)
-        ? Number.NEGATIVE_INFINITY
-        : toMinutes(scheduleEffectiveTime(entry)) ?? Number.NEGATIVE_INFINITY,
+      sortTime: getNextScheduleOccurrenceTime(entry, now),
     }))
-    .sort((first, second) => first.sortMinutes - second.sortMinutes || first.index - second.index);
+    .sort((first, second) => first.sortTime - second.sortTime || first.index - second.index);
 
 export const getScheduleMissedDisplayTime = (medicine, entry, scheduleIndex, now = new Date()) => {
   if (entry.skippedAt) {
@@ -488,6 +516,10 @@ export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()
       return statusStyle({ status, label: 'Pending', bgColor: '#2C2412', textColor: colors.warning });
     }
 
+    if (status === 'inactive') {
+      return statusStyle({ status, label: 'Inactive', bgColor: colors.surface, textColor: colors.bodyMuted });
+    }
+
     return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: colors.body });
   }
 
@@ -510,6 +542,10 @@ export const getScheduleStatusStyle = (medicine, scheduleIndex, now = new Date()
 
   if (status === 'pending') {
     return statusStyle({ status, label: 'Pending', bgColor: '#FEF3C7', textColor: '#78350F' }); // Soft Amber on Deep Brown (contrast 6.1+)
+  }
+
+  if (status === 'inactive') {
+    return statusStyle({ status, label: 'Inactive', bgColor: '#F3F4F6', textColor: '#4B5563' });
   }
 
   return statusStyle({ status, label: 'Upcoming', bgColor: colors.surface, textColor: '#374151' });
@@ -786,6 +822,11 @@ export const getMedicinePreviewState = (medicine, now = new Date()) => {
     return { type: 'schedules', items: [getNearestScheduleItem(upcomingItems, now)] };
   }
 
+  const inactiveItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'inactive');
+  if (inactiveItems.length === scheduleItems.length && inactiveItems.length) {
+    return { type: 'schedules', items: [inactiveItems[0]] };
+  }
+
   if (isMedicineCompletedToday(medicine, now)) {
     return { type: 'completed' };
   }
@@ -945,6 +986,11 @@ export const getMedicineStatusForSorting = (medicine, now = new Date()) => {
   const upcomingItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'upcoming');
   if (upcomingItems.length) {
     return 'upcoming';
+  }
+
+  const inactiveItems = scheduleItems.filter(({ statusStyle }) => statusStyle.status === 'inactive');
+  if (inactiveItems.length === scheduleItems.length && inactiveItems.length) {
+    return 'inactive';
   }
 
   if (isMedicineCompletedToday(medicine, now)) {

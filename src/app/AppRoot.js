@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
-import { BackHandler, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, BackHandler, Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -8,6 +8,12 @@ import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
 import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
+import { FirebaseProvider, useFirebase } from '../localdb/firebase/FirebaseAuthContext';
+import FirebaseSyncService from '../sync/FirebaseSyncService';
+import RealmMedTrackerRepository from '../localdb/realm/RealmMedTrackerRepository';
+import RealmApptTrackerRepository from '../localdb/realm/RealmApptTrackerRepository';
+import RealmMedUnitRepository from '../localdb/realm/RealmMedUnitRepository';
+import RealmUserRepository from '../localdb/realm/RealmUserRepository';
 import { ROUTES } from './navigation/routes';
 import { SCREEN_REGISTRY } from './navigation/screenRegistry';
 
@@ -74,12 +80,54 @@ function useWebViewportLock() {
   }, []);
 }
 
+const AUTH_ROUTES = new Set([ROUTES.LOG_IN, ROUTES.SIGN_UP]);
+
 function AppContent() {
   const realm = useRealm();
+  const { firebase, currentUser } = useFirebase();
   const { textScale, darkModeEnabled, hapticEnabled } = useTextScale();
-  const [history, setHistory] = useState([{ routeName: ROUTES.HOME, params: {} }]);
+  const [history, setHistory] = useState([{ routeName: ROUTES.LOG_IN, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
+
+  // Redirect based on Firebase auth state only when it is resolved (not undefined)
+  useEffect(() => {
+    if (currentUser === undefined) return;
+    if (currentUser === null && !AUTH_ROUTES.has(currentRoute)) {
+      setHistory([{ routeName: ROUTES.LOG_IN, params: {} }]);
+    }
+    if (currentUser !== null && AUTH_ROUTES.has(currentRoute)) {
+      setHistory([{ routeName: ROUTES.LOADING, params: {} }]);
+    }
+  }, [currentUser]); // intentionally only re-runs when auth state changes, not on every route change
+
+  useEffect(() => {
+    if (!realm || !currentUser || !firebase?.db) return;
+    let debounceTimer = null;
+    const handleChange = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const syncService = new FirebaseSyncService({
+            firestoreDb: firebase.db,
+            medRepository: new RealmMedTrackerRepository(realm),
+            apptRepository: new RealmApptTrackerRepository(realm),
+            medUnitRepository: new RealmMedUnitRepository(realm),
+            userRepository: new RealmUserRepository(realm),
+            settingsRepository: new RealmSettingsPreferenceRepository(realm),
+          });
+          await syncService.syncAll(currentUser.uid);
+        } catch (err) {
+          console.error('Auto-sync failed:', err);
+        }
+      }, 3000);
+    };
+    realm.addListener('change', handleChange);
+    return () => {
+      realm.removeListener('change', handleChange);
+      clearTimeout(debounceTimer);
+    };
+  }, [currentUser, firebase, realm]);
 
   const navigation = useMemo(
     () => ({
@@ -87,6 +135,9 @@ function AppContent() {
       currentParams: currentEntry.params,
       navigate: (routeName, params = {}) => {
         setHistory((prev) => [...prev, { routeName, params }]);
+      },
+      reset: (routeName, params = {}) => {
+        setHistory([{ routeName, params }]);
       },
       goBack: () => {
         setHistory((prev) => {
@@ -138,6 +189,30 @@ function AppContent() {
     return () => document.removeEventListener('click', listener, true);
   }, [hapticEnabled]);
 
+  const { width: windowWidth } = useWindowDimensions();
+  const translateX = useRef(new Animated.Value(0)).current;
+  const prevRouteRef = useRef(currentRoute);
+
+  useEffect(() => {
+    const prevRoute = prevRouteRef.current;
+    prevRouteRef.current = currentRoute;
+    const isAuthSlide =
+      (prevRoute === ROUTES.LOG_IN && currentRoute === ROUTES.SIGN_UP) ||
+      (prevRoute === ROUTES.SIGN_UP && currentRoute === ROUTES.LOG_IN);
+    if (!isAuthSlide) return;
+    const direction = currentRoute === ROUTES.SIGN_UP ? 1 : -1;
+    translateX.setValue(direction * windowWidth);
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [currentRoute]);
+
+  if (currentUser === undefined) {
+    return null;
+  }
+
   const CurrentScreen = SCREEN_REGISTRY[currentRoute] ?? SCREEN_REGISTRY[ROUTES.HOME];
   const screenProps = { navigation, realm };
   const screenKey =
@@ -147,9 +222,20 @@ function AppContent() {
 
   return (
     <>
-      <View key={screenKey} style={{ flex: 1 }} onTouchStart={handleGlobalTouch}>
+      {AUTH_ROUTES.has(currentRoute) && (
+        <View style={styles.authPeopleWrapper} pointerEvents="none">
+          <Image
+            source={require('../assets/people.png')}
+            style={styles.authPeopleImage}
+            resizeMode="contain"
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+          />
+        </View>
+      )}
+      <Animated.View key={screenKey} style={{ flex: 1, transform: [{ translateX }] }} onTouchStart={handleGlobalTouch}>
         <CurrentScreen {...screenProps} />
-      </View>
+      </Animated.View>
       <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
     </>
   );
@@ -201,25 +287,29 @@ export default function AppRoot() {
 
   if (isWebDesktop) {
     return (
-      <RealmProvider>
-        <View style={[styles.webDesktopBackground, { backgroundColor: colors.pageBg }]}>
-          <View
-            style={[
-              styles.phoneFrame,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <AppShell />
+      <FirebaseProvider>
+        <RealmProvider>
+          <View style={[styles.webDesktopBackground, { backgroundColor: colors.pageBg }]}>
+            <View
+              style={[
+                styles.phoneFrame,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <AppShell />
+            </View>
           </View>
-        </View>
-      </RealmProvider>
+        </RealmProvider>
+      </FirebaseProvider>
     );
   }
 
   return (
-    <RealmProvider>
-      <AppShell />
-    </RealmProvider>
+    <FirebaseProvider>
+      <RealmProvider>
+        <AppShell />
+      </RealmProvider>
+    </FirebaseProvider>
   );
 }
 
@@ -234,6 +324,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  authPeopleWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '22%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  authPeopleImage: {
     width: '100%',
     height: '100%',
   },

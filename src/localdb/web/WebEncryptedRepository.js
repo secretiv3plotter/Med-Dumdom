@@ -29,6 +29,11 @@ class RealmResults extends Array {
         return itemUserId === String(userId) && item.isDeleted;
       }));
     }
+
+    if (queryString.trim() === 'patientUserId == $0') {
+      const userId = args[0];
+      return new RealmResults(...this.filter(item => String(item.patientUserId || '') === String(userId)));
+    }
     
     return this;
   }
@@ -200,6 +205,20 @@ export class WebRealm {
     }
   }
   
+  // Clears all in-memory data without locking the database
+  clearCollections() {
+    this.collections = {
+      PatientUser: {},
+      AccessibilityPreference: {},
+      ApptEntry: {},
+      ApptTrackerHistory: {},
+      MedEntry: {},
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
+    };
+    this.notifyListeners();
+  }
+
   // Wipes key and clears in-memory decrypted database
   lock() {
     this.key = null;
@@ -210,15 +229,37 @@ export class WebRealm {
       ApptEntry: {},
       ApptTrackerHistory: {},
       MedEntry: {},
-      MedTrackerDailyHistory: {}
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
     };
     this.notifyListeners();
   }
   
+  // Wipes all local data and re-initializes an empty database
+  async clearAndReset() {
+    this.key = null;
+    this.isUnlocked = false;
+    const emptyCollections = {
+      PatientUser: {},
+      AccessibilityPreference: {},
+      ApptEntry: {},
+      ApptTrackerHistory: {},
+      MedEntry: {},
+      MedTrackerDailyHistory: {},
+      MedUnit: {}
+    };
+    this.collections = emptyCollections;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.dbKeyName);
+    }
+    const DEFAULT_DEMO_PASSWORD = "med-dumdom-default-secure-dx-key";
+    await this.unlock(DEFAULT_DEMO_PASSWORD);
+  }
+
   // Async saving in the background (write-behind cache)
   async saveAsync() {
     if (!this.key) return;
-    
+
     try {
       const plaintext = JSON.stringify(this.collections);
       const encryptedObj = await encryptData(plaintext, this.key);
@@ -227,20 +268,27 @@ export class WebRealm {
       console.error("Background encrypted database save failed:", err);
     }
   }
-  
+
+  // Waits for any in-flight saveAsync to complete before proceeding
+  async flush() {
+    if (this._pendingSave) {
+      await this._pendingSave;
+    }
+  }
+
   // PERFECT REALM SCHEMA PARITY (100% synchronous CRUD methods)
   write(callback) {
     if (this.isInTransaction) {
       return callback();
     }
-    
+
     this.isInTransaction = true;
     try {
       const result = callback();
       // Sync memory state complete! Trigger reactive UI update instantly
       this.notifyListeners();
-      // Save securely in the background asynchronously
-      this.saveAsync();
+      // Save securely in the background, track the promise so flush() can await it
+      this._pendingSave = this.saveAsync();
       return result;
     } finally {
       this.isInTransaction = false;

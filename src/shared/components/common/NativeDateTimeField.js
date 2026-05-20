@@ -1005,8 +1005,9 @@ export default function NativeDateTimeField({
                         onScrollEndDrag={(event) => wrapCircularScroll(event, monthScrollRef, MONTHS.length)}
                       >
                         {circularItems(MONTHS).map(({ item: m, index: idx, loopIndex }) => {
-                          const minDate = minimumDate instanceof Date ? minimumDate : new Date();
-                          const isMonthDisabled = tempYear === minDate.getFullYear() && idx < minDate.getMonth();
+                          const isMonthDisabled = minimumDate instanceof Date
+                            && tempYear === minimumDate.getFullYear()
+                            && idx < minimumDate.getMonth();
                           return (
                             <Pressable
                               key={`${loopIndex}-${m}`}
@@ -1050,11 +1051,10 @@ export default function NativeDateTimeField({
                         onScrollEndDrag={(event) => wrapCircularScroll(event, dayScrollRef, daysInMonthList.length)}
                       >
                         {circularItems(daysInMonthList).map(({ item: d, loopIndex }) => {
-                          const minDate = minimumDate instanceof Date ? minimumDate : new Date();
-                          const isDayDisabled =
-                            tempYear === minDate.getFullYear() &&
-                            tempMonth === minDate.getMonth() &&
-                            d < minDate.getDate();
+                          const isDayDisabled = minimumDate instanceof Date
+                            && tempYear === minimumDate.getFullYear()
+                            && tempMonth === minimumDate.getMonth()
+                            && d < minimumDate.getDate();
                           return (
                             <Pressable
                               key={`${loopIndex}-${d}`}

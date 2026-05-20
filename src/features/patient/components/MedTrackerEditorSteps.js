@@ -15,6 +15,10 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const DAYS_OF_WEEK = [
+  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
+];
+
 const getDaysForMonth = (monthOfYear) => {
   const monthIndex = MONTHS.indexOf(monthOfYear);
   return monthIndex === -1 ? 31 : new Date(new Date().getFullYear(), monthIndex + 1, 0).getDate();
@@ -34,9 +38,26 @@ const parseIntervalValue = (value) => {
   };
 };
 
+const getScheduleTypeWarningLabel = (scheduleType) => {
+  const option = [...MEDICINE_SCHEDULE_TYPE_OPTIONS, ...MEDICINE_SUB_INTERVAL_OPTIONS]
+    .find((item) => item.value === scheduleType);
+
+  return option ? option.label.toLowerCase() : 'previous';
+};
+
 const parsePositiveCount = (value) => {
   const numericValue = Number(String(value || '').trim());
   return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 0;
+};
+
+const formatTimeForSummary = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = String(timeStr).split(':');
+  const hours = Number(h);
+  if (Number.isNaN(hours)) return timeStr;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const display = hours % 12 || 12;
+  return `${display}:${String(m || '00').padStart(2, '0')} ${period}`;
 };
 
 function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
@@ -145,7 +166,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     <View style={styles.inlineEditorContainer}>
       <View style={styles.inlineInputsRow}>
         <View style={styles.inlineDoseCol}>
-          <Text style={styles.fieldSubcaption}>How many {getDoseUnitLabel(unit)} for one dose?</Text>
+          <Text style={styles.fieldSubcaption}>Dose</Text>
           <InputBar
             placeholder="Dose"
             keyboardType="number-pad"
@@ -171,16 +192,19 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
               }}
             />
           ) : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? null : (
-            <NativeDateTimeField
-              mode="time"
-              placeholder="Select time"
-              accessibilityLabel="Time"
-              value={scheduledTime}
-              onChange={(val) => {
-                setScheduledTime(val);
-                setError('');
-              }}
-            />
+            <>
+              <Text style={styles.fieldSubcaption}>Time</Text>
+              <NativeDateTimeField
+                mode="time"
+                placeholder="Select time"
+                accessibilityLabel="Time"
+                value={scheduledTime}
+                onChange={(val) => {
+                  setScheduledTime(val);
+                  setError('');
+                }}
+              />
+            </>
           )}
         </View>
       </View>
@@ -376,9 +400,11 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
   );
 }
 
-export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectScheduleType }) {
+export function MedicineScheduleTypeStep({ selectedScheduleType, originalScheduleType = null, onSelectScheduleType }) {
   const isSelectedSubInterval = ['regular_hourly', 'regular_daily', 'regular_weekly', 'regular_every_weeks', 'regular_monthly'].includes(selectedScheduleType);
   const [isIntervalsExpanded, setIsIntervalsExpanded] = useState(isSelectedSubInterval);
+  const showChangeWarning = Boolean(originalScheduleType && selectedScheduleType !== originalScheduleType);
+  const previousScheduleLabel = getScheduleTypeWarningLabel(originalScheduleType);
 
   return (
     <View style={styles.scheduleTypeGrid}>
@@ -458,6 +484,14 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
           </View>
         );
       })}
+      {showChangeWarning ? (
+        <View style={styles.scheduleTypeWarning}>
+          <Ionicons name="warning-outline" size={18} color={colors.warning} />
+          <Text style={styles.scheduleTypeWarningText}>
+            This will remove all your {previousScheduleLabel} schedules.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -485,7 +519,24 @@ export function MedicineScheduleStep({
   const isAsNeeded = selectedScheduleType === 'asNeeded';
   const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly';
+  const isDaily = selectedScheduleType === 'daily';
   const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
+  const selectedDailyTimes = Array.isArray(scheduleDraft.scheduledTimes)
+    ? scheduleDraft.scheduledTimes.filter(Boolean).sort()
+    : [];
+  const hasDailyTimeDraft = String(scheduleDraft.scheduledTime || '').trim();
+  const scheduleDraftTimes = Array.from(new Set([
+    ...selectedDailyTimes,
+    ...(hasDailyTimeDraft ? [scheduleDraft.scheduledTime] : []),
+  ])).sort();
+  const selectedWeeklyDays = Array.isArray(scheduleDraft.dayOfWeeks)
+    ? scheduleDraft.dayOfWeeks.filter(Boolean).sort((left, right) => DAYS_OF_WEEK.indexOf(left) - DAYS_OF_WEEK.indexOf(right))
+    : [];
+  const hasWeeklyDayDraft = String(scheduleDraft.dayOfWeek || '').trim();
+  const weeklyDraftDays = Array.from(new Set([
+    ...selectedWeeklyDays,
+    ...(hasWeeklyDayDraft ? [scheduleDraft.dayOfWeek] : []),
+  ])).sort((left, right) => DAYS_OF_WEEK.indexOf(left) - DAYS_OF_WEEK.indexOf(right));
   const intervalTotalMinutes = isWeeklyInterval
     ? parsePositiveCount(scheduleDraft.intervalDays) * 1440
     : isEveryWeeksInterval
@@ -500,11 +551,13 @@ export function MedicineScheduleStep({
       ? true
       : isIntervalSchedule
       ? (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : true)
+      : isDaily || isWeekly
+      ? scheduleDraftTimes.length > 0
       : String(scheduleDraft.scheduledTime || '').trim()) &&
     (!isWeeklyInterval || parsePositiveCount(scheduleDraft.intervalDays) > 0) &&
     (!isEveryWeeksInterval || parsePositiveCount(scheduleDraft.intervalWeeks) > 0) &&
     (!isMonthlyInterval || (parsePositiveCount(scheduleDraft.intervalMonths) > 0 && scheduleDraft.dayOfMonth)) &&
-    (!isWeekly || scheduleDraft.dayOfWeek) &&
+    (!isWeekly || weeklyDraftDays.length > 0) &&
     (!isMonthly || (scheduleDraft.monthOfYear && scheduleDraft.dayOfMonth)) &&
     (!isIntervalSchedule || !hasIntervalSchedule || scheduleEntries.length > 0)
   );
@@ -518,6 +571,49 @@ export function MedicineScheduleStep({
         interval: formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes),
       }
     : null;
+  const scheduleTimeSummary = (isDaily || isWeekly) &&
+    String(scheduleDraft.doseSize || '').trim() &&
+    scheduleDraftTimes.length &&
+    (!isWeekly || weeklyDraftDays.length)
+    ? `You will take ${String(scheduleDraft.doseSize).trim()} ${getDoseUnitLabel(formState.unit)} at ${scheduleDraftTimes.map(formatTimeForSummary).join(', ')}${isWeekly && weeklyDraftDays.length ? ` every ${weeklyDraftDays.join(', ')}` : ' each day'}.`
+    : null;
+  const canAddScheduleTime = (isDaily || isWeekly) && hasDailyTimeDraft && !selectedDailyTimes.includes(scheduleDraft.scheduledTime);
+  const canAddWeeklyDay = isWeekly && hasWeeklyDayDraft && !selectedWeeklyDays.includes(scheduleDraft.dayOfWeek);
+  const addScheduleTime = () => {
+    if (!canAddScheduleTime) {
+      return;
+    }
+
+    setScheduleDraft((current) => ({
+      ...current,
+      scheduledTime: '',
+      scheduledTimes: Array.from(new Set([...(current.scheduledTimes || []), current.scheduledTime])).sort(),
+    }));
+  };
+  const removeScheduleTime = (timeValue) => {
+    setScheduleDraft((current) => ({
+      ...current,
+      scheduledTimes: (current.scheduledTimes || []).filter((item) => item !== timeValue),
+    }));
+  };
+  const addWeeklyDay = () => {
+    if (!canAddWeeklyDay) {
+      return;
+    }
+
+    setScheduleDraft((current) => ({
+      ...current,
+      dayOfWeek: '',
+      dayOfWeeks: Array.from(new Set([...(current.dayOfWeeks || []), current.dayOfWeek]))
+        .sort((left, right) => DAYS_OF_WEEK.indexOf(left) - DAYS_OF_WEEK.indexOf(right)),
+    }));
+  };
+  const removeWeeklyDay = (dayValue) => {
+    setScheduleDraft((current) => ({
+      ...current,
+      dayOfWeeks: (current.dayOfWeeks || []).filter((item) => item !== dayValue),
+    }));
+  };
 
   return (
     <>
@@ -558,25 +654,67 @@ export function MedicineScheduleStep({
             {isIntervalSchedule && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule'}
           </Text>
 
-          <Text style={styles.fieldSubcaption}>
-            How many {getDoseUnitLabel(formState.unit)} for {isHourly ? 'each dose' : 'one dose'}?
-          </Text>
+          <View style={styles.fieldPromptGroup}>
+            <Text style={styles.fieldPromptLabel}>Dose</Text>
+            <Text style={styles.fieldSubcaption}>
+              {`How many ${getDoseUnitLabel(formState.unit)} of ${formState.medName || 'this medicine'} are you taking in this schedule?`}
+            </Text>
+          </View>
           <InputBar
-            placeholder="Dose"
+            placeholder="Enter Dose"
             keyboardType="number-pad"
             value={scheduleDraft.doseSize}
             onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
           />
 
           {isWeekly && (
-            <NativeDateTimeField
-              mode="day"
-              label="Day of week"
-              placeholder="Select day"
-              accessibilityLabel="Day of week"
-              value={scheduleDraft.dayOfWeek}
-              onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
-            />
+            <View style={styles.fieldWithPromptGroup}>
+              <View style={styles.fieldPromptGroup}>
+                <Text style={styles.fieldPromptLabel}>Week</Text>
+                <Text style={styles.fieldSubcaption}>At which day of the week?</Text>
+              </View>
+              <View style={styles.timePickerRow}>
+                <View style={styles.timePickerField}>
+                  <NativeDateTimeField
+                    mode="day"
+                    placeholder="Select day"
+                    accessibilityLabel="Day of week"
+                    value={scheduleDraft.dayOfWeek}
+                    onChange={(value) => setScheduleDraft((current) => ({ ...current, dayOfWeek: value }))}
+                  />
+                </View>
+                <ActionButton
+                  label="Add day"
+                  variant="outline"
+                  onPress={addWeeklyDay}
+                  disabled={!canAddWeeklyDay}
+                  style={styles.addTimeButton}
+                  textStyle={styles.addTimeButtonText}
+                  pressedStyle={styles.addTimeButtonPressed}
+                  pressedTextStyle={styles.addTimeButtonPressedText}
+                />
+              </View>
+              {selectedWeeklyDays.length ? (
+                <View style={styles.selectedTimesWrap}>
+                  {selectedWeeklyDays.map((dayValue) => (
+                    <View key={dayValue} style={styles.selectedTimeChip}>
+                      <Text style={styles.selectedTimeText}>{dayValue}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${dayValue}`}
+                        onPress={() => removeWeeklyDay(dayValue)}
+                        style={({ pressed }) => [
+                          styles.selectedTimeRemove,
+                          pressed && styles.selectedTimeRemovePressed,
+                        ]}
+                      >
+                        <Ionicons name="close" size={14} color={colors.brandText} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           )}
 
           {isMonthly && (
@@ -674,15 +812,73 @@ export function MedicineScheduleStep({
             <Text style={styles.fieldSubcaption}>
               No time is needed. Mark this medicine when you take it.
             </Text>
+          ) : isDaily || isWeekly ? (
+            <View style={styles.fieldWithPromptGroup}>
+              <View style={styles.fieldPromptGroup}>
+                <Text style={styles.fieldPromptLabel}>Time</Text>
+                <Text style={styles.fieldSubcaption}>At which time of the day?</Text>
+              </View>
+              <View style={styles.timePickerRow}>
+                <View style={styles.timePickerField}>
+                  <NativeDateTimeField
+                    mode="time"
+                    placeholder="Select time"
+                    accessibilityLabel="Time"
+                    value={scheduleDraft.scheduledTime}
+                    onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+                  />
+                </View>
+                {isDaily || isWeekly ? (
+                  <ActionButton
+                    label="Add time"
+                    variant="outline"
+                    onPress={addScheduleTime}
+                    disabled={!canAddScheduleTime}
+                    style={styles.addTimeButton}
+                    textStyle={styles.addTimeButtonText}
+                    pressedStyle={styles.addTimeButtonPressed}
+                    pressedTextStyle={styles.addTimeButtonPressedText}
+                  />
+                ) : null}
+              </View>
+              {selectedDailyTimes.length ? (
+                <View style={styles.selectedTimesWrap}>
+                  {selectedDailyTimes.map((timeValue) => (
+                    <View key={timeValue} style={styles.selectedTimeChip}>
+                      <Text style={styles.selectedTimeText}>{formatTimeForSummary(timeValue)}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${formatTimeForSummary(timeValue)}`}
+                        onPress={() => removeScheduleTime(timeValue)}
+                        style={({ pressed }) => [
+                          styles.selectedTimeRemove,
+                          pressed && styles.selectedTimeRemovePressed,
+                        ]}
+                      >
+                        <Ionicons name="close" size={14} color={colors.brandText} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {scheduleTimeSummary ? (
+                <Text style={styles.dailyScheduleSummary}>{scheduleTimeSummary}</Text>
+              ) : null}
+            </View>
           ) : (
-            <NativeDateTimeField
-              mode="time"
-              label="Time"
-              placeholder="Select time"
-              accessibilityLabel="Time"
-              value={scheduleDraft.scheduledTime}
-              onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
-            />
+            <>
+              <NativeDateTimeField
+                mode="time"
+                label="Time"
+                placeholder="Select time"
+                accessibilityLabel="Time"
+                value={scheduleDraft.scheduledTime}
+                onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+              />
+              {dailyScheduleSummary ? (
+                <Text style={styles.dailyScheduleSummary}>{dailyScheduleSummary}</Text>
+              ) : null}
+            </>
           )}
 
           {hourlyScheduleSummary ? (
@@ -735,9 +931,9 @@ export function MedicineScheduleStep({
                             accessibilityRole="button"
                             accessibilityLabel={`Edit schedule item ${index + 1}`}
                           >
-                            <Ionicons name="create-outline" size={18} color={colors.success} />
+                            <Ionicons name="create-outline" size={18} color="#0077B6" />
                           </Pressable>
-                          <Text style={[styles.iconActionLabel, { color: colors.success }]}>Edit</Text>
+                          <Text style={[styles.iconActionLabel, { color: '#0077B6' }]}>Edit</Text>
                         </View>
                       ) : null}
                       <View style={styles.iconActionCol}>
@@ -819,6 +1015,17 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.bodyMuted,
   },
+  fieldWithPromptGroup: {
+    gap: spacing.xs,
+  },
+  fieldPromptGroup: {
+    gap: 2,
+  },
+  fieldPromptLabel: {
+    ...typography.bodySmall,
+    color: colors.body,
+    fontWeight: '600',
+  },
   hourlyScheduleSummary: {
     ...typography.bodySmall,
     color: colors.brandText,
@@ -827,6 +1034,68 @@ const styles = StyleSheet.create({
   hourlyScheduleSummaryStrong: {
     fontWeight: '700',
     color: colors.brandText,
+  },
+  dailyScheduleSummary: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    textAlign: 'center',
+  },
+  timePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.xs,
+  },
+  timePickerField: {
+    flex: 1,
+    minWidth: 0,
+  },
+  addTimeButton: {
+    borderColor: '#0077B6',
+    minWidth: 104,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  addTimeButtonText: {
+    color: '#0077B6',
+  },
+  addTimeButtonPressed: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#0077B6',
+  },
+  addTimeButtonPressedText: {
+    color: '#0077B6',
+  },
+  selectedTimesWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  selectedTimeChip: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    borderWidth: 1,
+    borderColor: colors.brand,
+    borderRadius: radius.md,
+    backgroundColor: colors.brandSoft,
+    paddingLeft: spacing.sm,
+    paddingRight: spacing.xxs,
+  },
+  selectedTimeText: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    fontWeight: '700',
+  },
+  selectedTimeRemove: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedTimeRemovePressed: {
+    backgroundColor: '#C7DBFF',
   },
   scheduleCard: {
     backgroundColor: colors.surface,
@@ -982,6 +1251,23 @@ const styles = StyleSheet.create({
   },
   scheduleTypeCaptionSelected: {
     color: '#0055B3',
+  },
+  scheduleTypeWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.md,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  scheduleTypeWarningText: {
+    ...typography.bodySmall,
+    color: colors.warning,
+    fontWeight: '700',
+    flex: 1,
   },
   nestedIntervalsContainer: {
     paddingLeft: spacing.lg,
