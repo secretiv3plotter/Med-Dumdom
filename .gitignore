@@ -45,7 +45,3 @@ yarn-error.*
 # Firebase local cache
 .firebase/
 
-# Claude Code local tool files
-.agents/
-.claude/
-skills-lock.json
