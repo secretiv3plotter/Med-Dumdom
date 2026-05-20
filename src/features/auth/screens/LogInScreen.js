@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import InputBar from '../../../shared/components/common/InputBar';
-import { colors, getFontSize, getLineHeight, spacing } from '../../../shared/theme';
-import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import { colors, getFontSize, spacing } from '../../../shared/theme';
 import { ROUTES } from '../../../app/navigation/routes';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
@@ -50,49 +49,64 @@ export default function LogInScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ThemedScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Welcome back!</Text>
-          <Text style={styles.subtitle}>Log in to continue.</Text>
+      <View style={styles.layer}>
+      <View style={styles.iconWrapper}>
+        <Image source={require('../../../assets/splash-icon.png')} style={styles.splashIcon} resizeMode="contain" />
+      </View>
+      <View style={styles.imageWrapper}>
+        <Image source={require('../../../assets/people.png')} style={styles.bottomImage} resizeMode="contain" />
+      </View>
+      <View style={styles.center} pointerEvents="box-none">
+        <View style={[styles.formCard, {
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          maskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 85% 85% at 50% 50%, black 55%, transparent 100%)',
+        }]}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>Welcome back!</Text>
+            <Text style={styles.subtitle}>Log in to continue.</Text>
+          </View>
+          <View style={styles.formSection}>
+            <Text style={styles.fieldLabel}>Email:</Text>
+            <InputBar
+              placeholder="Enter your email"
+              accessibilityLabel="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+            />
+            <Text style={styles.fieldLabel}>Password:</Text>
+            <InputBar
+              placeholder="Enter your password"
+              accessibilityLabel="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            {errorMessage ? (
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            ) : null}
+            <ActionButton
+              label={isLoading ? "Unlocking..." : "Log In"}
+              onPress={handleLogInPress}
+              disabled={!isFormComplete || isLoading}
+              style={styles.logInButton}
+            />
+            <Text style={styles.signupPrompt}>Don't have an account?</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sign up"
+              onPress={() => navigation?.navigate?.(ROUTES.SIGN_UP)}
+              unstable_pressDelay={0}
+              style={({ pressed }) => pressed && styles.linkPressed}
+            >
+              <Text style={styles.signupLink}>Sign Up</Text>
+            </Pressable>
+          </View>
         </View>
-        <View style={styles.formSection}>
-          <Text style={styles.fieldLabel}>Email:</Text>
-          <InputBar
-            placeholder="Enter your email"
-            accessibilityLabel="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-          />
-          <Text style={styles.fieldLabel}>Password:</Text>
-          <InputBar
-            placeholder="Enter your password"
-            accessibilityLabel="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          {errorMessage ? (
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          ) : null}
-          <ActionButton
-            label={isLoading ? "Unlocking..." : "Log In"}
-            onPress={handleLogInPress}
-            disabled={!isFormComplete || isLoading}
-            style={styles.logInButton}
-          />
-          <Text style={styles.signupPrompt}>Don't have an account?</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign up"
-            onPress={() => navigation?.navigate?.(ROUTES.SIGN_UP)}
-            unstable_pressDelay={0}
-            style={({ pressed }) => pressed && styles.linkPressed}
-          >
-            <Text style={styles.signupLink}>Sign Up</Text>
-          </Pressable>
-        </View>
-      </ThemedScrollView>
+      </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -102,17 +116,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.pageBg,
   },
-  container: {
-    flexGrow: 1,
+  layer: {
+    flex: 1,
+    position: 'relative',
+  },
+  center: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+  },
+  formCard: {
+    width: '105%',
+    maxWidth: 530,
+    backgroundColor: 'rgba(255, 255, 255, 0)',
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRadius: 20,
+    padding: spacing.lg,
     gap: spacing.lg,
   },
   titleBlock: {
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  iconWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '10%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashIcon: {
+    width: '50%',
+    height: '70%',
   },
   formSection: {
     width: '100%',
@@ -127,18 +170,22 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: getFontSize(16),
     fontWeight: '500',
+    fontFamily: 'Helvetica',
     color: colors.body,
   },
   errorText: {
     fontSize: getFontSize(14),
     color: colors.error,
     fontWeight: '500',
+    fontFamily: 'Helvetica',
     textAlign: 'center',
     marginTop: spacing.xs,
   },
   signupPrompt: {
     marginTop: spacing.md,
     fontSize: getFontSize(13),
+    fontFamily: 'Helvetica',
+    fontWeight: '700',
     color: colors.bodyMuted,
     textAlign: 'center',
   },
@@ -146,23 +193,38 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontSize: getFontSize(15),
     fontWeight: '600',
+    fontFamily: 'Helvetica',
     color: colors.brand,
     textAlign: 'center',
   },
   linkPressed: {
-    backgroundColor: '#C7DBFF',
-    borderRadius: spacing.xs,
+    opacity: 0.5,
   },
   title: {
     fontSize: getFontSize(36),
     fontWeight: '700',
+    fontFamily: 'Helvetica',
     color: colors.title,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: getFontSize(20),
     fontWeight: '500',
+    fontFamily: 'Helvetica',
     color: colors.body,
     textAlign: 'center',
+  },
+  imageWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '22%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  bottomImage: {
+    width: '100%',
+    height: '100%',
   },
 });

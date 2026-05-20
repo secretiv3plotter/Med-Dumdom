@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\adaptive-icon.png\", \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\favicon.png\", \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\icon.png\")",
+      "Bash(rm \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\adaptive-icon.png\" \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\favicon.png\" \"c:\\\\Users\\\\msi\\\\Desktop\\\\Med-Dumdom\\\\assets\\\\icon.png\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\msi\\Desktop\\Med-Dumdom\\assets"
     ]
   }
 }
