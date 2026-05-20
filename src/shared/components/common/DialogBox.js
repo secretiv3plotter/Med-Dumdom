@@ -101,7 +101,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.body,
     textAlign: 'center',
-    marginBottom: spacing.xxs,
   },
   fieldsContainer: {
     gap: spacing.sm,
@@ -122,7 +121,6 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    marginTop: spacing.xs,
   },
   actionSlot: {
     flex: 1,

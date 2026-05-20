@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  TouchableOpacity,
   StyleSheet,
   Text,
   View,
@@ -15,23 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { signOut } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ROUTES } from '../../../app/navigation/routes';
-import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
-import FirebaseSyncService from '../../../sync/FirebaseSyncService';
-import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
-import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
-import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
-import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import {
-  BACK_HEADER_BOTTOM_PADDING,
   BACK_HEADER_HORIZONTAL_PADDING,
   BACK_HEADER_TOP_OFFSET,
 } from '../../../shared/components/common/backHeaderMetrics';
-import { CancelButton, EditButton } from '../../../shared/components/common/CrudButton';
+import { EditButton } from '../../../shared/components/common/CrudButton';
 import DialogBox from '../../../shared/components/common/DialogBox';
 import InputBar from '../../../shared/components/common/InputBar';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
@@ -104,11 +95,9 @@ export default function ProfileScreen({ navigation, realm = null }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
-  const [showSavedDialog, setShowSavedDialog] = useState(false);
-  const [showConfirmLogOut, setShowConfirmLogOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const timeoutRef = useRef(null);
+  const [pendingPicture, setPendingPicture] = useState(null);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -117,9 +106,6 @@ export default function ProfileScreen({ navigation, realm = null }) {
     return () => {
       showSub.remove();
       hideSub.remove();
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
     };
   }, []);
 
@@ -131,40 +117,6 @@ export default function ProfileScreen({ navigation, realm = null }) {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
     if (targetRoute) {
       navigation?.navigate?.(targetRoute);
-    }
-  };
-
-  const confirmLogOut = async () => {
-    setShowConfirmLogOut(false);
-    if (firebase?.db && realm) {
-      try {
-        const userId = firebase.auth?.currentUser?.uid;
-        if (userId) {
-          const syncService = new FirebaseSyncService({
-            firestoreDb: firebase.db,
-            medRepository: new RealmMedTrackerRepository(realm),
-            apptRepository: new RealmApptTrackerRepository(realm),
-            medUnitRepository: new RealmMedUnitRepository(realm),
-            userRepository: new RealmUserRepository(realm),
-            settingsRepository: new RealmSettingsPreferenceRepository(realm),
-          });
-          await syncService.syncAll(userId);
-        }
-      } catch (syncErr) {
-        console.error('Pre-logout sync failed, logging out anyway:', syncErr);
-      }
-    }
-    if (realm && typeof realm.flush === 'function') {
-      await realm.flush();
-    }
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('_med_dumdom_secure_db_');
-    }
-    if (realm && typeof realm.clearCollections === 'function') {
-      realm.clearCollections();
-    }
-    if (firebase?.auth) {
-      await signOut(firebase.auth);
     }
   };
 
@@ -199,13 +151,42 @@ export default function ProfileScreen({ navigation, realm = null }) {
       }
 
       setAvatarLoadFailed(false);
-      setDraft((current) => ({ ...current, profilePicture: selectedImageUri }));
-      if (!isEditing) {
-        setIsEditing(true);
-      }
+      setPendingPicture(selectedImageUri);
     } catch (error) {
       Alert.alert('Unable to update picture', 'Something went wrong while selecting your profile picture.');
     }
+  };
+
+  const savePicture = async () => {
+    if (!pendingPicture) return;
+    setIsSaving(true);
+    let resolvedUrl = pendingPicture;
+    if (!resolvedUrl.startsWith('https://') && firebase?.storage && currentUser?.uid) {
+      try {
+        const blob = await fetch(resolvedUrl).then((r) => r.blob());
+        const storageRef = ref(firebase.storage, `users/${currentUser.uid}/profile_picture`);
+        await uploadBytes(storageRef, blob);
+        resolvedUrl = await getDownloadURL(storageRef);
+      } catch (err) {
+        console.error('Profile picture upload failed:', err);
+        Alert.alert('Upload failed', 'Could not upload your profile picture. Please try again.');
+        setIsSaving(false);
+        return;
+      }
+    }
+    const savedProfile = profileRepository.saveProfile(currentUser.uid, {
+      ...profile,
+      profilePicture: resolvedUrl,
+    });
+    setProfile(savedProfile);
+    setDraft(toDraft(savedProfile));
+    setPendingPicture(null);
+    setIsSaving(false);
+  };
+
+  const cancelPicture = () => {
+    setPendingPicture(null);
+    setAvatarLoadFailed(false);
   };
 
   const confirmSaveChanges = async () => {
@@ -226,26 +207,9 @@ export default function ProfileScreen({ navigation, realm = null }) {
       }
     }
 
-    let resolvedPicture = draft.profilePicture?.trim() || '';
-
-    // Upload to Firebase Storage if the picture is a local/blob URI (not already a hosted URL)
-    if (resolvedPicture && !resolvedPicture.startsWith('https://') && firebase?.storage && currentUser?.uid) {
-      try {
-        const blob = await fetch(resolvedPicture).then((r) => r.blob());
-        const storageRef = ref(firebase.storage, `users/${currentUser.uid}/profile_picture`);
-        await uploadBytes(storageRef, blob);
-        resolvedPicture = await getDownloadURL(storageRef);
-      } catch (err) {
-        console.error('Profile picture upload failed:', err);
-        Alert.alert('Upload failed', 'Could not upload your profile picture. Please try again.');
-        setIsSaving(false);
-        return;
-      }
-    }
-
     const nextProfile = {
       fullName: draft.fullName.trim() || FALLBACK_PROFILE.fullName,
-      profilePicture: resolvedPicture,
+      profilePicture: profile.profilePicture?.trim() || '',
       birthDate: parsedBirthDate,
       address: draft.address.trim(),
     };
@@ -253,18 +217,18 @@ export default function ProfileScreen({ navigation, realm = null }) {
     syncDraft(nextProfile);
     setIsEditing(false);
     setIsSaving(false);
-    setShowSavedDialog(true);
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    timeoutRef.current = setTimeout(() => {
-      setShowSavedDialog(false);
-    }, 3000);
   };
 
-  const displayPicture = (isEditing ? draft.profilePicture : profile.profilePicture)?.trim();
+  const committedAvatarSource = useMemo(
+    () => (profile.profilePicture?.trim() ? { uri: profile.profilePicture.trim() } : null),
+    [profile.profilePicture]
+  );
+  const pendingAvatarSource = useMemo(
+    () => (pendingPicture ? { uri: pendingPicture } : null),
+    [pendingPicture]
+  );
+  const avatarSource = pendingAvatarSource ?? committedAvatarSource;
+  const displayPicture = avatarSource?.uri ?? null;
   const hasValidDisplayPicture = Boolean(displayPicture) && !avatarLoadFailed;
 
   return (
@@ -309,43 +273,86 @@ export default function ProfileScreen({ navigation, realm = null }) {
             <View style={styles.avatarShell}>
               {hasValidDisplayPicture ? (
                 <Image
-                  source={{ uri: displayPicture }}
+                  source={avatarSource}
                   style={styles.profileImage}
                   onError={() => setAvatarLoadFailed(true)}
+                  accessible
+                  accessibilityRole="image"
+                  accessibilityLabel={profile.fullName ? `${profile.fullName}'s profile picture` : 'Profile picture'}
                 />
               ) : (
-                <View style={styles.avatarPlaceholder}>
+                <View
+                  style={styles.avatarPlaceholder}
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
                   <Ionicons name="person" size={54} color={colors.surface} />
                 </View>
               )}
             </View>
             <Text style={styles.name}>{profile.fullName || 'Unnamed profile'}</Text>
             <View style={styles.photoPickerRow}>
-              <TouchableOpacity
-                onPress={handleChangeProfilePicture}
-                accessibilityRole="button"
-                accessibilityLabel="Change profile picture"
-                style={styles.photoPickerValue}
-              >
-                <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
-              </TouchableOpacity>
+              {pendingPicture ? (
+                <View style={styles.pictureSaveRow}>
+                  <Pressable
+                    onPress={cancelPicture}
+                    disabled={isSaving}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel profile picture change"
+                    accessibilityHint="Discards the selected image and keeps your current picture"
+                    accessibilityState={{ disabled: isSaving }}
+                    style={({ pressed }) => [
+                      styles.pictureActionButton,
+                      styles.pictureCancelButton,
+                      pressed && styles.pictureCancelButtonPressed,
+                      isSaving && styles.pictureActionDisabled,
+                    ]}
+                  >
+                    <Text style={[styles.pictureActionText, styles.pictureCancelText]}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={savePicture}
+                    disabled={isSaving}
+                    accessibilityRole="button"
+                    accessibilityLabel={isSaving ? 'Saving profile picture' : 'Save profile picture'}
+                    accessibilityHint="Uploads and saves the selected image to your profile"
+                    accessibilityState={{ disabled: isSaving }}
+                    style={({ pressed }) => [
+                      styles.pictureActionButton,
+                      styles.pictureSaveButton,
+                      pressed && styles.pictureSaveButtonPressed,
+                      isSaving && styles.pictureActionDisabled,
+                    ]}
+                  >
+                    <Text style={[styles.pictureActionText, styles.pictureSaveText]}>
+                      {isSaving ? 'Saving...' : 'Save'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handleChangeProfilePicture}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change profile picture"
+                  accessibilityHint="Opens your photo library to pick a new image"
+                  style={({ pressed }) => [
+                    styles.photoPickerValue,
+                    pressed && styles.photoPickerValuePressed,
+                  ]}
+                >
+                  <Text style={styles.photoPickerValueText}>Change Profile Picture</Text>
+                </Pressable>
+              )}
             </View>
           </TextCard>
 
           <TextCard cardStyle={styles.profileCard}>
             <View style={styles.infoTitleRow}>
               <View style={styles.infoTitleGroup}>
-                <Text style={styles.infoTitle}>Personal Information</Text>
+                <Text style={styles.infoTitle} accessibilityRole="header">Personal Information</Text>
               </View>
-              <View style={styles.editActionWrap}>
-                {isEditing ? (
-                  <CancelButton
-                    onPress={() => setIsEditing(false)}
-                    style={styles.editActionButton}
-                    circleStyle={styles.editActionCircle}
-                    textStyle={styles.editActionText}
-                  />
-                ) : (
+              {!isEditing ? (
+                <View style={styles.editActionWrap}>
                   <EditButton
                     onPress={() => setIsEditing(true)}
                     iconSize={moderateScale(32)}
@@ -354,8 +361,8 @@ export default function ProfileScreen({ navigation, realm = null }) {
                     circleStyle={styles.editActionCircle}
                     textStyle={[styles.editActionText, styles.editTextBlack]}
                   />
-                )}
-              </View>
+                </View>
+              ) : null}
             </View>
 
             {isEditing ? (
@@ -365,10 +372,12 @@ export default function ProfileScreen({ navigation, realm = null }) {
                   value={draft.fullName}
                   onChangeText={(value) => setDraft((current) => ({ ...current, fullName: value }))}
                   placeholder="Enter full name"
+                  accessibilityLabel="Full name"
+                  accessibilityHint="Type your full name"
                 />
 
+                <Text style={styles.label}>Birth date:</Text>
                 <NativeDateTimeField
-                  label="Birth date"
                   placeholder="Select birth date"
                   accessibilityLabel="Birth date"
                   value={draft.birthDate}
@@ -382,46 +391,71 @@ export default function ProfileScreen({ navigation, realm = null }) {
                   value={draft.address}
                   onChangeText={(value) => setDraft((current) => ({ ...current, address: value }))}
                   placeholder="Enter address"
+                  accessibilityLabel="Address"
+                  accessibilityHint="Type your home address"
                 />
               </>
             ) : (
               <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Birth date:</Text>
-                  <Text style={styles.infoValue}>
-                    {formatBirthDate(profile.birthDate)}
+                <View accessible accessibilityLabel={`Full name: ${profile.fullName || 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Full name:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.fullName && styles.infoValueEmpty]}>
+                    {profile.fullName || ' '}
                   </Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Age:</Text>
-                  <Text style={styles.infoValue}>{profile.birthDate ? String(profile.age) : '--'}</Text>
+                <View accessible accessibilityLabel={`Birth date: ${profile.birthDate ? formatBirthDate(profile.birthDate) : 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Birth date:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.birthDate && styles.infoValueEmpty]}>
+                    {profile.birthDate ? formatBirthDate(profile.birthDate) : ' '}
+                  </Text>
                 </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Address:</Text>
-                  <Text style={styles.infoValue}>{profile.address || '--'}</Text>
+                <View accessible accessibilityLabel={`Age: ${profile.birthDate ? String(profile.age) : 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Age:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.birthDate && styles.infoValueEmpty]}>
+                    {profile.birthDate ? String(profile.age) : ' '}
+                  </Text>
+                </View>
+                <View accessible accessibilityLabel={`Address: ${profile.address || 'not set'}`} style={styles.infoRow}>
+                  <Text accessible={false} style={styles.infoLabel}>Address:</Text>
+                  <Text accessible={false} style={[styles.infoValue, !profile.address && styles.infoValueEmpty]}>
+                    {profile.address || ' '}
+                  </Text>
                 </View>
               </>
             )}
           </TextCard>
 
           {isEditing ? (
-            <ActionButton
-              label="Save Changes"
-              onPress={() => setShowConfirmSave(true)}
-              style={styles.saveButton}
-              textStyle={styles.saveButtonText}
-            />
+            <View style={styles.editButtonRow}>
+              <Pressable
+                onPress={() => setIsEditing(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing"
+                accessibilityHint="Discards your unsaved changes to personal information"
+                style={({ pressed }) => [
+                  styles.editRowButton,
+                  styles.cancelEditButton,
+                  pressed && styles.cancelEditButtonPressed,
+                ]}
+              >
+                <Text style={[styles.editRowButtonText, styles.cancelEditButtonText]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowConfirmSave(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Save changes"
+                accessibilityHint="Opens a confirmation dialog before saving your personal information"
+                style={({ pressed }) => [
+                  styles.editRowButton,
+                  styles.saveEditButton,
+                  pressed && styles.saveEditButtonPressed,
+                ]}
+              >
+                <Text style={[styles.editRowButtonText, styles.saveEditButtonText]}>Save</Text>
+              </Pressable>
+            </View>
           ) : null}
 
-          <Pressable
-            onPress={() => setShowConfirmLogOut(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Log out"
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutButtonPressed]}
-          >
-            <Ionicons name="log-out-outline" size={18} color={colors.error ?? '#DC2626'} />
-            <Text style={styles.logoutText}>Log Out</Text>
-          </Pressable>
         </ThemedScrollView>
 
         {!isKeyboardVisible ? (
@@ -447,6 +481,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
           transparent
           visible={true}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setShowConfirmSave(false)}
         >
           <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmSave(false)}>
@@ -464,43 +499,6 @@ export default function ProfileScreen({ navigation, realm = null }) {
         </Modal>
       ) : null}
 
-      {showSavedDialog ? (
-        <Modal transparent visible={true} animationType="fade">
-          <View style={styles.overlay}>
-            <View style={styles.dialogWrap}>
-              <DialogBox
-                title="Changes saved"
-                message=""
-                actions={[]}
-                cardStyle={styles.savedDialogCard}
-                titleStyle={styles.savedDialogTitle}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
-
-      {showConfirmLogOut ? (
-        <Modal
-          transparent
-          visible={true}
-          animationType="fade"
-          onRequestClose={() => setShowConfirmLogOut(false)}
-        >
-          <Pressable accessible={false} style={styles.overlay} onPress={() => setShowConfirmLogOut(false)}>
-            <Pressable accessible={false} style={styles.dialogWrap} onPress={() => {}}>
-              <DialogBox
-                title="Log Out?"
-                message="Are you sure you want to log out?"
-                actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmLogOut(false) },
-                  { label: 'Log Out', variant: 'solid', onPress: confirmLogOut },
-                ]}
-              />
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -575,6 +573,10 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: spacing.xs,
   },
+  photoPickerValuePressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
   photoPickerValue: {
     backgroundColor: colors.surface,
     width: '72%',
@@ -589,6 +591,50 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.brandText,
     textAlign: 'center',
+  },
+  pictureSaveRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    width: '100%',
+  },
+  pictureActionButton: {
+    flex: 1,
+    maxWidth: 120,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  pictureSaveButton: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  pictureSaveButtonPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
+  },
+  pictureCancelButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  pictureCancelButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  pictureActionDisabled: {
+    opacity: 0.5,
+  },
+  pictureActionText: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+  },
+  pictureSaveText: {
+    color: colors.surface,
+  },
+  pictureCancelText: {
+    color: colors.title,
   },
   metaRow: {
     flexDirection: 'row',
@@ -625,9 +671,8 @@ const styles = StyleSheet.create({
     paddingRight: spacing.xs,
   },
   infoTitle: {
-    ...typography.body,
+    ...typography.titleSmall,
     color: colors.title,
-    fontWeight: '700',
     flexShrink: 1,
   },
   editActionWrap: {
@@ -641,12 +686,10 @@ const styles = StyleSheet.create({
   editActionCircle: {
     width: 36,
     height: 36,
-    paddingBottom: spacing.sm,
   },
   editActionText: {
     ...typography.bodySmall,
     fontWeight: '700',
-    marginTop: -8,
   },
   editTextBlack: {
     color: colors.title,
@@ -665,53 +708,65 @@ const styles = StyleSheet.create({
   infoLabel: {
     ...typography.bodySmall,
     color: colors.title,
-    fontWeight: '700',
     width: 82,
   },
   infoValue: {
     ...typography.bodySmall,
-    color: colors.brandText,
+    color: colors.title,
     backgroundColor: colors.surface,
     flex: 1,
     textAlign: 'center',
     borderWidth: 1,
-    borderColor: colors.brand,
+    borderColor: colors.title,
     borderRadius: radius.lg,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
   },
-  saveButton: {
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignSelf: 'center',
-    width: 170,
-    flex: 0,
+  infoValueEmpty: {
+    color: colors.bodyMuted,
+    borderColor: colors.border,
+  },
+  editButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
-  saveButtonText: {
-    ...typography.bodySmall,
-    color: colors.surface,
-  },
-  logoutButton: {
-    flexDirection: 'row',
+  editRowButton: {
+    width: 120,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    alignSelf: 'center',
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.error ?? '#DC2626',
   },
-  logoutButtonPressed: {
-    backgroundColor: '#FEE2E2',
-  },
-  logoutText: {
+  editRowButtonText: {
     ...typography.bodySmall,
-    color: colors.error ?? '#DC2626',
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  cancelEditButton: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  cancelEditButtonPressed: {
+    backgroundColor: '#C7DBFF',
+    borderColor: colors.brandText,
+  },
+  cancelEditButtonText: {
+    color: colors.title,
+  },
+  saveEditButton: {
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
+  },
+  saveEditButtonPressed: {
+    backgroundColor: colors.brandText,
+    borderColor: colors.brandText,
+  },
+  saveEditButtonText: {
+    color: colors.surface,
   },
   footerNav: {
     position: 'absolute',
@@ -733,16 +788,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
-  savedDialogCard: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.lg,
-  },
-  savedDialogTitle: {
-    fontSize: 22,
-    lineHeight: 28,
-    color: colors.brandText,
-  },
   title: {
     ...typography.title,
     color: colors.title,
@@ -751,7 +796,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.xxs,
     backgroundColor: colors.pageBg,
-    paddingHorizontal: BACK_HEADER_HORIZONTAL_PADDING,
     paddingTop: BACK_HEADER_TOP_OFFSET,
     paddingBottom: spacing.xxs,
   },
