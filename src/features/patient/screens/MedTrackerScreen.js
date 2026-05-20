@@ -14,6 +14,7 @@ import {
 import { MEDICINE_EDITOR_STEPS, MEDICINE_SCHEDULE_TYPES } from '../constants/medTrackerEditorSteps';
 import medTrackerService from '../../../domain/services/MedTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
+import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepository';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors } from '../../../shared/theme';
@@ -93,6 +94,32 @@ const getInitialScheduleDraft = (scheduleType) => ({
   dayOfMonth: '',
 });
 
+const getScheduleTypeFromEntries = (entries = []) => {
+  const hasWeeklyItem = entries.some((entry) => entry.dayOfWeek);
+  const hasMonthlyItem = entries.some((entry) => entry.monthOfYear);
+  const intervalItem = entries.find((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
+  const hasAsNeededItem = entries.some((entry) => entry.intervalUnit === 'asNeeded');
+  const hasEveryWeeksIntervalItem = intervalItem?.intervalUnit === 'weeks';
+  const hasMonthlyIntervalItem = intervalItem?.intervalUnit === 'months';
+  const hasEveryFewDaysIntervalItem = !hasEveryWeeksIntervalItem && Number(intervalItem?.intervalMinutes || 0) >= 1440;
+
+  return hasAsNeededItem
+    ? MEDICINE_SCHEDULE_TYPES.AS_NEEDED
+    : intervalItem
+    ? hasEveryWeeksIntervalItem
+      ? MEDICINE_SCHEDULE_TYPES.REGULAR_EVERY_WEEKS
+      : hasMonthlyIntervalItem
+      ? MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY
+      : hasEveryFewDaysIntervalItem
+      ? MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY
+      : MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
+    : hasMonthlyItem
+    ? MEDICINE_SCHEDULE_TYPES.MONTHLY
+    : hasWeeklyItem
+      ? MEDICINE_SCHEDULE_TYPES.WEEKLY
+      : MEDICINE_SCHEDULE_TYPES.DAILY;
+};
+
 const EMPTY_SCHEDULE_DRAFT = {
   doseSize: '',
   scheduledTime: '',
@@ -114,6 +141,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const [editorMode, setEditorMode] = useState(null);
   const [editorStep, setEditorStep] = useState(MEDICINE_EDITOR_STEPS.DETAILS);
   const [selectedScheduleType, setSelectedScheduleType] = useState(MEDICINE_SCHEDULE_TYPES.DAILY);
+  const [originalScheduleType, setOriginalScheduleType] = useState(null);
+  const [originalScheduleEntries, setOriginalScheduleEntries] = useState([]);
   const [formState, setFormState] = useState(EMPTY_FORM);
   const [scheduleDraft, setScheduleDraft] = useState(() => getInitialScheduleDraft(MEDICINE_SCHEDULE_TYPES.DAILY));
   const [scheduleEntries, setScheduleEntries] = useState([]);
@@ -234,6 +263,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setEditorMode(null);
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
     setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
+    setOriginalScheduleType(null);
+    setOriginalScheduleEntries([]);
     setFormError('');
     setFormState(EMPTY_FORM);
     setScheduleDraft(getInitialScheduleDraft(MEDICINE_SCHEDULE_TYPES.DAILY));
@@ -253,6 +284,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setEditorMode('create');
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
     setSelectedScheduleType(MEDICINE_SCHEDULE_TYPES.DAILY);
+    setOriginalScheduleType(null);
+    setOriginalScheduleEntries([]);
   };
 
   const openEditEditor = () => {
@@ -262,31 +295,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     setFormError('');
     setFormState(buildFormStateFromMedicine(selectedMedicine));
-    setScheduleEntries(buildScheduleEntriesFromMedicine(selectedMedicine));
+    const savedScheduleEntries = buildScheduleEntriesFromMedicine(selectedMedicine);
+    setScheduleEntries(savedScheduleEntries);
+    setOriginalScheduleEntries(savedScheduleEntries);
 
-    const hasWeeklyItem = (selectedMedicine.dailySched || []).some((entry) => entry.dayOfWeek);
-    const hasMonthlyItem = (selectedMedicine.dailySched || []).some((entry) => entry.monthOfYear);
     const intervalItem = (selectedMedicine.dailySched || []).find((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
-    const hasAsNeededItem = (selectedMedicine.dailySched || []).some((entry) => entry.intervalUnit === 'asNeeded');
     const hasIntervalItem = Boolean(intervalItem);
     const hasEveryWeeksIntervalItem = intervalItem?.intervalUnit === 'weeks';
     const hasMonthlyIntervalItem = intervalItem?.intervalUnit === 'months';
     const hasEveryFewDaysIntervalItem = !hasEveryWeeksIntervalItem && Number(intervalItem?.intervalMinutes || 0) >= 1440;
-    const targetScheduleType = hasAsNeededItem
-      ? MEDICINE_SCHEDULE_TYPES.AS_NEEDED
-      : hasIntervalItem
-      ? hasEveryWeeksIntervalItem
-        ? MEDICINE_SCHEDULE_TYPES.REGULAR_EVERY_WEEKS
-        : hasMonthlyIntervalItem
-        ? MEDICINE_SCHEDULE_TYPES.REGULAR_MONTHLY
-        : hasEveryFewDaysIntervalItem
-        ? MEDICINE_SCHEDULE_TYPES.REGULAR_WEEKLY
-        : MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY
-      : hasMonthlyItem
-      ? MEDICINE_SCHEDULE_TYPES.MONTHLY
-      : hasWeeklyItem
-        ? MEDICINE_SCHEDULE_TYPES.WEEKLY
-        : MEDICINE_SCHEDULE_TYPES.DAILY;
+    const targetScheduleType = getScheduleTypeFromEntries(savedScheduleEntries);
 
     if (hasIntervalItem) {
       if (intervalItem) {
@@ -312,6 +330,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     setEditorMode('edit');
     setEditorStep(MEDICINE_EDITOR_STEPS.DETAILS);
     setSelectedScheduleType(targetScheduleType);
+    setOriginalScheduleType(targetScheduleType);
   };
 
   const onTabNavigate = (tabKey) => {
@@ -363,9 +382,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
 
     if (realm) {
       try {
-        realm.write(() => {
-          realm.create('MedUnit', newUnit);
-        });
+        new RealmMedUnitRepository(realm).saveMedUnit(newUnit);
       } catch (e) {
         console.warn('Failed to save custom unit:', e);
       }
@@ -380,12 +397,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const handleDeleteUnit = (unitId, unitName) => {
     if (realm) {
       try {
-        realm.write(() => {
-          const obj = realm.objectForPrimaryKey('MedUnit', unitId);
-          if (obj) {
-            realm.delete(obj);
-          }
-        });
+        new RealmMedUnitRepository(realm).deleteMedUnit(unitId);
       } catch (e) {
         console.warn('Failed to delete unit:', e);
       }
@@ -914,8 +926,14 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
         formError={formError}
         setFormState={setFormState}
         setScheduleDraft={setScheduleDraft}
+        originalScheduleType={originalScheduleType}
         onSelectScheduleType={(value) => {
           setSelectedScheduleType(value);
+          setScheduleDraft(getInitialScheduleDraft(value));
+          setEditingScheduleIndex(null);
+          if (editorMode === 'edit' && originalScheduleType) {
+            setScheduleEntries(value === originalScheduleType ? originalScheduleEntries : []);
+          }
           setFormError('');
         }}
         onCancelScheduleEdit={() => {
@@ -937,7 +955,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           title={pendingScheduleAction.mode === 'revert' ? 'Revert status?' : 'Change schedule status?'}
           message={
             pendingScheduleAction.mode === 'revert'
-              ? `Revert the status of ${pendingScheduleAction.medName || 'this medicine schedule'} back to pending?`
+              ? `Are you sure to revert this schedule's status?`
               : 'This schedule item already has a selected status. Confirm to change it.'
           }
           confirmLabel={pendingScheduleAction.mode === 'revert' ? 'Revert' : 'Confirm'}

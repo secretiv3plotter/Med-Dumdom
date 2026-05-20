@@ -171,19 +171,19 @@ function SchedulePreviewCard({
       {!isHourly ? (
         <>
           {isTaken ? (
-            <Text style={styles.scheduleMetaText}>
+            <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
               Taken {formatDateTime(entry.takenAt)}
             </Text>
           ) : null}
 
           {entry.status === 'skipped' ? (
-            <Text style={styles.scheduleMetaText}>
+            <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
               Skipped {formatDateTime(entry.skippedAt)}
             </Text>
           ) : null}
 
           {statusStyle.status === 'upcoming' && latestTakenAt ? (
-            <Text style={styles.scheduleMetaText}>
+            <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
               {formatLastTakenMessage(latestTakenAt)}
             </Text>
           ) : null}
@@ -191,7 +191,7 @@ function SchedulePreviewCard({
       ) : null}
 
       {medicine.canRevertSchedule(index, observedNow) ? (
-        <View style={styles.scheduleActionRow}>
+        <View style={[styles.scheduleActionRow, styles.revertStatusActionRow]}>
           <ActionButton
             label="Revert Status"
             onPress={(event) => {
@@ -200,7 +200,7 @@ function SchedulePreviewCard({
               onScheduleStatusChange(medicine, index, 'clear');
             }}
             variant="outline"
-            style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            style={styles.revertStatusButton}
             pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
@@ -217,6 +217,8 @@ function SchedulePreviewCard({
               onScheduleStatusChange(medicine, index, 'skipped');
             }}
             style={styles.skipActionButton}
+            pressedStyle={styles.skipActionButtonPressed}
+            pressedTextStyle={styles.skipActionButtonPressedText}
           />
           <ActionButton
             label="Taken"
@@ -227,6 +229,8 @@ function SchedulePreviewCard({
             }}
             variant={entry.status === 'taken' ? 'solid' : 'outline'}
             style={styles.takenActionButton}
+            pressedStyle={styles.takenActionButtonPressed}
+            pressedTextStyle={styles.takenActionButtonPressedText}
           />
         </View>
       ) : null}
@@ -318,19 +322,19 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
       </Text>
 
       {isTaken ? (
-        <Text style={styles.scheduleMetaText}>
+        <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
           Taken {formatDateTime(entry.takenAt)}
         </Text>
       ) : null}
 
       {missedDisplayTime ? (
-        <Text style={styles.scheduleMetaText}>
+        <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
           Missed {formatDateTime(missedDisplayTime)}
         </Text>
       ) : null}
 
       {medicine.canRevertSchedule(index, observedNow) ? (
-        <View style={styles.scheduleActionRow}>
+        <View style={[styles.scheduleActionRow, styles.revertStatusActionRow]}>
           <ActionButton
             label="Revert Status"
             onPress={(event) => {
@@ -338,7 +342,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
               onScheduleStatusChange(medicine, index, 'clear');
             }}
             variant="outline"
-            style={[styles.revertStatusButton, styles.detailsScheduleActionButton]}
+            style={styles.revertStatusButton}
             pressedStyle={styles.revertStatusButtonPressed}
             textStyle={styles.revertStatusButtonText}
             preserveFontSize
@@ -354,6 +358,8 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
               onScheduleStatusChange(medicine, index, 'skipped');
             }}
             style={styles.skipActionButton}
+            pressedStyle={styles.skipActionButtonPressed}
+            pressedTextStyle={styles.skipActionButtonPressedText}
           />
           <ActionButton
             label="Taken"
@@ -363,6 +369,8 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
             }}
             variant={entry.status === 'taken' ? 'solid' : 'outline'}
             style={styles.takenActionButton}
+            pressedStyle={styles.takenActionButtonPressed}
+            pressedTextStyle={styles.takenActionButtonPressedText}
           />
         </View>
       ) : null}
@@ -402,12 +410,15 @@ function StatusBadge({ statusStyle }) {
 
 function DetailItem({ label, value }) {
   const displayValue = value == null ? '' : String(value);
-  const accessibleValue = displayValue.trim() ? displayValue : 'blank';
+
+  if (!displayValue.trim()) {
+    return null;
+  }
 
   return (
     <View
       accessible
-      accessibilityLabel={`${label}: ${accessibleValue}`}
+      accessibilityLabel={`${label}: ${displayValue}`}
       style={[styles.detailRow, styles.readOnlyDetailRow]}
     >
       <Text style={styles.detailLabel}>{label}</Text>
@@ -534,6 +545,7 @@ const styles = StyleSheet.create({
   detailLabel: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
+    fontWeight: '700',
   },
   detailValue: {
     ...typography.body,
@@ -588,6 +600,12 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.bodyMuted,
   },
+  scheduleStatusMetaText: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.xs,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   scheduleActionRow: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -597,9 +615,22 @@ const styles = StyleSheet.create({
     minWidth: moderateScale(70),
     flexGrow: 1,
   },
+  skipActionButtonPressed: {
+    backgroundColor: '#B71C1C',
+    borderColor: '#B71C1C',
+  },
+  skipActionButtonPressedText: {
+    color: '#FFFFFF',
+  },
   takenActionButton: {
     minWidth: moderateScale(110),
     flexGrow: 2,
+  },
+  takenActionButtonPressed: {
+    backgroundColor: '#0077B6',
+  },
+  takenActionButtonPressedText: {
+    color: '#FFFFFF',
   },
   detailsScheduleActionButton: {
     minWidth: moderateScale(82),
@@ -609,6 +640,14 @@ const styles = StyleSheet.create({
   revertStatusButton: {
     backgroundColor: '#FEE2E2',
     borderColor: colors.error,
+    flexGrow: 0,
+    minHeight: 32,
+    paddingVertical: spacing.xxs,
+    paddingHorizontal: spacing.md,
+  },
+  revertStatusActionRow: {
+    justifyContent: 'center',
+    marginTop: spacing.xs,
   },
   revertStatusButtonPressed: {
     backgroundColor: '#FECACA',

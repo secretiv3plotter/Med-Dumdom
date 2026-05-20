@@ -24,7 +24,7 @@ export function ScheduleEntryText({ entry, unit = '', dayLabel = '' }) {
   return (
     <Text style={styles.scheduleCardTitle}>
       Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, unit)}</Text>
-      {'\n'}At{' '}
+      {'\n'}
       <Text style={styles.scheduleTextStrong}>{scheduleTimeText}</Text>{scheduleDayLabel}
       {isInterval ? (
         <>

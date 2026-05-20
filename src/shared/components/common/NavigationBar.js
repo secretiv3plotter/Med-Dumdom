@@ -58,7 +58,7 @@ export default function NavigationBar({
         },
       ]}
     >
-      <View style={[styles.container, { backgroundColor: colors.surface, shadowColor: darkModeEnabled ? 'rgba(0, 0, 0, 0.9)' : '#0284C7' }]}>
+      <View style={styles.container}>
         <MedTrackerButton
           variant={selectedTab === 'med' ? 'solid' : 'outline'}
           onPress={() => onTabPress('med', 'Med')}
@@ -81,6 +81,13 @@ export default function NavigationBar({
 const styles = StyleSheet.create({
   animatedWrap: {
     width: '100%',
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 16,
   },
   container: {
     backgroundColor: colors.surface,
@@ -92,11 +99,5 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.xs,
     flexDirection: 'row',
-    // Elegant upward-facing brand shadow/aura
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 10,
   },
 });

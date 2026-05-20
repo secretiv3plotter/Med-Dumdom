@@ -34,9 +34,26 @@ const parseIntervalValue = (value) => {
   };
 };
 
+const getScheduleTypeWarningLabel = (scheduleType) => {
+  const option = [...MEDICINE_SCHEDULE_TYPE_OPTIONS, ...MEDICINE_SUB_INTERVAL_OPTIONS]
+    .find((item) => item.value === scheduleType);
+
+  return option ? option.label.toLowerCase() : 'previous';
+};
+
 const parsePositiveCount = (value) => {
   const numericValue = Number(String(value || '').trim());
   return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 0;
+};
+
+const formatTimeForSummary = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = String(timeStr).split(':');
+  const hours = Number(h);
+  if (Number.isNaN(hours)) return timeStr;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const display = hours % 12 || 12;
+  return `${display}:${String(m || '00').padStart(2, '0')} ${period}`;
 };
 
 function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
@@ -145,7 +162,7 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     <View style={styles.inlineEditorContainer}>
       <View style={styles.inlineInputsRow}>
         <View style={styles.inlineDoseCol}>
-          <Text style={styles.fieldSubcaption}>How many {getDoseUnitLabel(unit)} for one dose?</Text>
+          <Text style={styles.fieldSubcaption}>Dose</Text>
           <InputBar
             placeholder="Dose"
             keyboardType="number-pad"
@@ -171,16 +188,19 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
               }}
             />
           ) : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? null : (
-            <NativeDateTimeField
-              mode="time"
-              placeholder="Select time"
-              accessibilityLabel="Time"
-              value={scheduledTime}
-              onChange={(val) => {
-                setScheduledTime(val);
-                setError('');
-              }}
-            />
+            <>
+              <Text style={styles.fieldSubcaption}>Time</Text>
+              <NativeDateTimeField
+                mode="time"
+                placeholder="Select time"
+                accessibilityLabel="Time"
+                value={scheduledTime}
+                onChange={(val) => {
+                  setScheduledTime(val);
+                  setError('');
+                }}
+              />
+            </>
           )}
         </View>
       </View>
@@ -376,9 +396,11 @@ export function MedicineDetailsStep({ formState, setFormState, units = [], onAdd
   );
 }
 
-export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectScheduleType }) {
+export function MedicineScheduleTypeStep({ selectedScheduleType, originalScheduleType = null, onSelectScheduleType }) {
   const isSelectedSubInterval = ['regular_hourly', 'regular_daily', 'regular_weekly', 'regular_every_weeks', 'regular_monthly'].includes(selectedScheduleType);
   const [isIntervalsExpanded, setIsIntervalsExpanded] = useState(isSelectedSubInterval);
+  const showChangeWarning = Boolean(originalScheduleType && selectedScheduleType !== originalScheduleType);
+  const previousScheduleLabel = getScheduleTypeWarningLabel(originalScheduleType);
 
   return (
     <View style={styles.scheduleTypeGrid}>
@@ -458,6 +480,14 @@ export function MedicineScheduleTypeStep({ selectedScheduleType, onSelectSchedul
           </View>
         );
       })}
+      {showChangeWarning ? (
+        <View style={styles.scheduleTypeWarning}>
+          <Ionicons name="warning-outline" size={18} color={colors.warning} />
+          <Text style={styles.scheduleTypeWarningText}>
+            This will remove all your {previousScheduleLabel} schedules.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -485,6 +515,7 @@ export function MedicineScheduleStep({
   const isAsNeeded = selectedScheduleType === 'asNeeded';
   const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly';
+  const isDaily = selectedScheduleType === 'daily';
   const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
   const intervalTotalMinutes = isWeeklyInterval
     ? parsePositiveCount(scheduleDraft.intervalDays) * 1440
@@ -517,6 +548,9 @@ export function MedicineScheduleStep({
         dose: `${String(scheduleDraft.doseSize).trim()} ${getDoseUnitLabel(formState.unit)}`,
         interval: formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes),
       }
+    : null;
+  const dailyScheduleSummary = isDaily && String(scheduleDraft.doseSize || '').trim() && String(scheduleDraft.scheduledTime || '').trim()
+    ? `You will take ${String(scheduleDraft.doseSize).trim()} ${getDoseUnitLabel(formState.unit)} at ${formatTimeForSummary(scheduleDraft.scheduledTime)} each day.`
     : null;
 
   return (
@@ -559,7 +593,9 @@ export function MedicineScheduleStep({
           </Text>
 
           <Text style={styles.fieldSubcaption}>
-            How many {getDoseUnitLabel(formState.unit)} for {isHourly ? 'each dose' : 'one dose'}?
+            {isDaily
+              ? `How many ${getDoseUnitLabel(formState.unit)} of ${formState.medName || 'this medicine'} are you taking in this schedule?`
+              : `How many ${getDoseUnitLabel(formState.unit)} for ${isHourly ? 'each dose' : 'one dose'}?`}
           </Text>
           <InputBar
             placeholder="Dose"
@@ -675,14 +711,20 @@ export function MedicineScheduleStep({
               No time is needed. Mark this medicine when you take it.
             </Text>
           ) : (
-            <NativeDateTimeField
-              mode="time"
-              label="Time"
-              placeholder="Select time"
-              accessibilityLabel="Time"
-              value={scheduleDraft.scheduledTime}
-              onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
-            />
+            <>
+              {isDaily ? <Text style={styles.fieldSubcaption}>At which time of the day?</Text> : null}
+              <NativeDateTimeField
+                mode="time"
+                label="Time"
+                placeholder="Select time"
+                accessibilityLabel="Time"
+                value={scheduleDraft.scheduledTime}
+                onChange={(value) => setScheduleDraft((current) => ({ ...current, scheduledTime: value }))}
+              />
+              {dailyScheduleSummary ? (
+                <Text style={styles.dailyScheduleSummary}>{dailyScheduleSummary}</Text>
+              ) : null}
+            </>
           )}
 
           {hourlyScheduleSummary ? (
@@ -735,9 +777,9 @@ export function MedicineScheduleStep({
                             accessibilityRole="button"
                             accessibilityLabel={`Edit schedule item ${index + 1}`}
                           >
-                            <Ionicons name="create-outline" size={18} color={colors.success} />
+                            <Ionicons name="create-outline" size={18} color="#0077B6" />
                           </Pressable>
-                          <Text style={[styles.iconActionLabel, { color: colors.success }]}>Edit</Text>
+                          <Text style={[styles.iconActionLabel, { color: '#0077B6' }]}>Edit</Text>
                         </View>
                       ) : null}
                       <View style={styles.iconActionCol}>
@@ -827,6 +869,11 @@ const styles = StyleSheet.create({
   hourlyScheduleSummaryStrong: {
     fontWeight: '700',
     color: colors.brandText,
+  },
+  dailyScheduleSummary: {
+    ...typography.bodySmall,
+    color: colors.brandText,
+    textAlign: 'center',
   },
   scheduleCard: {
     backgroundColor: colors.surface,
@@ -982,6 +1029,23 @@ const styles = StyleSheet.create({
   },
   scheduleTypeCaptionSelected: {
     color: '#0055B3',
+  },
+  scheduleTypeWarning: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.md,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  scheduleTypeWarningText: {
+    ...typography.bodySmall,
+    color: colors.warning,
+    fontWeight: '700',
+    flex: 1,
   },
   nestedIntervalsContainer: {
     paddingLeft: spacing.lg,
