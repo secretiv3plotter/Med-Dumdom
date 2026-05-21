@@ -98,7 +98,7 @@ export function MedicineListSection({
         )) : hasActiveSearch ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No medicines found.</Text>
-            <Text style={styles.emptyText}>Try another name, strength, schedule, or status.</Text>
+            <Text style={styles.emptyText}>Try another medicine name, dose, time, day, or status.</Text>
           </View>
         ) : (
           <View

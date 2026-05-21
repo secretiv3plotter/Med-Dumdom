@@ -143,8 +143,20 @@ export const getIntervalMinutes = (entry) => {
   return Number.isInteger(value) && value > 0 ? value : null;
 };
 
-export const isIntervalScheduleEntry = (entry) =>
-  getIntervalMinutes(entry) !== null || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0);
+export const SCHEDULE_ENTRY_KINDS = {
+  SCHEDULE: 'schedule',
+  INTERVAL_RULE: 'intervalRule',
+  INTERVAL_OCCURRENCE: 'intervalOccurrence',
+};
+
+export const isIntervalRuleEntry = (entry) =>
+  entry?.scheduleKind === SCHEDULE_ENTRY_KINDS.INTERVAL_RULE ||
+  (!entry?.scheduleKind && (getIntervalMinutes(entry) !== null || (entry?.intervalUnit === 'months' && Number(entry?.intervalCount || 0) > 0)));
+
+export const isGeneratedIntervalOccurrenceEntry = (entry) =>
+  entry?.scheduleKind === SCHEDULE_ENTRY_KINDS.INTERVAL_OCCURRENCE;
+
+export const isIntervalScheduleEntry = (entry) => isIntervalRuleEntry(entry);
 
 export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
 
@@ -340,6 +352,11 @@ export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
   const date = dateValue instanceof Date ? new Date(dateValue.getTime()) : new Date(dateValue);
   if (Number.isNaN(date.getTime())) {
     return false;
+  }
+
+  if (entry?.scheduledDate) {
+    const currentDateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return entry.scheduledDate === currentDateKey;
   }
 
   if (entry?.dayOfWeek) {
@@ -547,7 +564,9 @@ export const buildFormStateFromMedicine = (medicine) => {
 
 export const buildScheduleEntriesFromMedicine = (medicine) =>
   Array.isArray(medicine.dailySched)
-    ? medicine.dailySched.map((entry) => ({ ...entry }))
+    ? medicine.dailySched
+        .filter((entry) => !isGeneratedIntervalOccurrenceEntry(entry))
+        .map((entry) => ({ ...entry }))
     : [];
 
 export const buildScheduleDraftFromEntry = (entry) => ({
@@ -786,8 +805,10 @@ const isToday = (isoString, now = new Date()) => {
 
 const isMedicineCompletedToday = (medicine, now = new Date()) =>
   Array.isArray(medicine.dailySched) &&
-  medicine.dailySched.length > 0 &&
-  medicine.dailySched.every((entry) => entry.status === 'taken' && isToday(entry.takenAt, now));
+  medicine.dailySched.filter((entry) => !isIntervalRuleEntry(entry)).length > 0 &&
+  medicine.dailySched
+    .filter((entry) => !isIntervalRuleEntry(entry))
+    .every((entry) => entry.status === 'taken' && isToday(entry.takenAt, now));
 
 const getMissedAmountToday = (medicine, scheduleItems) =>
   scheduleItems.reduce((total, { entry, statusStyle }) => {
@@ -805,6 +826,9 @@ export const getStatusTimesSummary = (medicine, now = new Date()) => {
   };
 
   (medicine.dailySched || []).forEach((entry, index) => {
+    if (isIntervalRuleEntry(entry)) {
+      return;
+    }
     const statusStyle = getScheduleStatusStyle(medicine, index, now);
     if (statusStyle.status === 'taken') {
       summary.taken.push({
@@ -874,11 +898,13 @@ const getNearestScheduleItem = (scheduleItems, now = new Date()) => {
 };
 
 export const getMedicinePreviewState = (medicine, now = new Date()) => {
-  const scheduleItems = (medicine.dailySched || []).map((entry, index) => ({
-    entry,
-    index,
-    statusStyle: getScheduleStatusStyle(medicine, index, now),
-  }));
+  const scheduleItems = (medicine.dailySched || [])
+    .map((entry, index) => ({
+      entry,
+      index,
+      statusStyle: getScheduleStatusStyle(medicine, index, now),
+    }))
+    .filter(({ entry }) => !isIntervalRuleEntry(entry));
 
   const currentActiveItem = scheduleItems.find(({ index, statusStyle }) =>
     (statusStyle.status === 'due' || statusStyle.status === 'pending') &&
@@ -929,7 +955,7 @@ export const getMedicinePreviewState = (medicine, now = new Date()) => {
 };
 
 export const sumDoseSizes = (scheduleEntries) =>
-  scheduleEntries.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
+  scheduleEntries.reduce((total, entry) => total + (isGeneratedIntervalOccurrenceEntry(entry) ? 0 : Number(entry.doseSize || 0)), 0);
 
 const normalizeDuplicateKey = (value) => String(value || '').trim().toLowerCase();
 
@@ -941,7 +967,7 @@ export const getMedicineDuplicateKey = ({ medName, unitStrength, unit }) =>
   ].join('|');
 
 const getScheduleDoseAmount = (scheduleEntries = []) =>
-  scheduleEntries.reduce((total, entry) => total + Number(entry?.doseSize || 0), 0);
+  scheduleEntries.reduce((total, entry) => total + (isGeneratedIntervalOccurrenceEntry(entry) ? 0 : Number(entry?.doseSize || 0)), 0);
 
 const formatAmountWithUnit = (amount, unit) => `${Number(amount || 0)} ${unit || ''}`.trim();
 
@@ -986,7 +1012,8 @@ const formatMedicineMetaWithBullet = (medicine) => {
 
 export const formatMedicineMeta = (medicine) => {
   const scheduleEntries = Array.isArray(medicine.dailySched) ? medicine.dailySched : [];
-  const firstEntry = scheduleEntries[0];
+  const intervalRule = scheduleEntries.find((entry) => isIntervalRuleEntry(entry));
+  const firstEntry = intervalRule || scheduleEntries[0];
   let doseText = '';
 
   if (firstEntry && isAsNeededScheduleEntry(firstEntry)) {
@@ -1075,7 +1102,9 @@ export const isPastTimeToday = (dateStr, timeStr, now = new Date()) => {
     return false;
   }
 
-  return dateTime.toDateString() === currentDateTime.toDateString() && dateTime < currentDateTime;
+  const currentMinute = new Date(currentDateTime);
+  currentMinute.setSeconds(0, 0);
+  return dateTime.toDateString() === currentMinute.toDateString() && dateTime < currentMinute;
 };
 
 export const getLastActionMessage = (medicine) => {
@@ -1101,7 +1130,7 @@ export const getLastActionMessage = (medicine) => {
 };
 
 export const getCalculatedDailyAmount = (medicine) => {
-  const firstEntry = medicine.dailySched?.[0];
+  const firstEntry = (medicine.dailySched || []).find((entry) => isIntervalRuleEntry(entry)) || medicine.dailySched?.[0];
   if (firstEntry && isIntervalScheduleEntry(firstEntry)) {
     const doseSize = Number(firstEntry.doseSize || 0);
     const interval = Number(firstEntry.intervalMinutes || 0);
@@ -1113,11 +1142,13 @@ export const getCalculatedDailyAmount = (medicine) => {
 };
 
 export const getMedicineStatusForSorting = (medicine, now = new Date()) => {
-  const scheduleItems = (medicine.dailySched || []).map((entry, index) => ({
-    entry,
-    index,
-    statusStyle: getScheduleStatusStyle(medicine, index, now),
-  }));
+  const scheduleItems = (medicine.dailySched || [])
+    .map((entry, index) => ({
+      entry,
+      index,
+      statusStyle: getScheduleStatusStyle(medicine, index, now),
+    }))
+    .filter(({ entry }) => !isIntervalRuleEntry(entry));
 
   const currentActiveItem = scheduleItems.find(({ index, statusStyle }) =>
     (statusStyle.status === 'due' || statusStyle.status === 'pending') &&

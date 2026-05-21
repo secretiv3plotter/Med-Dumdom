@@ -195,8 +195,8 @@ const formatDisplayValue = (value, mode) => {
     if (!parsed) {
       return '';
     }
-    const hText = `${parsed.hours} hour${parsed.hours === 1 ? '' : 's'}`;
-    const mText = `${pad2(parsed.minutes)} min${parsed.minutes === 1 ? '' : 's'}`;
+    const hText = `${parsed.hours} hr`;
+    const mText = `${pad2(parsed.minutes)} min`;
     return `${hText} ${mText}`;
   }
   const parsed = parseValue(value, mode);

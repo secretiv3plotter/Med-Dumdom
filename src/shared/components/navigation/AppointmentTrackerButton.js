@@ -3,13 +3,14 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { accessibility, colors, moderateScale, radius, spacing, typography } from '../../theme';
 import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
+const APPOINTMENT_ACCENT = '#52B788';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
 
 export default function AppointmentTrackerButton({ onPress, variant = 'outline', disabled = false }) {
   const isSolid = variant === 'solid';
   const { darkModeEnabled } = useTextScale();
-  const iconColor = disabled ? colors.bodyMuted : colors.success;
-  const textColor = disabled ? colors.bodyMuted : colors.success;
+  const iconColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT;
+  const textColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT;
   const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : APPOINTMENT_ACCENT_PRESSED;
 
   return (
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
   pressed: {
     backgroundColor: APPOINTMENT_ACCENT_PRESSED,
     borderWidth: 1,
-    borderColor: colors.success,
+    borderColor: APPOINTMENT_ACCENT,
   },
 });

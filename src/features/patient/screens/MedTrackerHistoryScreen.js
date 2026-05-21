@@ -241,18 +241,19 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
 
       <ThemedScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {!pinHeader ? headerBlock : null}
+        <View style={styles.searchWrap}>
+          <InputBar
+            placeholder="Search previous records"
+            accessibilityLabel="Search previous records"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            showSearchIcon
+            autoComplete="off"
+          />
+        </View>
+
         {historyRecords.length ? (
           <>
-            <View style={styles.searchWrap}>
-              <InputBar
-                placeholder="Search previous records"
-                accessibilityLabel="Search previous records"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoComplete="off"
-              />
-            </View>
-
             <View style={styles.breadcrumbRow}>
               {selectedMed ? (
                 <BreadcrumbButton
@@ -417,7 +418,6 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
         ) : (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No previous records yet.</Text>
-            <Text style={styles.emptyText}>Daily medicine history will appear here after a schedule day is completed.</Text>
           </View>
         )}
       </ThemedScrollView>
@@ -588,7 +588,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   searchWrap: {
-    marginBottom: spacing.xs,
   },
   breadcrumbRow: {
     flexDirection: 'row',
@@ -620,14 +619,11 @@ const styles = StyleSheet.create({
     borderColor: colors.brandText,
   },
   emptyCard: {
-    minHeight: moderateScale(140),
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.lg,
     padding: spacing.lg,
-    justifyContent: 'center',
-    gap: spacing.xs,
   },
   emptyTitle: {
     ...typography.body,

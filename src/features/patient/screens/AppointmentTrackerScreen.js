@@ -41,10 +41,10 @@ import {
 const FOOTER_NAV_Z_INDEX = 30;
 const LIVE_STATUS_REFRESH_MS = 1000;
 const RECENT_STATUS_HOLD_MS = 12 * 60 * 60 * 1000;
-const APPOINTMENT_ACCENT = colors.success;
-const APPOINTMENT_ACCENT_TEXT = colors.success;
+const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_TEXT = '#52B788';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
-const APPOINTMENT_ADD_CIRCLE_BG = 'rgb(22, 101, 52)';
+const APPOINTMENT_ADD_CIRCLE_BG = '#52B788';
 
 const TAB_KEY_TO_ROUTE = {
   home: ROUTES.HOME,
@@ -178,13 +178,16 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         <Text style={styles.title}>Appointments</Text>
         <Text style={styles.subtitle}>Manage all your appointments and meetings in one place.</Text>
       </View>
-      <AddButton
-        onPress={handleAddAppointment}
-        iconOnly
-        circleStyle={styles.appointmentAddCircle}
-        textStyle={styles.appointmentAddText}
-        pressedStyle={styles.appointmentAddPressed}
-      />
+      <View style={styles.addButtonWrap}>
+        <AddButton
+          onPress={handleAddAppointment}
+          iconOnly
+          circleStyle={styles.appointmentAddCircle}
+          textStyle={styles.appointmentAddText}
+          pressedStyle={styles.appointmentAddPressed}
+        />
+        <Text style={styles.addButtonLabel}>Add</Text>
+      </View>
     </View>
   );
 
@@ -358,7 +361,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             onChangeText={setSearchQuery}
             showSearchIcon
             autoComplete="off"
-            focusBorderColor={colors.success}
+            focusBorderColor={APPOINTMENT_ACCENT}
           />
         </View>
         <View style={styles.listSection}>
@@ -407,6 +410,18 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
               <Text style={styles.emptyText}>Try another concern, doctor, date, place, or status.</Text>
             </View>
           ) : null}
+
+          {!pendingAppointments.length && !recentStatusAppointments.length && !hasActiveSearch ? (
+            <View
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel="No appointments yet. Tap the Add button at the top to add your first appointment."
+              style={styles.emptyCard}
+            >
+              <Text style={styles.emptyTitle}>No appointments yet.</Text>
+              <Text style={styles.emptyText}>Tap the <Text style={styles.emptyTextBold}>Add</Text> button at the top to add your first appointment.</Text>
+            </View>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Review previous records"
@@ -437,7 +452,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                   <SmallHeaderAction
                     label="Edit"
                     icon="create-outline"
-                    color={colors.success}
+                    color={APPOINTMENT_ACCENT}
                     onPress={handleEditAppointment}
                   />
                   <SmallHeaderAction
@@ -670,9 +685,9 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
           onChange={onChangeText}
           accessibilityLabel={label}
           minimumDate={minimumDate}
-          focusBorderColor={colors.success}
+          focusBorderColor={APPOINTMENT_ACCENT}
           focusBackgroundColor={colors.brandSoft}
-          focusTextColor={colors.success}
+          focusTextColor={APPOINTMENT_ACCENT}
         />
       </View>
     );
@@ -687,7 +702,7 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
         placeholder={label}
         multiline={multiline}
         numberOfLines={multiline ? 4 : 1}
-        focusBorderColor={colors.success}
+        focusBorderColor={APPOINTMENT_ACCENT}
         focusBackgroundColor={colors.brandSoft}
       />
     </View>
@@ -781,6 +796,10 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.bodyMuted,
   },
+  emptyTextBold: {
+    fontWeight: '700',
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
   appointmentCard: {
     minHeight: 86,
   },
@@ -821,6 +840,15 @@ const styles = StyleSheet.create({
   pressedControl: {
     backgroundColor: APPOINTMENT_ACCENT_PRESSED,
     borderColor: APPOINTMENT_ACCENT_TEXT,
+  },
+  addButtonWrap: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  addButtonLabel: {
+    ...typography.bodySmall,
+    color: APPOINTMENT_ACCENT_TEXT,
+    fontWeight: '600',
   },
   appointmentAddCircle: {
     backgroundColor: APPOINTMENT_ADD_CIRCLE_BG,

@@ -6,8 +6,11 @@ import {
   getScheduleDateTime,
   getIntervalOccurrenceDateTime,
   getIntervalNextOccurrenceDateTime,
+  getIntervalMinutes,
   isAsNeededScheduleEntry,
+  isGeneratedIntervalOccurrenceEntry,
   isIntervalScheduleEntry,
+  isIntervalRuleEntry,
   isScheduleDateTimeInCurrentInterval,
   isBeforeCurrentDay,
   isBeforeDay,
@@ -36,10 +39,33 @@ const isDailyScheduleEntry = (scheduleEntry) =>
   !scheduleEntry?.monthOfYear &&
   !scheduleEntry?.dayOfMonth;
 
+const getGeneratedIntervalRule = (medEntry, occurrenceEntry) =>
+  (medEntry.dailySched || []).find((entry) =>
+    isIntervalRuleEntry(entry) &&
+    entry.intervalRuleId &&
+    entry.intervalRuleId === occurrenceEntry?.intervalRuleId
+  );
+
+const getGeneratedIntervalMissedDateTime = (medEntry, occurrenceEntry) => {
+  const ruleEntry = getGeneratedIntervalRule(medEntry, occurrenceEntry);
+  const intervalMinutes = getIntervalMinutes(ruleEntry);
+  const scheduledDateTime = getScheduleDateTime(occurrenceEntry);
+  if (!intervalMinutes || !scheduledDateTime) {
+    return null;
+  }
+
+  return new Date(scheduledDateTime.getTime() + intervalMinutes * 60000);
+};
+
 export const isScheduleActiveOnDate = (scheduleEntry, currDate = new Date()) => {
   const currentDay = normalizeOptionalDate(currDate, 'currDate');
   if (!currentDay) {
     return false;
+  }
+
+  if (scheduleEntry?.scheduledDate) {
+    const currentDateKey = `${currentDay.getFullYear()}-${String(currentDay.getMonth() + 1).padStart(2, '0')}-${String(currentDay.getDate()).padStart(2, '0')}`;
+    return scheduleEntry.scheduledDate === currentDateKey;
   }
 
   if (scheduleEntry?.dayOfWeek) {
@@ -66,6 +92,7 @@ export const resetDailyScheduleStatusesIfNeeded = (medEntry, now = new Date(), s
   }
 
   const firstScheduleMinutes = medEntry.dailySched
+    .filter((entry) => !isIntervalRuleEntry(entry))
     .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
     .filter((minutes) => minutes !== null)
     .sort((firstMinute, secondMinute) => firstMinute - secondMinute)[0];
@@ -85,9 +112,14 @@ export const resetDailyScheduleStatusesIfNeeded = (medEntry, now = new Date(), s
 
   let didReset = false;
   medEntry.dailySched = medEntry.dailySched.map((entry) => {
+    if (isIntervalRuleEntry(entry)) {
+      return entry;
+    }
+
     if (
       isIntervalScheduleEntry(entry) &&
       entry.status !== 'pending' &&
+      entry.status !== 'missed' &&
       !isScheduleDateTimeInCurrentInterval(entry, getScheduleDateTime(entry), currentDateTime)
     ) {
       didReset = true;
@@ -219,6 +251,10 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
       : 'pending';
   }
 
+  if (isIntervalRuleEntry(scheduleEntry)) {
+    return 'upcoming';
+  }
+
   const currentTime = currTime instanceof Date ? currTime : currTime || currDate;
 
   if (!isIntervalScheduleEntry(scheduleEntry) && !isScheduleActiveOnDate(scheduleEntry, currDate)) {
@@ -245,6 +281,13 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
     return isIntervalScheduleEntry(scheduleEntry) && !isScheduleDateTimeInCurrentInterval(scheduleEntry, scheduleEntry.skippedAt, currentTime)
       ? 'pending'
       : 'skipped';
+  }
+
+  if (isGeneratedIntervalOccurrenceEntry(scheduleEntry) && scheduleEntry.status === 'pending') {
+    const missedAt = getGeneratedIntervalMissedDateTime(medEntry, scheduleEntry);
+    if (missedAt && currentTime.getTime() >= missedAt.getTime()) {
+      return 'missed';
+    }
   }
 
   const currentDay = new Date(currentTime.getTime());
@@ -288,7 +331,7 @@ export const getScheduleStatus = (medEntry, scheduleIndex, currTime = new Date()
   }
 
   const laterScheduledMinutes = medEntry.dailySched
-    .filter((entry) => isScheduleActiveOnDate(entry, currDate))
+    .filter((entry) => !isIntervalRuleEntry(entry) && isScheduleActiveOnDate(entry, currDate))
     .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
     .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
     .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
@@ -315,12 +358,16 @@ export const getScheduleMissedDateTime = (medEntry, scheduleIndex, currTime = ne
     return getIntervalNextOccurrenceDateTime(medEntry.dailySched[scheduleIndex], currentDateTime) || currentDateTime;
   }
 
+  if (isGeneratedIntervalOccurrenceEntry(medEntry.dailySched[scheduleIndex])) {
+    return getGeneratedIntervalMissedDateTime(medEntry, medEntry.dailySched[scheduleIndex]) || currentDateTime;
+  }
+
   if (scheduleMinutes === null) {
     return currentDateTime;
   }
 
   const laterScheduledMinutes = medEntry.dailySched
-    .filter((entry) => isScheduleActiveOnDate(entry, currentDateTime))
+    .filter((entry) => !isIntervalRuleEntry(entry) && isScheduleActiveOnDate(entry, currentDateTime))
     .map((entry) => toMinutes(scheduleEffectiveTime(entry)))
     .filter((minutes) => minutes !== null && minutes > scheduleMinutes)
     .sort((firstMinute, secondMinute) => firstMinute - secondMinute);
@@ -345,6 +392,10 @@ export const isScheduleActionAvailable = (medEntry, scheduleIndex, currTime = ne
 
   if (isAsNeededScheduleEntry(medEntry.dailySched[scheduleIndex])) {
     return true;
+  }
+
+  if (isIntervalRuleEntry(medEntry.dailySched[scheduleIndex])) {
+    return false;
   }
 
   if (!isIntervalScheduleEntry(medEntry.dailySched[scheduleIndex]) && !isScheduleActiveOnDate(medEntry.dailySched[scheduleIndex], currDate)) {

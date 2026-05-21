@@ -188,7 +188,20 @@ export const getIntervalCount = (entry) => {
 
 export const isCalendarMonthIntervalEntry = (entry) => entry?.intervalUnit === 'months' && getIntervalCount(entry) !== null;
 
-export const isIntervalScheduleEntry = (entry) => getIntervalMinutes(entry) !== null || isCalendarMonthIntervalEntry(entry);
+export const SCHEDULE_ENTRY_KINDS = {
+  SCHEDULE: 'schedule',
+  INTERVAL_RULE: 'intervalRule',
+  INTERVAL_OCCURRENCE: 'intervalOccurrence',
+};
+
+export const isIntervalRuleEntry = (entry) =>
+  entry?.scheduleKind === SCHEDULE_ENTRY_KINDS.INTERVAL_RULE ||
+  (!entry?.scheduleKind && (getIntervalMinutes(entry) !== null || isCalendarMonthIntervalEntry(entry)));
+
+export const isGeneratedIntervalOccurrenceEntry = (entry) =>
+  entry?.scheduleKind === SCHEDULE_ENTRY_KINDS.INTERVAL_OCCURRENCE;
+
+export const isIntervalScheduleEntry = (entry) => isIntervalRuleEntry(entry);
 
 export const isAsNeededScheduleEntry = (entry) => entry?.intervalUnit === 'asNeeded';
 
@@ -411,6 +424,9 @@ export const normalizeScheduleEntry = (entry, index) => {
       takenAt: null,
       skippedAt: null,
       activatedAt: null,
+      scheduleKind: '',
+      intervalRuleId: '',
+      scheduledDate: '',
     };
   }
 
@@ -438,6 +454,9 @@ export const normalizeScheduleEntry = (entry, index) => {
   const takenAt = normalizeOptionalDateTime(entry.takenAt, `dailySched[${index}].takenAt`);
   const skippedAt = normalizeOptionalDateTime(entry.skippedAt, `dailySched[${index}].skippedAt`);
   const activatedAt = normalizeOptionalDateTime(entry.activatedAt ?? entry.createdAt, `dailySched[${index}].activatedAt`);
+  const scheduleKind = normalizeOptionalString(entry.scheduleKind, `dailySched[${index}].scheduleKind`);
+  const intervalRuleId = normalizeOptionalString(entry.intervalRuleId, `dailySched[${index}].intervalRuleId`);
+  const scheduledDate = normalizeOptionalString(entry.scheduledDate, `dailySched[${index}].scheduledDate`);
 
   return {
     doseSize,
@@ -456,6 +475,9 @@ export const normalizeScheduleEntry = (entry, index) => {
     takenAt,
     skippedAt,
     activatedAt,
+    scheduleKind,
+    intervalRuleId,
+    scheduledDate,
   };
 };
 
@@ -483,7 +505,7 @@ export const normalizeSchedule = (dailySched) => {
 };
 
 export const sumDoseSizes = (dailySched) =>
-  dailySched.reduce((total, entry) => total + Number(entry.doseSize || 0), 0);
+  dailySched.reduce((total, entry) => total + (isGeneratedIntervalOccurrenceEntry(entry) ? 0 : Number(entry.doseSize || 0)), 0);
 
 export const ensureDateRange = (startDate, endDate) => {
   if (startDate && endDate) {

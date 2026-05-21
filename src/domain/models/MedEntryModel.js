@@ -13,6 +13,7 @@ import {
   sumDoseSizes,
   toMinutes,
   isIntervalScheduleEntry,
+  isGeneratedIntervalOccurrenceEntry,
   getIntervalMinutes,
   isScheduleDateTimeInCurrentInterval,
 } from './medEntryModelUtils';
@@ -287,28 +288,6 @@ export default class MedEntry {
       skippedAt: null,
     };
 
-    if (isIntervalScheduleEntry(currentEntry)) {
-      const hasSubsequent = this.dailySched.slice(scheduleIndex + 1).length > 0;
-      if (!hasSubsequent) {
-        const intervalMinutes = getIntervalMinutes(currentEntry);
-        const currentActivatedAt = new Date(currentEntry.activatedAt);
-        const nextActivatedAt = intervalMinutes
-          ? new Date(currentActivatedAt.getTime() + intervalMinutes * 60000)
-          : takenDateTime;
-        
-        const nextEntry = {
-          ...currentEntry,
-          status: 'pending',
-          takenAt: null,
-          skippedAt: null,
-          activatedAt: nextActivatedAt.toISOString(),
-        };
-        this.dailySched.push(nextEntry);
-      }
-      this.totalDailyAmount = sumDoseSizes(this.dailySched);
-      this.amount = this.totalDailyAmount;
-    }
-
     this.syncTakenStatusFromSchedule();
     return this;
   }
@@ -332,28 +311,6 @@ export default class MedEntry {
       skippedAt: resolvedSkippedDateTime.toISOString(),
     };
 
-    if (isIntervalScheduleEntry(currentEntry)) {
-      const hasSubsequent = this.dailySched.slice(scheduleIndex + 1).length > 0;
-      if (!hasSubsequent) {
-        const intervalMinutes = getIntervalMinutes(currentEntry);
-        const currentActivatedAt = new Date(currentEntry.activatedAt);
-        const nextActivatedAt = intervalMinutes
-          ? new Date(currentActivatedAt.getTime() + intervalMinutes * 60000)
-          : resolvedSkippedDateTime;
-        
-        const nextEntry = {
-          ...currentEntry,
-          status: 'pending',
-          takenAt: null,
-          skippedAt: null,
-          activatedAt: nextActivatedAt.toISOString(),
-        };
-        this.dailySched.push(nextEntry);
-      }
-      this.totalDailyAmount = sumDoseSizes(this.dailySched);
-      this.amount = this.totalDailyAmount;
-    }
-
     this.syncTakenStatusFromSchedule();
     return this;
   }
@@ -373,6 +330,30 @@ export default class MedEntry {
       this.dailySched = this.dailySched.slice(0, scheduleIndex + 1);
       this.totalDailyAmount = sumDoseSizes(this.dailySched);
       this.amount = this.totalDailyAmount;
+    } else if (isGeneratedIntervalOccurrenceEntry(currentEntry)) {
+      const currentActivatedAt = normalizeOptionalDateTime(currentEntry.activatedAt, 'activatedAt');
+      const currentActivatedAtTime = currentActivatedAt ? new Date(currentActivatedAt).getTime() : Number.NaN;
+      this.dailySched = this.dailySched.filter((entry, index) => {
+        if (index === scheduleIndex || !isGeneratedIntervalOccurrenceEntry(entry)) {
+          return true;
+        }
+
+        const activatedAt = normalizeOptionalDateTime(entry.activatedAt, 'activatedAt');
+        const activatedAtTime = activatedAt ? new Date(activatedAt).getTime() : Number.NaN;
+        if (Number.isNaN(activatedAtTime) || Number.isNaN(currentActivatedAtTime)) {
+          return true;
+        }
+
+        if (activatedAtTime === currentActivatedAtTime) {
+          return false;
+        }
+
+        if (entry.intervalRuleId === currentEntry.intervalRuleId && entry.status === 'pending') {
+          return activatedAtTime < currentActivatedAtTime;
+        }
+
+        return true;
+      });
     }
 
     this.syncTakenStatusFromSchedule();
@@ -408,6 +389,23 @@ export default class MedEntry {
     if (isIntervalScheduleEntry(entry)) {
       const actionTime = entry.takenAt || entry.skippedAt;
       return isScheduleDateTimeInCurrentInterval(entry, actionTime, currTime);
+    }
+    if (isGeneratedIntervalOccurrenceEntry(entry)) {
+      const occurrenceTimeValue = normalizeOptionalDateTime(entry.activatedAt, 'activatedAt');
+      const occurrenceTime = occurrenceTimeValue ? new Date(occurrenceTimeValue) : null;
+      const currentTime = normalizeDate(currTime, 'currTime') ?? new Date();
+      const ruleEntry = this.dailySched.find((scheduleEntry) =>
+        isIntervalScheduleEntry(scheduleEntry) &&
+        scheduleEntry.intervalRuleId &&
+        scheduleEntry.intervalRuleId === entry.intervalRuleId
+      );
+      const intervalMinutes = getIntervalMinutes(ruleEntry);
+      if (!occurrenceTime || !intervalMinutes || Number.isNaN(occurrenceTime.getTime()) || Number.isNaN(currentTime.getTime())) {
+        return false;
+      }
+
+      const windowEnd = new Date(occurrenceTime.getTime() + intervalMinutes * 60000);
+      return currentTime >= occurrenceTime && currentTime < windowEnd;
     }
     return true;
   }

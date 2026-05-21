@@ -26,6 +26,7 @@ import {
   formatDoseWithUnit,
   formatTime,
   isAsNeededScheduleEntry,
+  isIntervalRuleEntry,
 } from '../utils/medTrackerUtils';
 
 const PILL_RADIUS = moderateScale(999);
@@ -239,18 +240,17 @@ function SchedulePreviewCard({
 }
 
 export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatusChange }) {
-  const intervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalMinutes);
-  const monthlyIntervalEntry = (medicine.dailySched || []).find((entry) => entry.intervalUnit === 'months');
-  const hasAsNeededEntry = (medicine.dailySched || []).some((entry) => isAsNeededScheduleEntry(entry));
-  const sectionLabelText = intervalEntry
-    ? `${intervalEntry.intervalUnit === 'weeks' ? 'Weekly interval' : Number(intervalEntry.intervalMinutes || 0) >= 1440 ? 'Every few days' : 'Hourly interval'} schedule (Every ${formatIntervalMinutes(intervalEntry.intervalMinutes, intervalEntry.intervalUnit)})`
-    : monthlyIntervalEntry
-    ? `Monthly interval schedule (Every ${monthlyIntervalEntry.intervalCount} month${Number(monthlyIntervalEntry.intervalCount) === 1 ? '' : 's'})`
+  const scheduleItems = getSchedulesBySchedulePatternOrder(medicine.dailySched);
+  const intervalRuleItems = scheduleItems.filter(({ entry }) => isIntervalRuleEntry(entry));
+  const displayScheduleItems = scheduleItems.filter(({ entry }) => !isIntervalRuleEntry(entry));
+  const hasAsNeededEntry = displayScheduleItems.some(({ entry }) => isAsNeededScheduleEntry(entry));
+  const sectionLabelText = intervalRuleItems.length
+    ? 'Daily schedule'
     : hasAsNeededEntry
     ? 'As needed schedule'
-    : (medicine.dailySched || []).some(e => e.monthOfYear || e.dayOfMonth)
+    : displayScheduleItems.some(({ entry }) => entry.monthOfYear || entry.dayOfMonth)
     ? 'Monthly schedule'
-    : (medicine.dailySched || []).some(e => e.dayOfWeek)
+    : displayScheduleItems.some(({ entry }) => entry.dayOfWeek)
     ? 'Weekly schedule'
     : 'Daily schedule';
 
@@ -271,11 +271,27 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
         </View>
       </View>
 
+      {intervalRuleItems.length ? (
+        <View style={styles.scheduleSection}>
+          {intervalRuleItems.map(({ entry, index }) => (
+            <View key={`${medicine.medEntryId}-interval-rule-${index}`} style={styles.scheduleCardWrapper}>
+              <MedicineDetailsScheduleCard
+                entry={entry}
+                index={index}
+                medicine={medicine}
+                observedNow={observedNow}
+                onScheduleStatusChange={onScheduleStatusChange}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>
           {sectionLabelText}
         </Text>
-        {getSchedulesBySchedulePatternOrder(medicine.dailySched).map(({ entry, index }) => (
+        {displayScheduleItems.map(({ entry, index }) => (
           <View key={`${medicine.medEntryId}-schedule-${index}`} style={styles.scheduleCardWrapper}>
             <MedicineDetailsScheduleCard
               entry={entry}
@@ -292,6 +308,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
 }
 
 function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onScheduleStatusChange }) {
+  const isIntervalRule = isIntervalRuleEntry(entry);
   const scheduleStatus = getScheduleStatusStyle(medicine, index, observedNow);
   const isTaken = scheduleStatus.status === 'taken';
   const isMissed = scheduleStatus.status === 'missed' || scheduleStatus.status === 'skipped';
@@ -308,32 +325,44 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   return (
     <View style={[
       styles.scheduleCard,
-      isResolved ? styles.resolvedScheduleCard : { backgroundColor: scheduleStatus.bgColor },
+      isIntervalRule || isResolved ? styles.resolvedScheduleCard : { backgroundColor: scheduleStatus.bgColor },
     ]}>
+      {isIntervalRule ? <Text style={styles.detailLabel}>Set interval</Text> : null}
       <View style={styles.scheduleCardRow}>
         <Text style={styles.scheduleCardTitle}>
-          Take <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, medicine.unit)}</Text>
+          Take{' '}
+          {isIntervalRule
+            ? `${formatDoseWithUnit(entry.doseSize, medicine.unit)} every ${
+                entry.intervalUnit === 'months'
+                  ? `${entry.intervalCount} month${Number(entry.intervalCount) === 1 ? '' : 's'}`
+                  : formatIntervalMinutes(entry.intervalMinutes, entry.intervalUnit)
+              }`
+            : <Text style={styles.scheduleTextStrong}>{formatDoseWithUnit(entry.doseSize, medicine.unit)}</Text>}
         </Text>
-        <StatusBadge statusStyle={scheduleStatus} />
+        {isIntervalRule ? null : <StatusBadge statusStyle={scheduleStatus} />}
       </View>
 
-      <Text style={styles.scheduleMetaText}>
-        {isAsNeeded ? 'As needed' : `At ${isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
-      </Text>
+      {!isIntervalRule ? (
+        <Text style={styles.scheduleMetaText}>
+          {isAsNeeded
+            ? 'As needed'
+            : `At ${isIntervalScheduleEntry(entry) ? getIntervalScheduleTime(entry) : formatTime(entry.scheduledTime)}${dayLabel ? ` ${dayLabel}` : ''}`}
+        </Text>
+      ) : null}
 
-      {isTaken ? (
+      {isTaken && !isIntervalRule ? (
         <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
           Taken {formatDateTime(entry.takenAt)}
         </Text>
       ) : null}
 
-      {missedDisplayTime ? (
+      {missedDisplayTime && !isIntervalRule ? (
         <Text style={[styles.scheduleMetaText, styles.scheduleStatusMetaText]}>
           Missed {formatDateTime(missedDisplayTime)}
         </Text>
       ) : null}
 
-      {medicine.canRevertSchedule(index, observedNow) ? (
+      {!isIntervalRule && medicine.canRevertSchedule(index, observedNow) ? (
         <View style={[styles.scheduleActionRow, styles.revertStatusActionRow]}>
           <ActionButton
             label="Revert Status"
@@ -348,7 +377,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
             preserveFontSize
           />
         </View>
-      ) : canSelectStatus ? (
+      ) : !isIntervalRule && canSelectStatus ? (
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
@@ -553,7 +582,6 @@ const styles = StyleSheet.create({
   },
   scheduleSection: {
     gap: spacing.xs,
-    paddingTop: spacing.xs,
   },
   sectionLabel: {
     ...typography.bodySmall,

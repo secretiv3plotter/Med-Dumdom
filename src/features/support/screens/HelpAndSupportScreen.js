@@ -30,8 +30,8 @@ const HELP_CATEGORY_VALUE_MAP = {
   'Appts.': 'Appts',
   Settings: 'Settings',
 };
-const APPOINTMENT_GREEN = colors.success;
-const APPOINTMENT_GREEN_SOFT = colors.brandSoft;
+const APPOINTMENT_GREEN = '#52B788';
+const APPOINTMENT_GREEN_SOFT = '#F0FFF4';
 export default function HelpAndSupportScreen({ navigation }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
@@ -71,7 +71,7 @@ export default function HelpAndSupportScreen({ navigation }) {
         <BackButton onPress={() => navigation?.navigate?.(returnRoute)} />
         {pinHeader ? (
           <View style={styles.headerBlock}>
-            <Text style={styles.title}>Help and Support</Text>
+            <Text style={styles.title}>Help</Text>
             <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
           </View>
         ) : null}
@@ -85,7 +85,7 @@ export default function HelpAndSupportScreen({ navigation }) {
       >
         {!pinHeader ? (
           <View style={styles.headerBlock}>
-            <Text style={styles.title}>Help and Support</Text>
+            <Text style={styles.title}>Help</Text>
             <Text style={styles.subtitle}>Search the FAQ list or browse the supported categories.</Text>
           </View>
         ) : null}
@@ -134,7 +134,7 @@ export default function HelpAndSupportScreen({ navigation }) {
                   <Ionicons
                     name="help-circle-outline"
                     size={24}
-                    color={isAppointmentsSelected ? colors.success : colors.brandText}
+                    color={isAppointmentsSelected ? APPOINTMENT_GREEN : colors.brandText}
                   />
                 </View>
                 <TextCard

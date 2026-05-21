@@ -8,7 +8,7 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import { SegmentButton } from './MedTrackerScreenComponents';
 import { MEDICINE_SCHEDULE_TYPE_OPTIONS, MEDICINE_SUB_INTERVAL_OPTIONS } from '../constants/medTrackerEditorSteps';
-import { getScheduleDayLabel, getSchedulesBySchedulePatternOrder, isPastTimeToday, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
+import { formatDate, getScheduleDayLabel, getSchedulesBySchedulePatternOrder, isPastTimeToday, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
 
 const DAYS_OF_WEEK = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
@@ -78,9 +78,22 @@ function UnitSegmentButton({ label = '', selected, onPress, onDelete }) {
 
 const getDoseUnitLabel = (unit) => String(unit || '').trim() || 'units';
 
-function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, isEveryWeeksInterval, isMonthlyInterval, isAsNeeded, isWeekly, isMonthly, onSave, onCancel }) {
+const getHourlyEntryStartTime = (entry) => {
+  const activatedAt = entry?.activatedAt ? new Date(entry.activatedAt) : null;
+  const intervalMinutes = Number(entry?.intervalMinutes || 0);
+  if (!activatedAt || Number.isNaN(activatedAt.getTime()) || intervalMinutes <= 0) {
+    return '';
+  }
+
+  const startAt = new Date(activatedAt.getTime() + intervalMinutes * 60000);
+  return `${String(startAt.getHours()).padStart(2, '0')}:${String(startAt.getMinutes()).padStart(2, '0')}`;
+};
+
+function InlineScheduleEditor({ entry, index, unit, formState, canEditStartTime = true, isHourly, isWeeklyInterval, isEveryWeeksInterval, isMonthlyInterval, isAsNeeded, isWeekly, isMonthly, onSave, onCancel }) {
+  const originalStartTime = isHourly ? getHourlyEntryStartTime(entry) : '';
   const [doseSize, setDoseSize] = useState(String(entry.doseSize));
   const [scheduledTime, setScheduledTime] = useState(entry.scheduledTime);
+  const [startTime, setStartTime] = useState(originalStartTime);
   const [intervalHours, setIntervalHours] = useState(entry.intervalMinutes ? Math.floor(Number(entry.intervalMinutes) / 60) : '');
   const [intervalMinutes, setIntervalMinutes] = useState(entry.intervalMinutes ? Number(entry.intervalMinutes) % 60 : '');
   const [intervalDays, setIntervalDays] = useState(isWeeklyInterval && entry.intervalMinutes ? String(Math.floor(Number(entry.intervalMinutes) / 1440)) : '');
@@ -89,8 +102,31 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
   const [dayOfWeek, setDayOfWeek] = useState(entry.dayOfWeek || '');
   const [dayOfMonth, setDayOfMonth] = useState(entry.dayOfMonth ? String(entry.dayOfMonth) : '');
   const [error, setError] = useState('');
+  const showInlineHourlyDuration = isHourly && !canEditStartTime;
+  const durationField = isHourly ? (
+    <View style={[
+      showInlineHourlyDuration ? styles.inlineTimeCol : styles.inlineFullFieldGroup,
+      styles.inlineFieldGroup,
+    ]}>
+      <Text style={styles.inlineFieldLabel}>Time Period</Text>
+      <NativeDateTimeField
+        mode="duration"
+        placeholder="Select time period"
+        accessibilityLabel="Time Period"
+        value={hasIntervalValue(intervalHours, intervalMinutes) ? formatIntervalValue(intervalHours, intervalMinutes) : ''}
+        pickerDefaultValue="01:00"
+        onChange={(val) => {
+          const nextInterval = parseIntervalValue(val);
+          setIntervalHours(nextInterval.hours);
+          setIntervalMinutes(nextInterval.minutes);
+          setError('');
+        }}
+      />
+    </View>
+  ) : null;
 
   const handleSave = () => {
+    setError('');
     const trimmed = doseSize.trim();
     if (!trimmed) {
       setError('Enter a valid dose size.');
@@ -109,6 +145,14 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
       : Number(intervalHours || 0) * 60 + Number(intervalMinutes || 0);
     if (isHourly && intervalTotalMinutes <= 0) {
       setError('Select a time period greater than 00:00.');
+      return;
+    }
+    if (isHourly && !startTime) {
+      setError('Select a valid start time.');
+      return;
+    }
+    if (isHourly && canEditStartTime && startTime !== originalStartTime && isPastTimeToday(formState.startDate, startTime)) {
+      setError('Start time cannot be in the past.');
       return;
     }
     if (isWeeklyInterval && intervalTotalMinutes <= 0) {
@@ -134,6 +178,8 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     setError('');
     const errMsg = onSave(index, {
       doseSize: trimmed,
+      startTime,
+      startTimeChanged: isHourly && canEditStartTime && startTime !== originalStartTime,
       scheduledTime: isHourly || isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? '00:00' : scheduledTime,
       intervalMinutes: isHourly || isWeeklyInterval || isEveryWeeksInterval ? intervalTotalMinutes : null,
       intervalUnit: isAsNeeded ? 'asNeeded' : isWeeklyInterval ? 'days' : isEveryWeeksInterval ? 'weeks' : isMonthlyInterval ? 'months' : '',
@@ -144,14 +190,22 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
     });
     if (errMsg) {
       setError(errMsg);
+      return;
     }
+
+    setError('');
   };
 
   return (
     <View style={styles.inlineEditorContainer}>
+      {showInlineHourlyDuration ? (
+        <Text style={styles.inlineNoticeText}>
+          You can only edit the dose and time period. This interval will continue from the last scheduled dose.
+        </Text>
+      ) : null}
       <View style={styles.inlineInputsRow}>
-        <View style={styles.inlineDoseCol}>
-          <Text style={styles.fieldSubcaption}>Dose</Text>
+        <View style={[styles.inlineDoseCol, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Dose</Text>
           <InputBar
             placeholder="Dose"
             keyboardType="number-pad"
@@ -162,40 +216,51 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
             }}
           />
         </View>
-        <View style={styles.inlineTimeCol}>
-          {isHourly ? (
-            <NativeDateTimeField
-              mode="duration"
-              placeholder="Select time period"
-              accessibilityLabel="Time Period"
-              value={hasIntervalValue(intervalHours, intervalMinutes) ? formatIntervalValue(intervalHours, intervalMinutes) : ''}
-              onChange={(val) => {
-                const nextInterval = parseIntervalValue(val);
-                setIntervalHours(nextInterval.hours);
-                setIntervalMinutes(nextInterval.minutes);
-                setError('');
-              }}
-            />
-          ) : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? null : (
-            <>
-              <Text style={styles.fieldSubcaption}>Time</Text>
-              <NativeDateTimeField
-                mode="time"
-                placeholder="Select time"
-                accessibilityLabel="Time"
-                value={scheduledTime}
-                onChange={(val) => {
-                  setScheduledTime(val);
-                  setError('');
-                }}
-              />
-            </>
-          )}
-        </View>
+        {showInlineHourlyDuration ? durationField : null}
+        {!showInlineHourlyDuration ? (
+          <View style={styles.inlineTimeCol}>
+            {isHourly && canEditStartTime ? (
+              <View style={styles.inlineFieldGroup}>
+                <Text style={styles.inlineFieldLabel}>Start Time</Text>
+                <NativeDateTimeField
+                  mode="time"
+                  placeholder="Select start time"
+                  accessibilityLabel="Start time"
+                  value={startTime}
+                  onChange={(val) => {
+                    setStartTime(val);
+                    setError('');
+                  }}
+                  pickerDefaultValue={startTime || getNextHourOClock()}
+                  validateValue={(value) => (
+                    isPastTimeToday(formState.startDate, value)
+                      ? 'Start time cannot be in the past.'
+                      : ''
+                  )}
+                />
+              </View>
+            ) : isHourly ? null : isWeeklyInterval || isEveryWeeksInterval || isMonthlyInterval || isAsNeeded ? null : (
+              <View style={styles.inlineFieldGroup}>
+                <Text style={styles.inlineFieldLabel}>Time</Text>
+                <NativeDateTimeField
+                  mode="time"
+                  placeholder="Select time"
+                  accessibilityLabel="Time"
+                  value={scheduledTime}
+                  onChange={(val) => {
+                    setScheduledTime(val);
+                    setError('');
+                  }}
+                />
+              </View>
+            )}
+          </View>
+        ) : null}
       </View>
+      {isHourly && !showInlineHourlyDuration ? durationField : null}
       {isWeeklyInterval ? (
-        <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat after how many days?</Text>
+        <View style={[styles.inlineFullFieldGroup, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Repeat after how many days?</Text>
           <InputBar
             placeholder="Days"
             keyboardType="number-pad"
@@ -208,8 +273,8 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
         </View>
       ) : null}
       {isEveryWeeksInterval ? (
-        <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat after how many weeks?</Text>
+        <View style={[styles.inlineFullFieldGroup, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Repeat after how many weeks?</Text>
           <InputBar
             placeholder="Weeks"
             keyboardType="number-pad"
@@ -222,8 +287,8 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
         </View>
       ) : null}
       {isMonthlyInterval ? (
-        <View style={{ marginBottom: spacing.sm }}>
-          <Text style={styles.fieldSubcaption}>Repeat after how many months?</Text>
+        <View style={[styles.inlineFullFieldGroup, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Repeat after how many months?</Text>
           <InputBar
             placeholder="Months"
             keyboardType="number-pad"
@@ -233,10 +298,10 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
               setError('');
             }}
           />
-          <View style={{ marginTop: spacing.sm }}>
+          <View style={styles.inlineFieldGroup}>
+            <Text style={styles.inlineFieldLabel}>Day</Text>
             <NativeDateTimeField
               mode="monthDay"
-              label="Day"
               placeholder="Select day"
               accessibilityLabel="Day of month"
               value={dayOfMonth}
@@ -249,10 +314,10 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
         </View>
       ) : null}
       {isWeekly && (
-        <View style={{ marginBottom: spacing.sm }}>
+        <View style={[styles.inlineFullFieldGroup, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Day of week</Text>
           <NativeDateTimeField
             mode="day"
-            label="Day of week"
             placeholder="Select day"
             accessibilityLabel="Day of week"
             value={dayOfWeek}
@@ -264,11 +329,8 @@ function InlineScheduleEditor({ entry, index, unit, isHourly, isWeeklyInterval, 
         </View>
       )}
       {isMonthly && (
-        <View style={{ marginBottom: spacing.sm }}>
-          <View style={styles.fieldPromptGroup}>
-            <Text style={styles.fieldPromptLabel}>Day</Text>
-            <Text style={styles.fieldSubcaption}>At which day of the month?</Text>
-          </View>
+        <View style={[styles.inlineFullFieldGroup, styles.inlineFieldGroup]}>
+          <Text style={styles.inlineFieldLabel}>Day</Text>
           <NativeDateTimeField
             mode="monthDay"
             placeholder="Select day"
@@ -490,6 +552,28 @@ export function MedicineScheduleStep({
   onDeleteScheduleEntry,
 }) {
   const isHourly = selectedScheduleType === 'regular_hourly';
+  const parseDateString = (s) => {
+    if (!s) return null;
+    if (s instanceof Date) return s;
+    const p = String(s).split('-');
+    if (p.length === 3) {
+      const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  };
+  const endDateMinimum = parseDateString(formState.startDate) ?? startOfToday();
+  const startDateLabel = (() => {
+    if (!formState.startDate) return 'today';
+    const date = formState.startDate instanceof Date ? formState.startDate : new Date(formState.startDate);
+    if (Number.isNaN(date.getTime())) return 'today';
+    const today = startOfToday();
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (dateDay.getTime() === today.getTime()) return 'today';
+    if (dateDay.getTime() === tomorrow.getTime()) return 'tomorrow';
+    return `on ${formatDate(date)}`;
+  })();
   const isWeeklyInterval = selectedScheduleType === 'regular_weekly';
   const isEveryWeeksInterval = selectedScheduleType === 'regular_every_weeks';
   const isMonthlyInterval = selectedScheduleType === 'regular_monthly';
@@ -498,6 +582,8 @@ export function MedicineScheduleStep({
   const isWeekly = selectedScheduleType === 'weekly';
   const isMonthly = selectedScheduleType === 'monthly';
   const isDaily = selectedScheduleType === 'daily';
+  const canEditStartDate = editorMode !== 'edit';
+  const canEditStartTime = editorMode !== 'edit';
   const hasIntervalSchedule = scheduleEntries.some((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
   const selectedDailyTimes = Array.isArray(scheduleDraft.scheduledTimes)
     ? scheduleDraft.scheduledTimes.filter(Boolean).sort()
@@ -531,7 +617,7 @@ export function MedicineScheduleStep({
     ? 0
     : Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
-  const hasValidHourlyStartTime = !isHourly || (String(formState.startTime || '').trim() && !isPastTimeToday(formState.startDate, formState.startTime));
+  const hasValidHourlyStartTime = !isHourly || !canEditStartTime || (String(formState.startTime || '').trim() && !isPastTimeToday(formState.startDate, formState.startTime));
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
     (isAsNeeded
@@ -552,6 +638,20 @@ export function MedicineScheduleStep({
   const calculatedDailyAmount = isIntervalSchedule && scheduleDraft.doseSize && intervalTotalMinutes > 0
     ? Math.floor(1440 / intervalTotalMinutes) * Number(scheduleDraft.doseSize)
     : null;
+  const hourlySetDescription = (() => {
+    if (!isHourly || !scheduleEntries.length) return '';
+    const entry = scheduleEntries[0];
+    const intervalMin = Number(entry?.intervalMinutes || 0);
+    const startTime = formState.startTime || getHourlyEntryStartTime(entry);
+    const hrs = Math.floor(intervalMin / 60);
+    const mins = intervalMin % 60;
+    const intervalLabel = hrs > 0 && mins === 0
+      ? `${hrs} hour${hrs !== 1 ? 's' : ''}`
+      : hrs > 0
+      ? `${hrs} hr ${mins} min`
+      : `${mins} min`;
+    return `Take ${entry.doseSize} ${getDoseUnitLabel(formState.unit)} every ${intervalLabel} starting on ${formatDate(formState.startDate)} at ${formatTimeForSummary(startTime)}`;
+  })();
   const hourlyScheduleSummary = isHourly && String(scheduleDraft.doseSize || '').trim() && intervalTotalMinutes > 0
     ? {
         dose: `${String(scheduleDraft.doseSize).trim()} ${getDoseUnitLabel(formState.unit)}`,
@@ -631,29 +731,38 @@ export function MedicineScheduleStep({
   return (
     <>
       <View style={styles.formColumn}>
-        <NativeDateTimeField
-          label="Start date"
-          placeholder="Select start date"
-          accessibilityLabel="Start date"
-          value={formState.startDate}
-          onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
-          minimumDate={startOfToday()}
-        />
+        {canEditStartDate ? (
+          <NativeDateTimeField
+            label="Start date"
+            placeholder="Select start date"
+            accessibilityLabel="Start date"
+            value={formState.startDate}
+            onChange={(value) => setFormState((current) => {
+              const newStart = parseDateString(value);
+              const existingEnd = parseDateString(current.endDate);
+              const endDate = newStart && existingEnd && newStart > existingEnd ? '' : current.endDate;
+              return { ...current, startDate: value, endDate };
+            })}
+            minimumDate={startOfToday()}
+          />
+        ) : null}
         <NativeDateTimeField
           label="End date"
           placeholder="Select end date (optional)"
           accessibilityLabel="End date"
           value={formState.endDate}
           onChange={(value) => setFormState((current) => ({ ...current, endDate: value }))}
-          minimumDate={startOfToday()}
+          minimumDate={endDateMinimum}
           optional
         />
       </View>
 
-      {true ? (
+      {(!isHourly || scheduleEntries.length === 0) ? (
         <View style={styles.scheduleBuilder}>
           <Text style={styles.sectionLabel}>
-            {isIntervalSchedule && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule'}
+            {isHourly
+              ? (isIntervalSchedule && scheduleEntries.length > 0 ? 'Edit set interval' : 'Set hourly interval')
+              : (isIntervalSchedule && scheduleEntries.length > 0 ? 'Edit schedule' : 'Create a schedule')}
           </Text>
 
           <View style={styles.fieldPromptGroup}>
@@ -669,12 +778,12 @@ export function MedicineScheduleStep({
             onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
           />
 
-          {isHourly ? (
+          {isHourly && canEditStartTime ? (
             <View style={styles.fieldWithPromptGroup}>
               <View style={styles.fieldPromptGroup}>
                 <Text style={styles.fieldPromptLabel}>Start Time</Text>
                 <Text style={styles.fieldSubcaption}>
-                  {`At which time today do you want to start taking ${formState.medName || 'this medicine'}?`}
+                  {`At which time ${startDateLabel} do you want to start taking ${formState.medName || 'this medicine'}?`}
                 </Text>
               </View>
               <NativeDateTimeField
@@ -797,7 +906,7 @@ export function MedicineScheduleStep({
             <View style={styles.fieldWithPromptGroup}>
               <View style={styles.fieldPromptGroup}>
                 <Text style={styles.fieldPromptLabel}>Time Period</Text>
-                <Text style={styles.fieldSubcaption}>Every how much time?</Text>
+                <Text style={styles.fieldSubcaption}>How often?</Text>
               </View>
               <NativeDateTimeField
                 mode="duration"
@@ -943,7 +1052,7 @@ export function MedicineScheduleStep({
 
           <View style={styles.footerActionsRow}>
             <ActionButton
-              label={isIntervalSchedule && scheduleEntries.length > 0 ? "Update schedule item" : "Add schedule item"}
+              label={isIntervalSchedule && scheduleEntries.length > 0 ? (isHourly ? "Update set interval" : "Update schedule item") : isHourly ? "Set this interval" : "Add schedule item"}
               variant="solid"
               onPress={onSaveScheduleEntry}
               disabled={!isScheduleDraftComplete}
@@ -952,83 +1061,133 @@ export function MedicineScheduleStep({
         </View>
       ) : null}
 
+      {isHourly && scheduleEntries.length > 0 ? (
+        <View style={styles.scheduleSection}>
+          <Text style={styles.fieldPromptLabel}>Set interval</Text>
+        <View style={[styles.scheduleCard, editingScheduleIndex === 0 && styles.scheduleCardEditing]}>
+          <View style={styles.scheduleCardRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hourlyCardDescription}>{hourlySetDescription}</Text>
+            </View>
+            {editingScheduleIndex === null ? (
+              <View style={styles.scheduleEditActions}>
+                <View style={styles.iconActionCol}>
+                  <Pressable
+                    onPress={() => onEditScheduleEntry(0)}
+                    style={({ pressed }) => [styles.iconActionBtn, pressed && styles.iconActionPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit set interval"
+                  >
+                    <Ionicons name="create-outline" size={18} color="#0077B6" />
+                  </Pressable>
+                  <Text style={[styles.iconActionLabel, { color: '#0077B6' }]}>Edit</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+          {editingScheduleIndex === 0 ? (
+            <InlineScheduleEditor
+              entry={scheduleEntries[0]}
+              index={0}
+              unit={formState.unit}
+              formState={formState}
+              canEditStartTime={canEditStartTime}
+              isHourly={isHourly}
+              isWeeklyInterval={isWeeklyInterval}
+              isEveryWeeksInterval={isEveryWeeksInterval}
+              isMonthlyInterval={isMonthlyInterval}
+              isAsNeeded={isAsNeeded}
+              isWeekly={isWeekly}
+              isMonthly={isMonthly}
+              onSave={onSaveInlineScheduleEntry}
+              onCancel={onCancelScheduleEdit}
+            />
+          ) : null}
+        </View>
+        </View>
+      ) : null}
+
+      {!isHourly ? (
       <View style={styles.scheduleSection}>
         <Text style={styles.sectionLabel}>Added schedule items</Text>
         {scheduleEntries.length ? (
-          getSchedulesBySchedulePatternOrder(scheduleEntries).map(({ entry, index }) => {
-            const isEditing = editingScheduleIndex === index;
-            return (
-              <View
-                key={`${editorMode || 'create'}-schedule-${index}`}
-                style={[
-                  styles.scheduleCard,
-                  isEditing && styles.scheduleCardEditing,
-                ]}
-              >
-                <View style={styles.scheduleCardRow}>
-                  <ScheduleEntryText
-                    entry={entry}
-                    unit={formState.unit}
-                    dayLabel={getScheduleDayLabel(entry)}
-                  />
-                  {editingScheduleIndex === null ? (
-                    <View style={styles.scheduleEditActions}>
-                      {!isIntervalSchedule ? (
+            getSchedulesBySchedulePatternOrder(scheduleEntries).map(({ entry, index }) => {
+              const isEditing = editingScheduleIndex === index;
+              return (
+                <View
+                  key={`${editorMode || 'create'}-schedule-${index}`}
+                  style={[
+                    styles.scheduleCard,
+                    isEditing && styles.scheduleCardEditing,
+                  ]}
+                >
+                  <View style={styles.scheduleCardRow}>
+                    <ScheduleEntryText
+                      entry={entry}
+                      unit={formState.unit}
+                      dayLabel={getScheduleDayLabel(entry)}
+                    />
+                    {editingScheduleIndex === null ? (
+                      <View style={styles.scheduleEditActions}>
+                        {!isIntervalSchedule ? (
+                          <View style={styles.iconActionCol}>
+                            <Pressable
+                              onPress={() => onEditScheduleEntry(index)}
+                              style={({ pressed }) => [
+                                styles.iconActionBtn,
+                                pressed && styles.iconActionPressed,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Edit schedule item ${index + 1}`}
+                            >
+                              <Ionicons name="create-outline" size={18} color="#0077B6" />
+                            </Pressable>
+                            <Text style={[styles.iconActionLabel, { color: '#0077B6' }]}>Edit</Text>
+                          </View>
+                        ) : null}
                         <View style={styles.iconActionCol}>
                           <Pressable
-                            onPress={() => onEditScheduleEntry(index)}
+                            onPress={() => onDeleteScheduleEntry(index)}
                             style={({ pressed }) => [
                               styles.iconActionBtn,
                               pressed && styles.iconActionPressed,
                             ]}
                             accessibilityRole="button"
-                            accessibilityLabel={`Edit schedule item ${index + 1}`}
+                            accessibilityLabel={`Delete schedule item ${index + 1}`}
                           >
-                            <Ionicons name="create-outline" size={18} color="#0077B6" />
+                            <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
                           </Pressable>
-                          <Text style={[styles.iconActionLabel, { color: '#0077B6' }]}>Edit</Text>
+                          <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
                         </View>
-                      ) : null}
-                      <View style={styles.iconActionCol}>
-                        <Pressable
-                          onPress={() => onDeleteScheduleEntry(index)}
-                          style={({ pressed }) => [
-                            styles.iconActionBtn,
-                            pressed && styles.iconActionPressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Delete schedule item ${index + 1}`}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={colors.error || '#D32F2F'} />
-                        </Pressable>
-                        <Text style={[styles.iconActionLabel, { color: colors.error || '#D32F2F' }]}>Delete</Text>
                       </View>
-                    </View>
+                    ) : null}
+                  </View>
+                  {isEditing ? (
+                    <InlineScheduleEditor
+                      entry={entry}
+                      index={index}
+                      unit={formState.unit}
+                      formState={formState}
+                      canEditStartTime={canEditStartTime}
+                      isHourly={isHourly}
+                      isWeeklyInterval={isWeeklyInterval}
+                      isEveryWeeksInterval={isEveryWeeksInterval}
+                      isMonthlyInterval={isMonthlyInterval}
+                      isAsNeeded={isAsNeeded}
+                      isWeekly={isWeekly}
+                      isMonthly={isMonthly}
+                      onSave={onSaveInlineScheduleEntry}
+                      onCancel={onCancelScheduleEdit}
+                    />
                   ) : null}
                 </View>
-                {isEditing ? (
-                      <InlineScheduleEditor
-                        entry={entry}
-                        index={index}
-                        unit={formState.unit}
-                        isHourly={isHourly}
-                        isWeeklyInterval={isWeeklyInterval}
-                        isEveryWeeksInterval={isEveryWeeksInterval}
-                        isMonthlyInterval={isMonthlyInterval}
-                        isAsNeeded={isAsNeeded}
-                        isWeekly={isWeekly}
-                    isMonthly={isMonthly}
-                    onSave={onSaveInlineScheduleEntry}
-                    onCancel={onCancelScheduleEdit}
-                  />
-                ) : null}
-              </View>
-            );
-          })
+              );
+            })
         ) : (
           <Text style={styles.emptyScheduleText}>No schedule items added yet.</Text>
         )}
       </View>
+      ) : null}
     </>
   );
 }
@@ -1201,6 +1360,19 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.bodyMuted,
   },
+  hourlyCardMargin: {
+    marginTop: spacing.sm,
+  },
+  hourlyCardTitle: {
+    ...typography.bodySmall,
+    color: colors.title,
+    fontWeight: '700',
+  },
+  hourlyCardDescription: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    marginTop: 2,
+  },
   scheduleTypeGrid: {
     gap: spacing.sm,
   },
@@ -1364,11 +1536,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  inlineFieldGroup: {
+    gap: spacing.xs,
+  },
+  inlineFullFieldGroup: {
+    marginBottom: spacing.sm,
+  },
+  inlineFieldLabel: {
+    ...typography.bodySmall,
+    color: colors.body,
+    fontWeight: '700',
+  },
+  inlineNoticeText: {
+    ...typography.bodySmall,
+    color: colors.bodyMuted,
+    lineHeight: 18,
+  },
   inlineDoseCol: {
     flex: 1,
   },
   inlineTimeCol: {
     flex: 2,
+    gap: spacing.sm,
   },
   inlineActionsRow: {
     flexDirection: 'row',

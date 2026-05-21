@@ -90,6 +90,9 @@ const MedDailyScheduleSchema = {
     takenAt: 'date?',
     skippedAt: 'date?',
     activatedAt: 'date?',
+    scheduleKind: 'string?',
+    intervalRuleId: 'string?',
+    scheduledDate: 'string?',
   },
 };
 
@@ -142,6 +145,9 @@ const MedDailyScheduleHistorySchema = {
     takenAt: 'date?',
     skippedAt: 'date?',
     activatedAt: 'date?',
+    scheduleKind: 'string?',
+    intervalRuleId: 'string?',
+    scheduledDate: 'string?',
     resolvedAt: 'date?',
   },
 };
@@ -255,7 +261,7 @@ export const realmSchemas = [
   ApptTrackerHistorySchema,
 ];
 
-export const REALM_SCHEMA_VERSION = 20;
+export const REALM_SCHEMA_VERSION = 21;
 
 export const realmConfig = {
   schema: realmSchemas,
