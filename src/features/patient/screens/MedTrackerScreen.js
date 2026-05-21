@@ -65,20 +65,6 @@ const EMPTY_FORM = {
   prescriberContact: '',
 };
 
-const DAYS_OF_WEEK = [
-  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
-];
-
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const getDaysForMonth = (monthOfYear) => {
-  const monthIndex = MONTHS.indexOf(monthOfYear);
-  return monthIndex === -1 ? 31 : new Date(new Date().getFullYear(), monthIndex + 1, 0).getDate();
-};
-
 const oneMinuteBefore = (dateValue) => new Date(dateValue.getTime() - 60000);
 
 const getInitialScheduleDraft = (scheduleType) => ({
@@ -94,11 +80,12 @@ const getInitialScheduleDraft = (scheduleType) => ({
   dayOfWeeks: [],
   monthOfYear: '',
   dayOfMonth: '',
+  dayOfMonths: [],
 });
 
 const getScheduleTypeFromEntries = (entries = []) => {
   const hasWeeklyItem = entries.some((entry) => entry.dayOfWeek);
-  const hasMonthlyItem = entries.some((entry) => entry.monthOfYear);
+  const hasMonthlyItem = entries.some((entry) => entry.monthOfYear || entry.dayOfMonth);
   const intervalItem = entries.find((entry) => entry.intervalMinutes || entry.intervalUnit === 'months');
   const hasAsNeededItem = entries.some((entry) => entry.intervalUnit === 'asNeeded');
   const hasEveryWeeksIntervalItem = intervalItem?.intervalUnit === 'weeks';
@@ -135,6 +122,7 @@ const EMPTY_SCHEDULE_DRAFT = {
   dayOfWeeks: [],
   monthOfYear: '',
   dayOfMonth: '',
+  dayOfMonths: [],
 };
 
 export default function MedTrackerScreen({ navigation, realm = null, trackerService = medTrackerService }) {
@@ -510,7 +498,8 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       .map((timeValue) => normalizeTimeInput(timeValue))
       .filter(Boolean);
     const scheduledTimes = Array.from(new Set(draftTimes)).sort();
-    const scheduledTime = isIntervalSchedule || isAsNeeded ? '00:00' : (isDaily || isWeekly) ? scheduledTimes[0] : normalizeTimeInput(scheduleDraft.scheduledTime);
+    const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || isMonthlyInterval;
+    const scheduledTime = isIntervalSchedule || isAsNeeded ? '00:00' : (isDaily || isWeekly || isMonthly) ? scheduledTimes[0] : normalizeTimeInput(scheduleDraft.scheduledTime);
     const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : scheduledTime || '00:00') || new Date();
     const activatedAt = isIntervalSchedule
       ? isMonthlyInterval
@@ -524,7 +513,7 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       activatedAt,
     };
     if (!scheduledTime) {
-      setFormError(isDaily || isWeekly ? 'Add at least one valid scheduled time.' : 'Enter a valid scheduled time.');
+      setFormError(isDaily || isWeekly || isMonthly ? 'Add at least one valid scheduled time.' : 'Enter a valid scheduled time.');
       return;
     }
     if (!isMonthlyInterval && isIntervalSchedule && intervalTotalMinutes <= 0) {
@@ -536,29 +525,35 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
       return;
     }
 
-    const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || isMonthlyInterval;
     const draftDaysOfWeek = [
       ...(Array.isArray(scheduleDraft.dayOfWeeks) ? scheduleDraft.dayOfWeeks : []),
       scheduleDraft.dayOfWeek,
     ].filter(Boolean);
     const dayOfWeeks = Array.from(new Set(draftDaysOfWeek));
+    const draftDaysOfMonth = [
+      ...(Array.isArray(scheduleDraft.dayOfMonths) ? scheduleDraft.dayOfMonths : []),
+      scheduleDraft.dayOfMonth,
+    ]
+      .map((dayValue) => parsePositiveInteger(dayValue))
+      .filter(Boolean);
+    const dayOfMonths = Array.from(new Set(draftDaysOfMonth)).sort((left, right) => left - right);
     const dayOfWeek = isWeekly ? dayOfWeeks[0] || '' : '';
-    const monthOfYear = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY ? scheduleDraft.monthOfYear : '';
-    const dayOfMonth = isMonthly ? parsePositiveInteger(scheduleDraft.dayOfMonth) : null;
+    const monthOfYear = '';
+    const dayOfMonth = isMonthly ? dayOfMonths[0] || null : null;
     if (isWeekly && !dayOfWeeks.length) {
       setFormError('Add at least one day of the week for the schedule item.');
       return;
     }
-    if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && !monthOfYear) {
-      setFormError('Select a month for the schedule item.');
+    if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && !dayOfMonths.length) {
+      setFormError('Add at least one day of the month for the schedule item.');
       return;
     }
     if (isMonthly && !dayOfMonth) {
       setFormError('Select a day for the schedule item.');
       return;
     }
-    if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && dayOfMonth > getDaysForMonth(monthOfYear)) {
-      setFormError(`Select a valid day for ${monthOfYear}.`);
+    if (isMonthly && dayOfMonth > 31) {
+      setFormError('Select a valid day of the month.');
       return;
     }
 
@@ -590,6 +585,13 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
           scheduledTimes.map((timeValue) => ({
             ...buildScheduleEntry(timeValue),
             dayOfWeek: weekday,
+          }))
+        )
+      : selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY
+      ? dayOfMonths.flatMap((monthDay) =>
+          scheduledTimes.map((timeValue) => ({
+            ...buildScheduleEntry(timeValue),
+            dayOfMonth: monthDay,
           }))
         )
       : [nextEntry];
@@ -642,19 +644,16 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const isWeekly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.WEEKLY;
     const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || isMonthlyInterval;
     const dayOfWeek = isWeekly ? updatedFields.dayOfWeek : '';
-    const monthOfYear = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY ? updatedFields.monthOfYear : '';
+    const monthOfYear = '';
     const dayOfMonth = isMonthly ? parsePositiveInteger(updatedFields.dayOfMonth) : null;
     if (isWeekly && !dayOfWeek) {
       return 'Select a day of the week.';
     }
-    if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && !monthOfYear) {
-      return 'Select a month.';
-    }
     if (isMonthly && !dayOfMonth) {
       return 'Select a day.';
     }
-    if (selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY && dayOfMonth > getDaysForMonth(monthOfYear)) {
-      return `Select a valid day for ${monthOfYear}.`;
+    if (isMonthly && dayOfMonth > 31) {
+      return 'Select a valid day of the month.';
     }
 
     const activatedAt = scheduleEntries[indexToUpdate]?.activatedAt || new Date().toISOString();
@@ -732,6 +731,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   };
 
   const goToScheduleStep = () => {
+    if (!selectedScheduleType) {
+      setFormError('Pick a schedule type.');
+      return;
+    }
+
     if (
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.DAILY &&
       selectedScheduleType !== MEDICINE_SCHEDULE_TYPES.REGULAR_DAILY &&

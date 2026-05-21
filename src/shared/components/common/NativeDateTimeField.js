@@ -95,7 +95,10 @@ const getMonthIndex = (monthValue) => MONTHS.indexOf(String(monthValue || '').tr
 
 const getDaysForMonth = (monthValue) => {
   const monthIndex = getMonthIndex(monthValue);
-  const resolvedMonth = monthIndex === -1 ? new Date().getMonth() : monthIndex;
+  if (monthIndex === -1) {
+    return 31;
+  }
+  const resolvedMonth = monthIndex;
   return new Date(new Date().getFullYear(), resolvedMonth + 1, 0).getDate();
 };
 
@@ -780,9 +783,12 @@ export default function NativeDateTimeField({
                     <View style={styles.dateInputCell}>
                       <Text style={styles.dateInputLabel}>Month</Text>
                       <TextInput
+                        editable
+                        selectTextOnFocus
                         value={typedDateMonth}
                         onChangeText={(input) => handleTypedDatePartChange('month', input)}
                         placeholder="Month"
+                        inputMode="text"
                         accessibilityLabel="Type month"
                         selectionColor={pickerAccent}
                         style={[styles.typedInput, typedPickerError && styles.typedInputError]}
@@ -791,9 +797,12 @@ export default function NativeDateTimeField({
                     <View style={styles.dateInputCell}>
                       <Text style={styles.dateInputLabel}>Day</Text>
                       <TextInput
+                        editable
+                        selectTextOnFocus
                         value={typedDateDay}
                         onChangeText={(input) => handleTypedDatePartChange('day', input)}
                         keyboardType="number-pad"
+                        inputMode="numeric"
                         maxLength={2}
                         placeholder="DD"
                         accessibilityLabel="Type day"
@@ -804,9 +813,12 @@ export default function NativeDateTimeField({
                     <View style={styles.dateInputCell}>
                       <Text style={styles.dateInputLabel}>Year</Text>
                       <TextInput
+                        editable
+                        selectTextOnFocus
                         value={typedDateYear}
                         onChangeText={(input) => handleTypedDatePartChange('year', input)}
                         keyboardType="number-pad"
+                        inputMode="numeric"
                         maxLength={4}
                         placeholder="YYYY"
                         accessibilityLabel="Type year"
@@ -823,9 +835,12 @@ export default function NativeDateTimeField({
                     <View style={styles.dateInputCell}>
                       <Text style={styles.dateInputLabel}>Hour</Text>
                       <TextInput
+                        editable
+                        selectTextOnFocus
                         value={typedTimeHour}
                         onChangeText={(input) => handleTypedTimePartChange('hour', input)}
                         keyboardType="number-pad"
+                        inputMode="numeric"
                         maxLength={2}
                         placeholder="HH"
                         accessibilityLabel="Type hour"
@@ -836,9 +851,12 @@ export default function NativeDateTimeField({
                     <View style={styles.dateInputCell}>
                       <Text style={styles.dateInputLabel}>Min</Text>
                       <TextInput
+                        editable
+                        selectTextOnFocus
                         value={typedTimeMinute}
                         onChangeText={(input) => handleTypedTimePartChange('minute', input)}
                         keyboardType="number-pad"
+                        inputMode="numeric"
                         maxLength={2}
                         placeholder="MM"
                         accessibilityLabel="Type minutes"
@@ -850,9 +868,12 @@ export default function NativeDateTimeField({
                       <View style={styles.dateInputCell}>
                         <Text style={styles.dateInputLabel}>Period</Text>
                         <TextInput
+                          editable
+                          selectTextOnFocus
                           value={typedTimePeriod}
                           onChangeText={(input) => handleTypedTimePartChange('period', input)}
                           autoCapitalize="characters"
+                          inputMode="text"
                           maxLength={2}
                           placeholder="AM"
                           accessibilityLabel="Type AM or PM"
@@ -867,9 +888,12 @@ export default function NativeDateTimeField({
               ) : (
                 <View style={styles.typedInputWrap}>
                   <TextInput
+                    editable
+                    selectTextOnFocus
                     value={typedPickerValue}
                     onChangeText={handleTypedPickerChange}
                     keyboardType={mode === 'monthDay' ? 'number-pad' : 'default'}
+                    inputMode={mode === 'monthDay' ? 'numeric' : 'text'}
                     placeholder={
                       mode === 'time'
                         ? 'Type time, e.g. 08:30'
@@ -1352,6 +1376,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     outlineStyle: 'none',
+    cursor: 'text',
+    userSelect: 'text',
+    zIndex: 2,
   },
   typedInputError: {
     borderColor: colors.error,

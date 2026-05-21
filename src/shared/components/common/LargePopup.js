@@ -1,4 +1,4 @@
-import { Animated, Easing, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { colors, spacing } from '../../theme';
 import ThemedScrollView from './ThemedScrollView';
@@ -67,9 +67,8 @@ export default function LargePopup({
     return null;
   }
 
-  return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
-      <View style={styles.backdrop} pointerEvents="box-none">
+  const popupContent = (
+    <View style={[styles.backdrop, Platform.OS === 'web' && styles.webBackdrop]} pointerEvents="box-none">
         <Pressable accessible={false} style={styles.dismissArea} onPress={onClose} />
         <Animated.View
           style={[
@@ -94,6 +93,15 @@ export default function LargePopup({
           </ThemedScrollView>
         </Animated.View>
       </View>
+  );
+
+  if (Platform.OS === 'web') {
+    return popupContent;
+  }
+
+  return (
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+      {popupContent}
     </Modal>
   );
 }
@@ -107,6 +115,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(17, 24, 39, 0.45)',
     justifyContent: 'flex-end',
+  },
+  webBackdrop: {
+    position: 'fixed',
+    zIndex: 1000,
   },
   dismissArea: {
     flex: 1,

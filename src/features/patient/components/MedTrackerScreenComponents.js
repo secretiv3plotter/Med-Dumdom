@@ -15,7 +15,7 @@ import {
   getScheduleDayLabel,
   getScheduleMissedDisplayTime,
   getScheduleStatusStyle,
-  getSchedulesEarliestToLatest,
+  getSchedulesBySchedulePatternOrder,
   getStatusTimesSummary,
   isIntervalScheduleEntry,
   formatIntervalMinutes,
@@ -248,7 +248,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
     ? `Monthly interval schedule (Every ${monthlyIntervalEntry.intervalCount} month${Number(monthlyIntervalEntry.intervalCount) === 1 ? '' : 's'})`
     : hasAsNeededEntry
     ? 'As needed schedule'
-    : (medicine.dailySched || []).some(e => e.monthOfYear)
+    : (medicine.dailySched || []).some(e => e.monthOfYear || e.dayOfMonth)
     ? 'Monthly schedule'
     : (medicine.dailySched || []).some(e => e.dayOfWeek)
     ? 'Weekly schedule'
@@ -275,7 +275,7 @@ export function MedicineDetailsContent({ medicine, observedNow, onScheduleStatus
         <Text style={styles.sectionLabel}>
           {sectionLabelText}
         </Text>
-        {getSchedulesEarliestToLatest(medicine.dailySched, observedNow).map(({ entry, index }) => (
+        {getSchedulesBySchedulePatternOrder(medicine.dailySched).map(({ entry, index }) => (
           <View key={`${medicine.medEntryId}-schedule-${index}`} style={styles.scheduleCardWrapper}>
             <MedicineDetailsScheduleCard
               entry={entry}

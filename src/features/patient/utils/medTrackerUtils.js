@@ -325,6 +325,10 @@ export const getScheduleDayLabel = (entry) => {
     return entry.dayOfMonth ? `on ${entry.monthOfYear} ${entry.dayOfMonth}` : `in ${entry.monthOfYear}`;
   }
 
+  if (entry?.dayOfMonth) {
+    return `on day ${entry.dayOfMonth}`;
+  }
+
   if (entry?.intervalUnit === 'months' && entry?.dayOfMonth) {
     return `on day ${entry.dayOfMonth}`;
   }
@@ -370,6 +374,24 @@ export const getSchedulesEarliestToLatest = (dailySched = [], now = new Date()) 
       sortTime: getNextScheduleOccurrenceTime(entry, now),
     }))
     .sort((first, second) => first.sortTime - second.sortTime || first.index - second.index);
+
+export const getSchedulesBySchedulePatternOrder = (dailySched = []) =>
+  dailySched
+    .map((entry, index) => ({
+      entry,
+      index,
+      daySort: entry?.dayOfMonth
+        ? Number(entry.dayOfMonth)
+        : entry?.dayOfWeek
+        ? DAYS_OF_WEEK.indexOf(entry.dayOfWeek)
+        : 0,
+      timeSort: toMinutes(scheduleEffectiveTime(entry)) ?? Number.POSITIVE_INFINITY,
+    }))
+    .sort((first, second) =>
+      first.daySort - second.daySort ||
+      first.timeSort - second.timeSort ||
+      first.index - second.index
+    );
 
 export const getScheduleMissedDisplayTime = (medicine, entry, scheduleIndex, now = new Date()) => {
   if (entry.skippedAt) {

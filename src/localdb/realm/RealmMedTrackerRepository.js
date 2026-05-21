@@ -267,6 +267,11 @@ const getLatestScheduleOccurrenceDateTime = (entryModel, scheduleEntry, now) => 
   return null;
 };
 
+const getLatestStaleScheduleOccurrenceDateTime = (entryModel, scheduleEntry, now) => {
+  const staleCutoff = new Date(now.getTime() - STALE_MARKED_SCHEDULE_MS);
+  return getLatestScheduleOccurrenceDateTime(entryModel, scheduleEntry, staleCutoff);
+};
+
 const getScheduleStatusChangedAt = (entryModel, scheduleEntry, scheduleIndex, now) => {
   const markedAt = getMarkedScheduleDate(scheduleEntry);
   if (markedAt) {
@@ -278,7 +283,7 @@ const getScheduleStatusChangedAt = (entryModel, scheduleEntry, scheduleIndex, no
     return null;
   }
 
-  return getLatestScheduleOccurrenceDateTime(entryModel, scheduleEntry, now);
+  return getLatestStaleScheduleOccurrenceDateTime(entryModel, scheduleEntry, now);
 };
 
 const isStaleActionableSchedule = (entryModel, scheduleEntry, scheduleIndex, now) => {
