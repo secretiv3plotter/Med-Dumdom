@@ -78,7 +78,7 @@ const buildMostDueMedSchedule = (medicines, now) => {
   const candidates = medicines.flatMap((medicine) =>
     (medicine.dailySched || []).map((entry, index) => {
       const statusStyle = getScheduleStatusStyle(medicine, index, now);
-      const dayLabel = getScheduleDayLabel(entry);
+      const dayLabel = getScheduleDayLabel(entry, now);
       const scheduleTime = isIntervalScheduleEntry(entry)
         ? getIntervalScheduleTime(entry, now)
         : formatTime(entry.scheduledTime);

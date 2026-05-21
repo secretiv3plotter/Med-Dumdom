@@ -29,6 +29,7 @@ import {
   hasDuplicateScheduleEntry,
   hasDuplicateSchedules,
   isBeforeDate,
+  isPastTimeToday,
   normalizeSearchText,
   normalizeTimeInput,
   parseDateInput,
@@ -71,8 +72,8 @@ const getInitialScheduleDraft = (scheduleType) => ({
   doseSize: '',
   scheduledTime: '',
   scheduledTimes: [],
-  intervalHours: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 1 : '',
-  intervalMinutes: scheduleType === MEDICINE_SCHEDULE_TYPES.REGULAR_HOURLY ? 0 : '',
+  intervalHours: '',
+  intervalMinutes: '',
   intervalDays: '',
   intervalWeeks: '',
   intervalMonths: '',
@@ -500,6 +501,14 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const scheduledTimes = Array.from(new Set(draftTimes)).sort();
     const isMonthly = selectedScheduleType === MEDICINE_SCHEDULE_TYPES.MONTHLY || isMonthlyInterval;
     const scheduledTime = isIntervalSchedule || isAsNeeded ? '00:00' : (isDaily || isWeekly || isMonthly) ? scheduledTimes[0] : normalizeTimeInput(scheduleDraft.scheduledTime);
+    if (isHourly && !normalizeTimeInput(formState.startTime)) {
+      setFormError('Select a valid start time.');
+      return;
+    }
+    if (isHourly && isPastTimeToday(formState.startDate, formState.startTime)) {
+      setFormError('Start time cannot be in the past.');
+      return;
+    }
     const combinedStart = combineDateAndTime(formState.startDate, isHourly ? formState.startTime : scheduledTime || '00:00') || new Date();
     const activatedAt = isIntervalSchedule
       ? isMonthlyInterval
@@ -777,6 +786,11 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
     const prescriberContact = formState.prescriberContact.trim();
     if (!medName || !unit || !startDate) {
       setFormError('Complete the required medication fields.');
+      return;
+    }
+
+    if (isHourly && isPastTimeToday(formState.startDate, formState.startTime)) {
+      setFormError('Start time cannot be in the past.');
       return;
     }
 

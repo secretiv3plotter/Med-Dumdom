@@ -8,7 +8,7 @@ import { colors, radius, spacing, typography } from '../../../shared/theme';
 import { ScheduleEntryText } from './MedTrackerDisplayComponents';
 import { SegmentButton } from './MedTrackerScreenComponents';
 import { MEDICINE_SCHEDULE_TYPE_OPTIONS, MEDICINE_SUB_INTERVAL_OPTIONS } from '../constants/medTrackerEditorSteps';
-import { getScheduleDayLabel, getSchedulesBySchedulePatternOrder, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
+import { getScheduleDayLabel, getSchedulesBySchedulePatternOrder, isPastTimeToday, startOfToday, getNextHourOClock } from '../utils/medTrackerUtils';
 
 const DAYS_OF_WEEK = [
   'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
@@ -531,12 +531,13 @@ export function MedicineScheduleStep({
     ? 0
     : Number(scheduleDraft.intervalHours || 0) * 60 + Number(scheduleDraft.intervalMinutes || 0);
   const hasSelectedInterval = hasIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes);
+  const hasValidHourlyStartTime = !isHourly || (String(formState.startTime || '').trim() && !isPastTimeToday(formState.startDate, formState.startTime));
   const isScheduleDraftComplete = Boolean(
     String(scheduleDraft.doseSize || '').trim() &&
     (isAsNeeded
       ? true
       : isIntervalSchedule
-      ? (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 : true)
+      ? (isHourly ? hasSelectedInterval && intervalTotalMinutes > 0 && hasValidHourlyStartTime : true)
       : isDaily || isWeekly || isMonthly
       ? scheduleDraftTimes.length > 0
       : String(scheduleDraft.scheduledTime || '').trim()) &&
@@ -638,17 +639,6 @@ export function MedicineScheduleStep({
           onChange={(value) => setFormState((current) => ({ ...current, startDate: value }))}
           minimumDate={startOfToday()}
         />
-        {isHourly && formState.startDate ? (
-          <NativeDateTimeField
-            mode="time"
-            label="Start time"
-            placeholder="Select start time"
-            accessibilityLabel="Start time"
-            value={formState.startTime}
-            onChange={(value) => setFormState((current) => ({ ...current, startTime: value }))}
-            pickerDefaultValue={getNextHourOClock()}
-          />
-        ) : null}
         <NativeDateTimeField
           label="End date"
           placeholder="Select end date (optional)"
@@ -678,6 +668,30 @@ export function MedicineScheduleStep({
             value={scheduleDraft.doseSize}
             onChangeText={(value) => setScheduleDraft((current) => ({ ...current, doseSize: value }))}
           />
+
+          {isHourly ? (
+            <View style={styles.fieldWithPromptGroup}>
+              <View style={styles.fieldPromptGroup}>
+                <Text style={styles.fieldPromptLabel}>Start Time</Text>
+                <Text style={styles.fieldSubcaption}>
+                  {`At which time today do you want to start taking ${formState.medName || 'this medicine'}?`}
+                </Text>
+              </View>
+              <NativeDateTimeField
+                mode="time"
+                placeholder="Select start time"
+                accessibilityLabel="Start time"
+                value={formState.startTime}
+                onChange={(value) => setFormState((current) => ({ ...current, startTime: value }))}
+                pickerDefaultValue={getNextHourOClock()}
+                validateValue={(value) => (
+                  isPastTimeToday(formState.startDate, value)
+                    ? 'Start time cannot be in the past.'
+                    : ''
+                )}
+              />
+            </View>
+          ) : null}
 
           {isWeekly && (
             <View style={styles.fieldWithPromptGroup}>
@@ -780,13 +794,17 @@ export function MedicineScheduleStep({
           )}
 
           {isHourly ? (
-            <>
+            <View style={styles.fieldWithPromptGroup}>
+              <View style={styles.fieldPromptGroup}>
+                <Text style={styles.fieldPromptLabel}>Time Period</Text>
+                <Text style={styles.fieldSubcaption}>Every how much time?</Text>
+              </View>
               <NativeDateTimeField
                 mode="duration"
-                label="Time Period"
                 placeholder="Select time period"
                 accessibilityLabel="Time Period"
                 value={hasSelectedInterval ? formatIntervalValue(scheduleDraft.intervalHours, scheduleDraft.intervalMinutes) : ''}
+                pickerDefaultValue="01:00"
                 onChange={(value) => {
                   const nextInterval = parseIntervalValue(value);
                   setScheduleDraft((current) => ({
@@ -796,7 +814,7 @@ export function MedicineScheduleStep({
                   }));
                 }}
               />
-            </>
+            </View>
           ) : isWeeklyInterval ? (
             <>
               <Text style={styles.fieldSubcaption}>Repeat after how many days?</Text>
@@ -919,8 +937,7 @@ export function MedicineScheduleStep({
 
           {hourlyScheduleSummary ? (
             <Text style={styles.hourlyScheduleSummary}>
-              I will take <Text style={styles.hourlyScheduleSummaryStrong}>{hourlyScheduleSummary.dose}</Text> every{' '}
-              <Text style={styles.hourlyScheduleSummaryStrong}>{hourlyScheduleSummary.interval}</Text> hours
+              {`You will take ${hourlyScheduleSummary.dose} every ${hourlyScheduleSummary.interval} hours.`}
             </Text>
           ) : null}
 
@@ -1066,10 +1083,6 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.brandText,
     textAlign: 'center',
-  },
-  hourlyScheduleSummaryStrong: {
-    fontWeight: '700',
-    color: colors.brandText,
   },
   dailyScheduleSummary: {
     ...typography.bodySmall,

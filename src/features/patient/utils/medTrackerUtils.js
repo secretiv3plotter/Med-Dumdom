@@ -289,6 +289,53 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+const getMonthlyScheduleOccurrenceDate = (entry, now = new Date()) => {
+  const dayOfMonth = Number(entry?.dayOfMonth);
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
+    return null;
+  }
+
+  const currentDateTime = now instanceof Date ? new Date(now.getTime()) : new Date(now);
+  if (Number.isNaN(currentDateTime.getTime())) {
+    return null;
+  }
+
+  const scheduleMinutes = toMinutes(scheduleEffectiveTime(entry));
+  for (let monthOffset = 0; monthOffset <= 24; monthOffset += 1) {
+    const monthStart = new Date(currentDateTime.getFullYear(), currentDateTime.getMonth() + monthOffset, 1);
+    const occurrenceDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), dayOfMonth);
+    if (occurrenceDate.getMonth() !== monthStart.getMonth() || occurrenceDate.getDate() !== dayOfMonth) {
+      continue;
+    }
+
+    if (scheduleMinutes !== null) {
+      occurrenceDate.setHours(Math.floor(scheduleMinutes / 60), scheduleMinutes % 60, 0, 0);
+    } else {
+      occurrenceDate.setHours(0, 0, 0, 0);
+    }
+
+    if (occurrenceDate >= currentDateTime) {
+      return occurrenceDate;
+    }
+  }
+
+  return null;
+};
+
+const formatMonthlyScheduleDateLabel = (dateValue, now = new Date()) => {
+  if (!(dateValue instanceof Date) || Number.isNaN(dateValue.getTime())) {
+    return '';
+  }
+
+  const currentDateTime = now instanceof Date ? now : new Date(now);
+  const includeYear = Number.isNaN(currentDateTime.getTime()) || dateValue.getFullYear() !== currentDateTime.getFullYear();
+  return dateValue.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(includeYear ? { year: 'numeric' } : {}),
+  });
+};
+
 export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
   const date = dateValue instanceof Date ? new Date(dateValue.getTime()) : new Date(dateValue);
   if (Number.isNaN(date.getTime())) {
@@ -312,7 +359,7 @@ export const isScheduleEntryForDate = (entry, dateValue = new Date()) => {
   return true;
 };
 
-export const getScheduleDayLabel = (entry) => {
+export const getScheduleDayLabel = (entry, now = new Date()) => {
   if (isAsNeededScheduleEntry(entry)) {
     return 'as needed';
   }
@@ -325,12 +372,14 @@ export const getScheduleDayLabel = (entry) => {
     return entry.dayOfMonth ? `on ${entry.monthOfYear} ${entry.dayOfMonth}` : `in ${entry.monthOfYear}`;
   }
 
-  if (entry?.dayOfMonth) {
+  if (entry?.intervalUnit === 'months' && entry?.dayOfMonth) {
     return `on day ${entry.dayOfMonth}`;
   }
 
-  if (entry?.intervalUnit === 'months' && entry?.dayOfMonth) {
-    return `on day ${entry.dayOfMonth}`;
+  if (entry?.dayOfMonth) {
+    const occurrenceDate = getMonthlyScheduleOccurrenceDate(entry, now);
+    const dateLabel = formatMonthlyScheduleDateLabel(occurrenceDate, now);
+    return dateLabel ? `on ${dateLabel}` : `on day ${entry.dayOfMonth}`;
   }
 
   return '';
@@ -891,9 +940,73 @@ export const getMedicineDuplicateKey = ({ medName, unitStrength, unit }) =>
     normalizeDuplicateKey(unit),
   ].join('|');
 
-export const formatMedicineMeta = (medicine) => {
-  const dailyAmountText = `${getCalculatedDailyAmount(medicine)} ${medicine.unit} per day`;
+const getScheduleDoseAmount = (scheduleEntries = []) =>
+  scheduleEntries.reduce((total, entry) => total + Number(entry?.doseSize || 0), 0);
+
+const formatAmountWithUnit = (amount, unit) => `${Number(amount || 0)} ${unit || ''}`.trim();
+
+const getIntervalDescription = (entry) => {
+  if (entry?.intervalUnit === 'months') {
+    const monthCount = Number(entry.intervalCount || 0);
+    return monthCount > 0 ? `${monthCount} month${monthCount === 1 ? '' : 's'}` : '';
+  }
+
+  return formatIntervalMinutes(entry?.intervalMinutes, entry?.intervalUnit);
+};
+
+const formatMedicineMetaLegacy = (medicine) => {
+  const dailyAmountText = `${getCalculatedDailyAmount(medicine)} ${medicine.unit}`;
   return medicine.unitStrength ? `${medicine.unitStrength} • ${dailyAmountText}` : dailyAmountText;
+};
+
+const formatMedicineMetaWithBullet = (medicine) => {
+  const scheduleEntries = Array.isArray(medicine.dailySched) ? medicine.dailySched : [];
+  const firstEntry = scheduleEntries[0];
+  let doseText = '';
+
+  if (firstEntry && isAsNeededScheduleEntry(firstEntry)) {
+    doseText = `${formatAmountWithUnit(firstEntry.doseSize || medicine.totalDailyAmount, medicine.unit)} per intake`;
+  } else if (firstEntry && isIntervalScheduleEntry(firstEntry)) {
+    const intervalDescription = getIntervalDescription(firstEntry);
+    doseText = intervalDescription
+      ? `${formatAmountWithUnit(firstEntry.doseSize, medicine.unit)} every ${intervalDescription}`
+      : formatAmountWithUnit(firstEntry.doseSize, medicine.unit);
+  } else {
+    const period = scheduleEntries.some((entry) => entry?.dayOfMonth || entry?.monthOfYear)
+      ? 'month'
+      : scheduleEntries.some((entry) => entry?.dayOfWeek)
+      ? 'week'
+      : 'day';
+    const amount = getScheduleDoseAmount(scheduleEntries) || medicine.totalDailyAmount || getCalculatedDailyAmount(medicine);
+    doseText = `${formatAmountWithUnit(amount, medicine.unit)} per ${period}`;
+  }
+
+  return medicine.unitStrength ? `${medicine.unitStrength} â€¢ ${doseText}` : doseText;
+};
+
+export const formatMedicineMeta = (medicine) => {
+  const scheduleEntries = Array.isArray(medicine.dailySched) ? medicine.dailySched : [];
+  const firstEntry = scheduleEntries[0];
+  let doseText = '';
+
+  if (firstEntry && isAsNeededScheduleEntry(firstEntry)) {
+    doseText = `${formatAmountWithUnit(firstEntry.doseSize || medicine.totalDailyAmount, medicine.unit)} per intake`;
+  } else if (firstEntry && isIntervalScheduleEntry(firstEntry)) {
+    const intervalDescription = getIntervalDescription(firstEntry);
+    doseText = intervalDescription
+      ? `${formatAmountWithUnit(firstEntry.doseSize, medicine.unit)} every ${intervalDescription}`
+      : formatAmountWithUnit(firstEntry.doseSize, medicine.unit);
+  } else {
+    const period = scheduleEntries.some((entry) => entry?.dayOfMonth || entry?.monthOfYear)
+      ? 'month'
+      : scheduleEntries.some((entry) => entry?.dayOfWeek)
+      ? 'week'
+      : 'day';
+    const amount = getScheduleDoseAmount(scheduleEntries) || medicine.totalDailyAmount || getCalculatedDailyAmount(medicine);
+    doseText = `${formatAmountWithUnit(amount, medicine.unit)} per ${period}`;
+  }
+
+  return medicine.unitStrength ? `${medicine.unitStrength} - ${doseText}` : doseText;
 };
 
 export const getScheduleDuplicateKey = (entry) => {
@@ -953,6 +1066,16 @@ export const combineDateAndTime = (dateStr, timeStr) => {
   const [hours, minutes] = tText.split(':').map(Number);
   const parsed = new Date(year, month - 1, day, hours, minutes, 0, 0);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const isPastTimeToday = (dateStr, timeStr, now = new Date()) => {
+  const dateTime = combineDateAndTime(dateStr, timeStr);
+  const currentDateTime = now instanceof Date ? now : new Date(now);
+  if (!dateTime || Number.isNaN(currentDateTime.getTime())) {
+    return false;
+  }
+
+  return dateTime.toDateString() === currentDateTime.toDateString() && dateTime < currentDateTime;
 };
 
 export const getLastActionMessage = (medicine) => {

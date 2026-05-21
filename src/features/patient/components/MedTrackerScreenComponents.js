@@ -141,7 +141,7 @@ function SchedulePreviewCard({
   const isTaken = statusStyle.status === 'taken';
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, statusStyle, observedNow) ? 'tomorrow' : '';
-  const scheduleDayLabel = getScheduleDayLabel(entry);
+  const scheduleDayLabel = getScheduleDayLabel(entry, observedNow);
   const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
   const { triggerImpact, triggerSuccess } = useHapticFeedback();
 
@@ -299,7 +299,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const isAsNeeded = isAsNeededScheduleEntry(entry);
   const canSelectStatus = medicine.isScheduleActionAvailable(index, observedNow, observedNow);
   const tomorrowLabel = isUpcomingScheduleTomorrow(medicine, entry, scheduleStatus, observedNow) ? 'tomorrow' : '';
-  const scheduleDayLabel = getScheduleDayLabel(entry);
+  const scheduleDayLabel = getScheduleDayLabel(entry, observedNow);
   const dayLabel = tomorrowLabel && scheduleDayLabel ? `${tomorrowLabel} (${scheduleDayLabel})` : (scheduleDayLabel || tomorrowLabel);
   const missedDisplayTime = isMissed
     ? getScheduleMissedDisplayTime(medicine, entry, index, observedNow)

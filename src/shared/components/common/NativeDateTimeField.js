@@ -233,6 +233,8 @@ export default function NativeDateTimeField({
   focusBackgroundColor,
   focusTextColor,
   pickerDefaultValue = '',
+  validateValue,
+  onValidationError = () => {},
 }) {
   const [isPickerVisible, setPickerVisible] = useState(false);
   const usesCustomPicker = Platform.OS === 'web' || mode === 'day' || mode === 'month' || mode === 'monthDay' || mode === 'duration';
@@ -308,7 +310,7 @@ export default function NativeDateTimeField({
         setTempDayOfMonth(resolvedDay);
         setTypedPickerValue(String(resolvedDay));
       } else if (mode === 'duration') {
-        const currentVal = parseDurationValue(value) || { hours: 0, minutes: 1 };
+        const currentVal = parseDurationValue(value) || parseDurationValue(pickerDefaultValue) || { hours: 0, minutes: 1 };
         setTempHour(currentVal.hours);
         setTempMinute(currentVal.minutes);
         setTypedPickerValue(`${pad2(currentVal.hours)}:${pad2(currentVal.minutes)}`);
@@ -341,18 +343,69 @@ export default function NativeDateTimeField({
     }
   }, [isPickerVisible, value, mode, monthValue, pickerDefaultValue, usesCustomPicker]);
 
+  const getValidationError = (nextValue) => {
+    if (typeof validateValue !== 'function') {
+      return '';
+    }
+
+    const result = validateValue(nextValue);
+    return typeof result === 'string' ? result : '';
+  };
+
+  const setValidationError = (message) => {
+    setTypedPickerError(message);
+    onValidationError(message);
+  };
+
+  const getTimeValueFromParts = (hour, minute, period) => {
+    let finalHour = hour;
+    if (period === 'PM' && finalHour < 12) {
+      finalHour += 12;
+    }
+    if (period === 'AM' && finalHour === 12) {
+      finalHour = 0;
+    }
+
+    const parsedTime = new Date();
+    parsedTime.setHours(finalHour, minute, 0, 0);
+    return formatPickerTime(parsedTime);
+  };
+
+  const validateTimeSelection = (hour, minute, period) => {
+    if (mode !== 'time') {
+      setValidationError('');
+      return true;
+    }
+
+    const validationError = getValidationError(getTimeValueFromParts(hour, minute, period));
+    setValidationError(validationError);
+    return !validationError;
+  };
+
   const commitValue = (date) => {
-    onChange(mode === 'time' ? formatPickerTime(date) : formatPickerDate(date));
+    const nextValue = mode === 'time' ? formatPickerTime(date) : formatPickerDate(date);
+    const validationError = getValidationError(nextValue);
+    if (validationError) {
+      setValidationError(validationError);
+      return false;
+    }
+
+    setValidationError('');
+    onChange(nextValue);
+    return true;
   };
 
   const handlePickerChange = (event, date) => {
-    setPickerVisible(false);
     if (event?.type === 'dismissed') {
+      setPickerVisible(false);
       return;
     }
     if (date) {
-      commitValue(date);
+      const didCommit = commitValue(date);
+      setPickerVisible(!didCommit);
+      return;
     }
+    setPickerVisible(false);
   };
 
   const handleTypedPickerChange = (input) => {
@@ -424,10 +477,16 @@ export default function NativeDateTimeField({
       return;
     }
     const rawHours = parsedTime.getHours();
+    const validationError = getValidationError(formatPickerTime(parsedTime));
+    if (validationError) {
+      setValidationError(validationError);
+      return;
+    }
+
     setTempHour(rawHours % 12 || 12);
     setTempMinute(parsedTime.getMinutes());
     setTempAmPm(rawHours >= 12 ? 'PM' : 'AM');
-    setTypedPickerError('');
+    setValidationError('');
   };
 
   const handleTypedDatePartChange = (part, input) => {
@@ -522,9 +581,9 @@ export default function NativeDateTimeField({
         return;
       }
 
-      setTempHour(hour);
-      setTempMinute(minute);
-      setTypedPickerValue(`${pad2(hour)}:${pad2(minute)}`);
+    setTempHour(hour);
+    setTempMinute(minute);
+    setTypedPickerValue(`${pad2(hour)}:${pad2(minute)}`);
       setTypedPickerError('');
       return;
     }
@@ -553,11 +612,26 @@ export default function NativeDateTimeField({
       return;
     }
 
+    let finalHour = hour;
+    if (normalizedPeriod === 'PM' && finalHour < 12) {
+      finalHour += 12;
+    }
+    if (normalizedPeriod === 'AM' && finalHour === 12) {
+      finalHour = 0;
+    }
+    const parsedTime = new Date();
+    parsedTime.setHours(finalHour, minute, 0, 0);
+    const validationError = getValidationError(formatPickerTime(parsedTime));
+    if (validationError) {
+      setValidationError(validationError);
+      return;
+    }
+
     setTempHour(hour);
     setTempMinute(minute);
     setTempAmPm(normalizedPeriod);
     setTypedPickerValue(`${hour}:${pad2(minute)} ${normalizedPeriod}`);
-    setTypedPickerError('');
+    setValidationError('');
   };
 
   // Web Picker Confirm Handler with date bounds validation guard
@@ -1160,7 +1234,7 @@ export default function NativeDateTimeField({
                             onPress={() => {
                               setTempHour(h);
                               setTypedTimeHour(mode === 'duration' ? pad2(h) : String(h));
-                              setTypedPickerError('');
+                              validateTimeSelection(h, tempMinute, tempAmPm);
                             }}
                             style={[styles.scrollItem, tempHour === h && pickerActiveItemStyle]}
                           >
@@ -1189,7 +1263,7 @@ export default function NativeDateTimeField({
                             onPress={() => {
                               setTempMinute(m);
                               setTypedTimeMinute(pad2(m));
-                              setTypedPickerError('');
+                              validateTimeSelection(tempHour, m, tempAmPm);
                             }}
                             style={[styles.scrollItem, tempMinute === m && pickerActiveItemStyle]}
                           >
@@ -1216,7 +1290,7 @@ export default function NativeDateTimeField({
                               onPress={() => {
                                 setTempAmPm(p);
                                 setTypedTimePeriod(p);
-                                setTypedPickerError('');
+                                validateTimeSelection(tempHour, tempMinute, p);
                               }}
                               style={[styles.scrollItem, tempAmPm === p && pickerActiveItemStyle]}
                             >
