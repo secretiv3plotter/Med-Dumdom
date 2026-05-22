@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DashboardHeader from '../../../shared/components/common/DashboardHeader';
+import { Ionicons } from '@expo/vector-icons';
 import NavigationBar from '../../../shared/components/common/NavigationBar';
 import ThemedScrollView from '../../../shared/components/common/ThemedScrollView';
+import TrackerActionCard from '../../../shared/components/common/TrackerActionCard';
 import useScrollAwareFooterNav from '../../../shared/components/common/useScrollAwareFooterNav';
 import { ROUTES } from '../../../app/navigation/routes';
 import { colors, getFontSize, getLineHeight, moderateScale, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
-import accessibilitySettingsService from '../../../domain/services/AccessibilitySettingsService';
 import medTrackerService from '../../../domain/services/MedTrackerService';
 import apptTrackerService from '../../../domain/services/ApptTrackerService';
 import RealmMedTrackerRepository from '../../../localdb/realm/RealmMedTrackerRepository';
 import RealmApptTrackerRepository from '../../../localdb/realm/RealmApptTrackerRepository';
 import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
-import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
+import PatientIdCard, { formatBirthdate, getWideProfileSpacing } from '../components/PatientIdCard';
 import {
   formatDoseWithUnit,
   formatTime,
@@ -40,36 +41,25 @@ const STATUS_RANKS = {
   inactive: 4,
 };
 
-const parseDateTime = (dateValue, timeValue) => {
-  if (!dateValue || !timeValue) {
-    return null;
-  }
+const actionColor = '#475568';
+const headerActionIconSize = moderateScale(30);
+const helpIconSize = moderateScale(34);
 
+const parseDateTime = (dateValue, timeValue) => {
+  if (!dateValue || !timeValue) return null;
   const parsed = new Date(`${dateValue}T${timeValue}:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const formatDashboardDate = (value) => {
-  if (!value) {
-    return '';
-  }
-
+  if (!value) return '';
   const parsed = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return '';
-  }
-
-  return parsed.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 const scheduleSortMinutes = (entry) => {
-  if (isIntervalScheduleEntry(entry)) {
-    return -1;
-  }
-
+  if (isIntervalScheduleEntry(entry)) return -1;
   const match = String(entry?.scheduledTime || '').match(/^(\d{1,2}):(\d{2})$/);
   return match ? Number(match[1]) * 60 + Number(match[2]) : Number.MAX_SAFE_INTEGER;
 };
@@ -138,10 +128,16 @@ const buildMostDueAppointment = (appointments, now) => {
 
 export default function PatientDashboardScreen({ navigation, realm = null }) {
   const { currentUser } = useFirebase();
+  const { colorBlindModeEnabled } = useTextScale();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const isCompact = containerWidth > 0 && containerWidth < 385;
+  const wideProfileSpacing = getWideProfileSpacing(containerWidth);
+
   const fallbackPatientName = navigation?.currentParams?.patientName || 'Patient';
-  const [patientFirstName, setPatientFirstName] = useState(fallbackPatientName);
+  const [patientFullName, setPatientFullName] = useState(fallbackPatientName);
+  const [patientBirthdate, setPatientBirthdate] = useState(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
-  const [textSizeLevel, setTextSizeLevel] = useState(1);
+  const [isProfileEmpty, setIsProfileEmpty] = useState(false);
   const [observedNow, setObservedNow] = useState(() => new Date());
 
   const activeMedTrackerService = useMemo(
@@ -156,58 +152,46 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
     () => (realm ? new RealmUserRepository(realm) : personalProfileService),
     [realm],
   );
-  const activeSettingsService = useMemo(
-    () => (realm ? new RealmSettingsPreferenceRepository(realm) : accessibilitySettingsService),
-    [realm],
-  );
 
   const refreshProfileSummary = () => {
     const profile = activeProfileService.getProfile(currentUser.uid);
-    const firstName = String(profile?.fullName || '')
-      .trim()
-      .split(/\s+/)[0];
+    const fullName = String(profile?.fullName || profile?.name || '').trim();
+    const birthdate = profile?.birthDate || profile?.birthdate || null;
+    const picture = profile?.profilePicture?.trim?.() || '';
+    const hasInfo = Boolean(fullName || birthdate || picture);
 
-    setPatientFirstName(firstName || fallbackPatientName);
-    setProfilePictureUrl(profile?.profilePicture?.trim?.() || '');
-  };
-
-  const refreshAccessibilitySettings = () => {
-    const settings = activeSettingsService.getAccessibilitySettings(currentUser.uid);
-    const nextTextSizeLevel = Number(settings?.textSizeLevel);
-    setTextSizeLevel(Number.isNaN(nextTextSizeLevel) ? 1 : nextTextSizeLevel);
+    setPatientFullName(fullName || fallbackPatientName);
+    setPatientBirthdate(birthdate);
+    setProfilePictureUrl(picture);
+    setIsProfileEmpty(Boolean(profile) && !hasInfo);
   };
 
   useEffect(() => {
     refreshProfileSummary();
-    refreshAccessibilitySettings();
 
     const unsubscribeFocus = navigation?.addListener?.('focus', () => {
       refreshProfileSummary();
-      refreshAccessibilitySettings();
     });
 
     return () => {
-      if (typeof unsubscribeFocus === 'function') {
-        unsubscribeFocus();
-      }
+      if (typeof unsubscribeFocus === 'function') unsubscribeFocus();
     };
-  }, [navigation, activeProfileService, activeSettingsService, fallbackPatientName]);
+  }, [navigation, activeProfileService, fallbackPatientName]);
 
   useEffect(() => {
     const intervalId = setInterval(() => setObservedNow(new Date()), 30000);
     return () => clearInterval(intervalId);
   }, []);
 
-  const shouldSplitProgramName = textSizeLevel > 1;
-  const patientPossessive = patientFirstName.endsWith('s')
-    ? `${patientFirstName}'`
-    : `${patientFirstName}'s`;
-
   const profileImageSource = useMemo(
     () => (profilePictureUrl ? { uri: profilePictureUrl } : null),
     [profilePictureUrl]
   );
+
+  const formattedBirthdate = useMemo(() => formatBirthdate(patientBirthdate), [patientBirthdate]);
+
   const footerNav = useScrollAwareFooterNav();
+
   const mostDueMedSchedule = useMemo(() => {
     try {
       return buildMostDueMedSchedule(activeMedTrackerService.listMedEntries(currentUser.uid), observedNow);
@@ -226,56 +210,101 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
     }
   }, [activeApptTrackerService, observedNow]);
 
+  const medContent = useMemo(() => {
+    if (!mostDueMedSchedule) return null;
+    const { title, subtitle, timeText } = mostDueMedSchedule;
+    return [title, subtitle, timeText].filter(Boolean).join('\n');
+  }, [mostDueMedSchedule]);
+
+  const apptContent = useMemo(() => {
+    if (!mostDueAppointment) return null;
+    const { title, subtitle, timeText } = mostDueAppointment;
+    return [title, subtitle, timeText].filter(Boolean).join('\n');
+  }, [mostDueAppointment]);
+
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
-    if (targetRoute) {
-      navigation?.navigate?.(targetRoute);
-    }
+    if (targetRoute) navigation?.navigate?.(targetRoute);
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.topSection}>
-        <DashboardHeader
-          onHelpPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
-          onSettingsPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: ROUTES.HOME })}
-          onProfilePress={() => navigation?.navigate?.(ROUTES.PROFILE, { returnTo: ROUTES.HOME })}
-          profileImageSource={profileImageSource}
-          leftGroupStyle={styles.profileContainer}
-          profileContent={
-            <View style={styles.profileTitleBlock}>
-              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.patientTitle}>
-                {patientPossessive}
-              </Text>
-              <Text style={styles.patientProgram}>
-                {shouldSplitProgramName ? 'Med\ndumdom' : 'Meddumdom'}
-              </Text>
-            </View>
-          }
-          style={styles.header}
+      <View style={styles.peopleWrapper} pointerEvents="none">
+        <Image
+          source={colorBlindModeEnabled ? require('../../../assets/pilestone.png') : require('../../../assets/people.png')}
+          style={styles.peopleImage}
+          resizeMode="contain"
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
         />
+      </View>
+      <View style={styles.topSection} onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
+        <View style={[styles.headerRow, isCompact && styles.headerRowCompact]}>
+          {isCompact && (
+            <View style={[styles.actionRail, styles.actionRailCompact]}>
+              <DashboardAction
+                label="Settings"
+                iconName="settings-outline"
+                iconSize={headerActionIconSize}
+                isCompact
+                onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: ROUTES.HOME })}
+              />
+              <DashboardAction
+                label="Help"
+                iconName="help-circle-outline"
+                iconSize={helpIconSize}
+                isCompact
+                onPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
+              />
+            </View>
+          )}
+
+          <PatientIdCard
+            name={patientFullName}
+            birthdate={formattedBirthdate}
+            imageSource={profileImageSource}
+            isEmpty={isProfileEmpty}
+            isCompact={isCompact}
+            wideSpacing={wideProfileSpacing}
+            onPress={() => navigation?.navigate?.(ROUTES.PROFILE, { returnTo: ROUTES.HOME })}
+          />
+
+          {!isCompact && (
+            <View style={styles.actionRail}>
+              <DashboardAction
+                label="Settings"
+                iconName="settings-outline"
+                iconSize={headerActionIconSize}
+                onPress={() => navigation?.navigate?.(ROUTES.SETTINGS, { returnTo: ROUTES.HOME })}
+              />
+              <DashboardAction
+                label="Help"
+                iconName="help-circle-outline"
+                iconSize={helpIconSize}
+                onPress={() => navigation?.navigate?.(ROUTES.HELP_AND_SUPPORT, { returnTo: ROUTES.HOME })}
+              />
+            </View>
+          )}
+        </View>
       </View>
 
       <ThemedScrollView
+        backgroundColor="transparent"
         contentContainerStyle={styles.container}
         onLayout={footerNav.onLayout}
         onContentSizeChange={footerNav.onContentSizeChange}
         onScroll={footerNav.onScroll}
       >
-        <View style={styles.dueGrid}>
-          <DueScheduleCard
-            title="Most due medicine"
-            emptyText="No medicine schedules yet."
-            item={mostDueMedSchedule}
-            onPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER)}
-          />
-          <DueScheduleCard
-            title="Most due appointment"
-            emptyText="No appointment schedules yet."
-            item={mostDueAppointment}
-            onPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER)}
-          />
-        </View>
+        <TrackerActionCard
+          medContent={medContent}
+          medLabel={mostDueMedSchedule?.label}
+          apptContent={apptContent}
+          apptLabel={mostDueAppointment?.label}
+          onMedPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER)}
+          onMedAddPress={() => navigation?.navigate?.(ROUTES.MED_TRACKER, { autoOpenCreate: true })}
+          onApptPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER)}
+          onApptAddPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER, { autoOpenCreate: true })}
+        />
       </ThemedScrollView>
 
       <View
@@ -293,142 +322,111 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   );
 }
 
-function DueScheduleCard({ title, item, emptyText, onPress }) {
+function DashboardAction({ iconName, iconSize, label, isCompact = false, onPress }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={item ? `${title}: ${item.title}, ${item.label}` : `${title}: ${emptyText}`}
-      unstable_pressDelay={0}
+      accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.dueCard, pressed && styles.pressedDueCard]}
+      unstable_pressDelay={0}
+      style={({ pressed }) => [
+        styles.actionButton,
+        isCompact && styles.actionButtonCompact,
+        pressed && styles.actionButtonPressed,
+      ]}
     >
-      <Text style={styles.dueCardTitle}>{title}</Text>
-      {item ? (
-        <>
-          <View style={styles.dueCardHeaderRow}>
-            <Text style={styles.dueCardName}>{item.title}</Text>
-            <Text style={[styles.dueBadge, item.status === 'missed' && styles.dueBadgeMissed]}>
-              {item.label}
-            </Text>
-          </View>
-          <Text style={styles.dueCardSubtitle}>{item.subtitle}</Text>
-          <Text style={styles.dueCardTime}>{item.timeText}</Text>
-        </>
-      ) : (
-        <Text style={styles.dueCardSubtitle}>{emptyText}</Text>
-      )}
+      <View style={[styles.actionIconWrap, isCompact && styles.actionIconWrapCompact]}>
+        <Ionicons name={iconName} size={iconSize} color={actionColor} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
 }
+
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.pageBg,
   },
+  peopleWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '30%',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  peopleImage: {
+    width: '100%',
+    height: '100%',
+  },
   topSection: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     backgroundColor: colors.pageBg,
-    gap: spacing.xs,
   },
-  header: {
-    borderBottomWidth: 0,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.md,
   },
-  profileTitleBlock: {
-    flexShrink: 1,
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  profileContainer: {
-    flex: 1,
-    flexShrink: 1,
+  headerRowCompact: {
+    flexDirection: 'column',
     alignItems: 'center',
-    marginRight: spacing.sm,
-    marginTop: spacing.sm,
-    minHeight: 158,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.brandSoft,
     gap: spacing.sm,
+  },
+  actionRail: {
+    width: moderateScale(72),
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.xs,
+  },
+  actionRailCompact: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 0,
+    paddingVertical: spacing.xs,
+  },
+  actionButton: {
+    alignItems: 'center',
+    gap: spacing.xxs,
+    minWidth: moderateScale(56),
+    padding: spacing.xs,
+    borderRadius: radius.md,
+  },
+  actionButtonCompact: {
+    minWidth: moderateScale(48),
+    paddingHorizontal: spacing.xxs,
+  },
+  actionIconWrap: {
+    width: moderateScale(56),
+    height: moderateScale(56),
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: -moderateScale(6),
+  },
+  actionIconWrapCompact: {
+    width: moderateScale(44),
+  },
+  actionButtonPressed: {
+    backgroundColor: '#E6F1F7',
+  },
+  actionLabel: {
+    color: actionColor,
+    fontSize: getFontSize(14),
+    lineHeight: getLineHeight(18),
+    fontWeight: '600',
+    textAlign: 'center',
   },
   container: {
     padding: spacing.lg,
     paddingBottom: 170,
     gap: spacing.md,
-  },
-  dueGrid: {
-    gap: spacing.md,
-  },
-  dueCard: {
-    minHeight: moderateScale(132),
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  pressedDueCard: {
-    backgroundColor: '#C7DBFF',
-    borderColor: colors.brandText,
-  },
-  dueCardTitle: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
-    fontWeight: '700',
-  },
-  dueCardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  dueCardName: {
-    ...typography.body,
-    color: colors.title,
-    fontWeight: '700',
-    flex: 1,
-    minWidth: 0,
-  },
-  dueCardSubtitle: {
-    ...typography.bodySmall,
-    color: colors.body,
-  },
-  dueCardTime: {
-    ...typography.bodySmall,
-    color: colors.bodyMuted,
-    fontWeight: '700',
-  },
-  dueBadge: {
-    ...typography.bodySmall,
-    color: colors.brandText,
-    fontWeight: '700',
-    backgroundColor: colors.brandSoft,
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    overflow: 'hidden',
-  },
-  dueBadgeMissed: {
-    color: colors.error,
-    backgroundColor: '#FEE2E2',
-  },
-  patientTitle: {
-    ...typography.title,
-    color: colors.brandText,
-    fontSize: getFontSize(20),
-    lineHeight: getLineHeight(24),
-  },
-  patientProgram: {
-    ...typography.title,
-    color: colors.brandText,
-    fontSize: getFontSize(20),
-    lineHeight: getLineHeight(24),
-    width: '100%',
   },
   footerNav: {
     position: 'absolute',

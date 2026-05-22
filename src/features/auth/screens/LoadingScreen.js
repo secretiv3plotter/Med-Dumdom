@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useRealm } from '../../../localdb/realm/RealmContext';
 import { useFirebase } from '../../../localdb/firebase/FirebaseAuthContext';
 import FirebaseSyncService from '../../../sync/FirebaseSyncService';
@@ -10,18 +12,72 @@ import RealmMedUnitRepository from '../../../localdb/realm/RealmMedUnitRepositor
 import RealmUserRepository from '../../../localdb/realm/RealmUserRepository';
 import RealmSettingsPreferenceRepository from '../../../localdb/realm/RealmSettingsPreferenceRepository';
 import personalProfileService from '../../../domain/services/PersonalProfileService';
+import DialogBox from '../../../shared/components/common/DialogBox';
 import { ROUTES } from '../../../app/navigation/routes';
-import { colors, spacing, typography } from '../../../shared/theme';
+import { colors, radius, spacing, typography } from '../../../shared/theme';
+import { useTextScale } from '../../../shared/theme/textScale';
 
 export default function LoadingScreen({ navigation, realm: realmProp = null }) {
   const realmFromContext = useRealm();
   const realm = realmProp ?? realmFromContext;
   const { firebase, currentUser } = useFirebase();
+  const { setDarkModeEnabled, setColorBlindModeEnabled, setHighContrastEnabled, setHapticEnabled, setTextScale } = useTextScale();
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+
+  const handleReactivate = async () => {
+    setShowDeletedModal(false);
+    try {
+      await updateDoc(doc(firebase.db, 'users', currentUser.uid), {
+        isDeleted: false,
+        deletedAt: null,
+      });
+    } catch (err) {
+      console.error('Reactivation failed:', err);
+    }
+    proceedToApp();
+  };
+
+  const handleDeclineReactivate = async () => {
+    setShowDeletedModal(false);
+    await signOut(firebase.auth);
+  };
+
+  const proceedToApp = () => {
+    if (realm && currentUser) {
+      const settingsRepo = new RealmSettingsPreferenceRepository(realm);
+      const userSettings = settingsRepo.getAccessibilitySettings(currentUser.uid);
+      if (userSettings) {
+        setDarkModeEnabled(Boolean(userSettings.darkModeEnabled));
+        setColorBlindModeEnabled(Boolean(userSettings.colorBlindModeEnabled));
+        setHighContrastEnabled(Boolean(userSettings.highContrastEnabled));
+        setHapticEnabled(userSettings.hapticEnabled ?? true);
+        const scale = Number(userSettings.textScale ?? userSettings.textSizeLevel ?? 1.0);
+        if (Number.isFinite(scale)) setTextScale(scale);
+      }
+    }
+
+    const profileRepo = realm ? new RealmUserRepository(realm) : personalProfileService;
+    const profile = currentUser ? profileRepo.getProfile(currentUser.uid) : null;
+    const hasProfile = Boolean(profile?.fullName?.trim());
+    navigation?.reset?.(hasProfile ? ROUTES.HOME : ROUTES.PROFILE_SETUP);
+  };
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncThenNavigate() {
+      if (firebase?.db && currentUser) {
+        try {
+          const userDoc = await getDoc(doc(firebase.db, 'users', currentUser.uid));
+          if (userDoc.exists() && userDoc.data()?.isDeleted) {
+            if (!cancelled) setShowDeletedModal(true);
+            return;
+          }
+        } catch (err) {
+          console.error('Deleted account check failed:', err);
+        }
+      }
+
       if (firebase?.db && realm && currentUser) {
         try {
           const syncService = new FirebaseSyncService({
@@ -38,14 +94,7 @@ export default function LoadingScreen({ navigation, realm: realmProp = null }) {
         }
       }
 
-      if (!cancelled) {
-        const profileRepo = realm
-          ? new RealmUserRepository(realm)
-          : personalProfileService;
-        const profile = currentUser ? profileRepo.getProfile(currentUser.uid) : null;
-        const hasProfile = Boolean(profile?.fullName?.trim());
-        navigation?.reset?.(hasProfile ? ROUTES.HOME : ROUTES.PROFILE_SETUP);
-      }
+      if (!cancelled) proceedToApp();
     }
 
     syncThenNavigate();
@@ -58,6 +107,23 @@ export default function LoadingScreen({ navigation, realm: realmProp = null }) {
         <ActivityIndicator size="large" color={colors.brand} />
         <Text style={styles.label}>Loading your data...</Text>
       </View>
+
+      {showDeletedModal ? (
+        <Modal transparent visible animationType="fade">
+          <View style={styles.overlay}>
+            <View style={styles.dialogContainer}>
+              <DialogBox
+                title="Account Deleted"
+                message="This account has been deleted. Would you like to reactivate it?"
+                actions={[
+                  { label: 'No', variant: 'outline', onPress: handleDeclineReactivate },
+                  { label: 'Reactivate', variant: 'solid', onPress: handleReactivate },
+                ]}
+              />
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -76,5 +142,18 @@ const styles = StyleSheet.create({
   label: {
     ...typography.body,
     color: colors.bodyMuted,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  dialogContainer: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
   },
 });

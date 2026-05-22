@@ -10,6 +10,7 @@ export default function ThemedScrollView({
   children,
   contentContainerStyle,
   style,
+  backgroundColor = colors.pageBg,
   scrollbarContainerStyle,
   scrollbarThumbStyle,
   scrollbarTrackStyle,
@@ -49,10 +50,10 @@ export default function ThemedScrollView({
   const shouldShowCustomScrollbar = showCustomScrollbar && darkModeEnabled && hasScrollableContent;
 
   return (
-    <View style={[styles.shell, style]}>
+    <View style={[styles.shell, { backgroundColor }, style]}>
       <ScrollView
         {...scrollViewProps}
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor }]}
         contentContainerStyle={[styles.content, contentContainerStyle]}
         showsVerticalScrollIndicator={showCustomScrollbar ? false : shouldShowScrollIndicator}
         scrollEventThrottle={scrollEventThrottle}

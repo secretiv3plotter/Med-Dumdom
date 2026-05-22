@@ -144,6 +144,12 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
   };
 
   useEffect(() => {
+    if (navigation?.currentParams?.autoOpenCreate) {
+      handleAddAppointment();
+    }
+  }, []);
+
+  useEffect(() => {
     const intervalId = setInterval(() => {
       // Skip updating during form editing to avoid resetting the form
       if (editorMode || isEditingDetails) return;

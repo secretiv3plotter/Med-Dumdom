@@ -154,6 +154,12 @@ export default function MedTrackerScreen({ navigation, realm = null, trackerServ
   const medicines = useMemo(() => activeMedTrackerService.listMedEntries(currentUser.uid), [activeMedTrackerService, version]);
 
   useEffect(() => {
+    if (navigation?.currentParams?.autoOpenCreate) {
+      openCreateEditor();
+    }
+  }, []);
+
+  useEffect(() => {
     if (!realm) return;
 
     try {

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Alert, Modal, StyleSheet, Text, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { signOut } from 'firebase/auth';
+import { signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import ActionButton from '../../../shared/components/common/ActionButton';
 import BackButton from '../../../shared/components/common/BackButton';
 import {
@@ -48,11 +49,11 @@ export default function SettingsScreen({ navigation, realm = null }) {
   const footerNav = useScrollAwareFooterNav();
   const { firebase } = useFirebase();
 
-  const [isActive, setIsActive] = useState(true);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showConfirmLogOut, setShowConfirmLogOut] = useState(false);
+  const [showConfirmPasswordChange, setShowConfirmPasswordChange] = useState(false);
 
   const confirmLogOut = async () => {
     setShowConfirmLogOut(false);
@@ -90,21 +91,59 @@ export default function SettingsScreen({ navigation, realm = null }) {
 
   const canChangePassword = currentPassword.trim().length > 0 && newPassword.trim().length > 0;
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!canChangePassword) {
       Alert.alert('Missing details', 'Please enter current and new password.');
       return;
     }
 
-    Alert.alert('Password updated', 'Your password has been changed.');
-    setCurrentPassword('');
-    setNewPassword('');
+    const user = firebase?.auth?.currentUser;
+    if (!user?.email) {
+      Alert.alert('Error', 'No authenticated user found.');
+      return;
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword.trim());
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword.trim());
+      Alert.alert('Password updated', 'Your password has been changed.');
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (error) {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        Alert.alert('Incorrect password', 'The current password you entered is wrong.');
+      } else if (error.code === 'auth/weak-password') {
+        Alert.alert('Weak password', 'New password must be at least 6 characters.');
+      } else {
+        Alert.alert('Error', 'Failed to change password. Please try again.');
+      }
+    }
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     setShowDeleteDialog(false);
-    setIsActive(false);
-    Alert.alert('Account deactivated', 'Your account status is now inactive.');
+    const user = firebase?.auth?.currentUser;
+    if (!user) {
+      Alert.alert('Error', 'No authenticated user found.');
+      return;
+    }
+
+    try {
+      await setDoc(
+        doc(firebase.db, 'users', user.uid),
+        { isDeleted: true, deletedAt: serverTimestamp() },
+        { merge: true },
+      );
+
+      if (realm && typeof realm.flush === 'function') await realm.flush();
+      if (typeof localStorage !== 'undefined') localStorage.removeItem('_med_dumdom_secure_db_');
+      if (realm && typeof realm.clearCollections === 'function') realm.clearCollections();
+
+      await signOut(firebase.auth);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete account. Please try again.');
+    }
   };
 
   const onTabNavigate = (tabKey) => {
@@ -150,7 +189,6 @@ export default function SettingsScreen({ navigation, realm = null }) {
               styles.optionCardDivider,
               {
                 paddingVertical: scaleLayoutValue(spacing.xxs),
-                gap: scaleLayoutValue(spacing.lg),
               },
             ]}
             onPress={() => setShowConfirmLogOut(true)}
@@ -160,7 +198,7 @@ export default function SettingsScreen({ navigation, realm = null }) {
             <Ionicons name="log-out-outline" size={scaleLayoutValue(28)} color={colors.error ?? '#DC2626'} />
             <View style={[styles.optionTextBlock, { gap: scaleLayoutValue(2) }]}>
               <Text style={[styles.optionTitle, styles.logoutOptionTitle]}>Log Out</Text>
-              <Text style={styles.optionSubtitle}>Sign out of your account.</Text>
+              <Text style={[styles.optionSubtitle, { marginBottom: spacing.sm }]}>Sign out of your account.</Text>
             </View>
           </Pressable>
           {SETTINGS_ITEMS.map((item, index) => (
@@ -189,19 +227,6 @@ export default function SettingsScreen({ navigation, realm = null }) {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Account Status</Text>
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: isActive ? colors.success : colors.error },
-              ]}
-            />
-            <Text style={styles.statusText}>{isActive ? 'Active' : 'Inactive'}</Text>
-          </View>
-        </View>
-
-        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Password Change</Text>
           <InputBar
             placeholder="Current password"
@@ -220,7 +245,7 @@ export default function SettingsScreen({ navigation, realm = null }) {
           <ActionButton
             label="Change Password"
             variant="outline"
-            onPress={handlePasswordChange}
+            onPress={() => setShowConfirmPasswordChange(true)}
             disabled={!canChangePassword}
             style={styles.sectionButton}
             textStyle={styles.deleteText}
@@ -278,26 +303,47 @@ export default function SettingsScreen({ navigation, realm = null }) {
       ) : null}
 
       {showDeleteDialog ? (
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogContainer}>
-            <DialogBox
-              title="Deactivate account?"
-              message="Deactivate your account? You can undo this later."
-              actions={[
-                {
-                  label: 'Cancel',
-                  variant: 'outline',
-                  onPress: () => setShowDeleteDialog(false),
-                },
-                {
-                  label: 'Yes',
-                  variant: 'solid',
-                  onPress: handleDeleteAccount,
-                },
-              ]}
-            />
-          </View>
-        </View>
+        <Modal
+          transparent
+          visible={true}
+          animationType="fade"
+          onRequestClose={() => setShowDeleteDialog(false)}
+        >
+          <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowDeleteDialog(false)}>
+            <Pressable accessible={false} style={styles.dialogContainer} onPress={() => {}}>
+              <DialogBox
+                title="Delete Account?"
+                message="Are you sure you want to delete your account? This cannot be undone."
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setShowDeleteDialog(false) },
+                  { label: 'Delete', variant: 'solid', onPress: handleDeleteAccount },
+                ]}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
+      {showConfirmPasswordChange ? (
+        <Modal
+          transparent
+          visible={true}
+          animationType="fade"
+          onRequestClose={() => setShowConfirmPasswordChange(false)}
+        >
+          <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowConfirmPasswordChange(false)}>
+            <Pressable accessible={false} style={styles.dialogContainer} onPress={() => {}}>
+              <DialogBox
+                title="Change Password?"
+                message="Are you sure you want to change your password?"
+                actions={[
+                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmPasswordChange(false) },
+                  { label: 'Confirm', variant: 'solid', onPress: () => { setShowConfirmPasswordChange(false); handlePasswordChange(); } },
+                ]}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
       ) : null}
     </SafeAreaView>
   );
@@ -358,20 +404,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.title,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusText: {
-    ...typography.body,
-    color: colors.body,
-  },
   helperText: {
     ...typography.bodySmall,
     color: colors.bodyMuted,
@@ -387,8 +419,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xxs,
     paddingVertical: spacing.xxs,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
+    alignItems: 'flex-start',
+    gap: spacing.md,
   },
   optionCardDivider: {
     borderBottomWidth: 1,

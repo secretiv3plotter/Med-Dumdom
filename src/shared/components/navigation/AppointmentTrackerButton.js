@@ -4,14 +4,18 @@ import { accessibility, colors, moderateScale, radius, spacing, typography } fro
 import { scaleLayoutValue, useTextScale } from '../../theme/textScale';
 
 const APPOINTMENT_ACCENT = '#52B788';
+const APPOINTMENT_ACCENT_CB = '#D55E00';
 const APPOINTMENT_ACCENT_PRESSED = '#B7E4C7';
+const APPOINTMENT_ACCENT_PRESSED_CB = '#FFEDD5';
 
 export default function AppointmentTrackerButton({ onPress, variant = 'outline', disabled = false }) {
   const isSolid = variant === 'solid';
-  const { darkModeEnabled } = useTextScale();
-  const iconColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT;
-  const textColor = disabled ? colors.bodyMuted : APPOINTMENT_ACCENT;
-  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : APPOINTMENT_ACCENT_PRESSED;
+  const { darkModeEnabled, colorBlindModeEnabled } = useTextScale();
+  const accent = colorBlindModeEnabled ? APPOINTMENT_ACCENT_CB : APPOINTMENT_ACCENT;
+  const accentPressed = colorBlindModeEnabled ? APPOINTMENT_ACCENT_PRESSED_CB : APPOINTMENT_ACCENT_PRESSED;
+  const iconColor = disabled ? colors.bodyMuted : accent;
+  const textColor = disabled ? colors.bodyMuted : accent;
+  const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : accentPressed;
 
   return (
     <Pressable

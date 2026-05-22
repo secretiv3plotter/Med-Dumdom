@@ -8,19 +8,24 @@ import {
   radius,
   typography,
 } from '../../theme';
+import { useTextScale } from '../../theme/textScale';
 
 const DEFAULT_ACTION_ICON_SIZE = moderateScale(18);
 
 function Card({
   accent,
   title,
+  statusLabel,
   content,
   buttonPosition = 'right',
+  onPress,
+  onAddPress,
 }) {
   const hasContent = Boolean(content?.trim());
 
   return (
     <Pressable
+      onPress={onPress}
       style={({ pressed }) => [
         styles.card,
         pressed && {
@@ -100,6 +105,7 @@ function Card({
                   transform: [{ scale: 0.92 }],
                 },
               ]}
+              onPress={onAddPress}
             >
               <Ionicons
                 name="add"
@@ -132,6 +138,7 @@ function Card({
                   transform: [{ scale: 0.92 }],
                 },
               ]}
+              onPress={onAddPress}
             >
               <Ionicons
                 name="add"
@@ -142,15 +149,18 @@ function Card({
           )}
         </View>
 
-        <Text
-          style={[
-            styles.cardText,
-            !hasContent && styles.placeholderText,
-          ]}
-          numberOfLines={4}
-        >
-          {hasContent ? content : 'No updates available yet...'}
-        </Text>
+        <View style={styles.cardTextWrapper}>
+          {hasContent && statusLabel ? (
+            <>
+              <Text style={styles.statusLabel}>{statusLabel}</Text>
+              <Text style={styles.cardText} numberOfLines={3}>{content}</Text>
+            </>
+          ) : (
+            <Text style={[styles.cardText, styles.placeholderText]} numberOfLines={4}>
+              No updates available yet...
+            </Text>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -158,22 +168,37 @@ function Card({
 
 export default function TrackerActionCard({
   medContent,
+  medLabel,
   apptContent,
+  apptLabel,
+  onMedPress,
+  onMedAddPress,
+  onApptPress,
+  onApptAddPress,
 }) {
+  const { colorBlindModeEnabled } = useTextScale();
+  const apptAccent = colorBlindModeEnabled ? '#D55E00' : '#52b788';
+
   return (
     <View style={styles.container}>
       <Card
         accent="#0077b6"
         title={'Med\nTracker'}
+        statusLabel={medLabel}
         content={medContent}
         buttonPosition="right"
+        onPress={onMedPress}
+        onAddPress={onMedAddPress}
       />
 
       <Card
-        accent="#52b788"
+        accent={apptAccent}
         title={'Appt\nTracker'}
+        statusLabel={apptLabel}
         content={apptContent}
         buttonPosition="left"
+        onPress={onApptPress}
+        onAddPress={onApptAddPress}
       />
     </View>
   );
@@ -188,7 +213,7 @@ const styles = StyleSheet.create({
 
   card: {
     flex: 1,
-    height: 220,
+    height: 350,
     overflow: 'hidden',
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
@@ -221,6 +246,7 @@ const styles = StyleSheet.create({
     ...typography.titleSmall,
     flex: 1,
     fontWeight: '700',
+    fontFamily: 'Helvetica',
     color: colors.title,
     lineHeight: 28,
   },
@@ -229,8 +255,22 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
+  cardTextWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  statusLabel: {
+    ...typography.bodySmall,
+    fontFamily: 'Helvetica',
+    fontWeight: '700',
+    color: colors.title,
+    marginBottom: 6,
+  },
+
   cardText: {
     ...typography.bodySmall,
+    fontFamily: 'Helvetica',
     color: colors.body,
     lineHeight: 24,
   },

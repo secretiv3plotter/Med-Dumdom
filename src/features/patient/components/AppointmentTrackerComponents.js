@@ -67,6 +67,8 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
             variant="outline"
             style={[styles.scheduleActionButton, styles.skipActionButton]}
             textStyle={styles.skipActionButtonText}
+            pressedStyle={styles.skipActionButtonPressed}
+            pressedTextStyle={styles.skipActionButtonPressedText}
           />
           <ActionButton
             label="Done"
@@ -74,9 +76,11 @@ export function AppointmentPreviewCard({ appointment, observedNow, onOpen, onSta
               event?.stopPropagation?.();
               onStatusChange(appointment, 'completed');
             }}
-            variant="solid"
+            variant="outline"
             style={[styles.scheduleActionButton, styles.doneActionButton]}
             textStyle={styles.doneActionButtonText}
+            pressedStyle={styles.doneActionButtonPressed}
+            pressedTextStyle={styles.doneActionButtonPressedText}
           />
         </View>
       ) : null}
@@ -270,11 +274,17 @@ const styles = StyleSheet.create({
   doneActionButton: {
     minWidth: moderateScale(110),
     flexGrow: 2,
-    backgroundColor: APPOINTMENT_ACCENT,
     borderColor: APPOINTMENT_ACCENT,
   },
   doneActionButtonText: {
-    color: colors.surface,
+    color: APPOINTMENT_ACCENT_TEXT,
+  },
+  doneActionButtonPressed: {
+    backgroundColor: APPOINTMENT_ACCENT,
+    borderColor: APPOINTMENT_ACCENT,
+  },
+  doneActionButtonPressedText: {
+    color: '#FFFFFF',
   },
   skipActionButton: {
     minWidth: moderateScale(70),
@@ -283,6 +293,13 @@ const styles = StyleSheet.create({
   },
   skipActionButtonText: {
     color: APPOINTMENT_ACCENT_TEXT,
+  },
+  skipActionButtonPressed: {
+    backgroundColor: '#B71C1C',
+    borderColor: '#B71C1C',
+  },
+  skipActionButtonPressedText: {
+    color: '#FFFFFF',
   },
   revertStatusButton: {
     backgroundColor: '#FEE2E2',

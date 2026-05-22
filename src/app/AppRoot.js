@@ -85,10 +85,26 @@ const AUTH_ROUTES = new Set([ROUTES.LOG_IN, ROUTES.SIGN_UP]);
 function AppContent() {
   const realm = useRealm();
   const { firebase, currentUser } = useFirebase();
-  const { textScale, darkModeEnabled, hapticEnabled } = useTextScale();
+  const { textScale, darkModeEnabled, colorBlindModeEnabled, hapticEnabled, setDarkModeEnabled, setTextScale, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
   const [history, setHistory] = useState([{ routeName: ROUTES.LOG_IN, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
+
+  // Apply the logged-in user's saved accessibility settings once the sync is done.
+  // We wait until the route is HOME because that's when LoadingScreen finishes syncing
+  // Realm from Firebase — reading settings any earlier returns empty defaults.
+  useEffect(() => {
+    if (!currentUser?.uid || !realm || currentRoute !== ROUTES.HOME) return;
+    const settingsRepo = new RealmSettingsPreferenceRepository(realm);
+    const userSettings = settingsRepo.getAccessibilitySettings(currentUser.uid);
+    if (!userSettings) return;
+    setDarkModeEnabled(Boolean(userSettings.darkModeEnabled));
+    setColorBlindModeEnabled(Boolean(userSettings.colorBlindModeEnabled));
+    setHapticEnabled(userSettings.hapticEnabled ?? true);
+    setHighContrastEnabled(Boolean(userSettings.highContrastEnabled));
+    const scale = Number(userSettings.textScale ?? userSettings.textSizeLevel ?? 1.0);
+    if (Number.isFinite(scale)) setTextScale(scale);
+  }, [currentUser?.uid, realm, currentRoute]);
 
   // Redirect based on Firebase auth state only when it is resolved (not undefined)
   useEffect(() => {
@@ -221,11 +237,11 @@ function AppContent() {
       : `${currentRoute}-${textScale}`;
 
   return (
-    <>
+    <View style={styles.screenRoot}>
       {AUTH_ROUTES.has(currentRoute) && (
         <View style={styles.authPeopleWrapper} pointerEvents="none">
           <Image
-            source={require('../assets/people.png')}
+            source={colorBlindModeEnabled ? require('../assets/pilestone.png') : require('../assets/people.png')}
             style={styles.authPeopleImage}
             resizeMode="contain"
             accessible={false}
@@ -237,7 +253,7 @@ function AppContent() {
         <CurrentScreen {...screenProps} />
       </Animated.View>
       <StatusBar style={darkModeEnabled ? 'light' : 'dark'} />
-    </>
+    </View>
   );
 }
 
@@ -314,6 +330,9 @@ export default function AppRoot() {
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+  },
   appShell: {
     flex: 1,
     width: '100%',

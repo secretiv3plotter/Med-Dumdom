@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import accessibilitySettingsService from '../../domain/services/AccessibilitySettingsService';
 import { roundToPixel } from './scaling';
 import {
@@ -319,6 +319,10 @@ export const installTextScaling = () => {
 
 const TextScaleContext = createContext(null);
 
+const highContrastFilterStyle = Platform.OS === 'web'
+  ? { flex: 1, filter: 'contrast(2)' }
+  : { flex: 1, filter: [{ contrast: 2 }] };
+
 export function TextScaleProvider({ children, userId = DEFAULT_USER_ID, settingsService = accessibilitySettingsService }) {
   const initialSettings = settingsService.getAccessibilitySettings(userId);
   const initialScale = normalizeTextScale(initialSettings?.textSizeLevel ?? MIN_TEXT_SCALE);
@@ -406,7 +410,13 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID, settings
     [textScale, updateTextScale, darkModeEnabled, updateDarkMode, colorBlindModeEnabled, updateColorBlindMode, hapticEnabled, updateHapticEnabled, highContrastEnabled, updateHighContrast]
   );
 
-  return <TextScaleContext.Provider value={value}>{children}</TextScaleContext.Provider>;
+  return (
+    <TextScaleContext.Provider value={value}>
+      <View style={highContrastEnabled ? highContrastFilterStyle : { flex: 1 }}>
+        {children}
+      </View>
+    </TextScaleContext.Provider>
+  );
 }
 
 export function useTextScale() {
