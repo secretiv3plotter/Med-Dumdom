@@ -85,6 +85,7 @@ export default function PatientIdCard({ name, birthdate, imageSource, isEmpty, i
     ? (darkModeEnabled ? '#56B4E9' : '#0072B2')
     : undefined;
   const displayName = isEmpty ? addFieldPlaceholder : name;
+  const resolvedName = String(name || '').trim() || 'patient';
   const profileWideStyle = wideSpacing ? { paddingHorizontal: spacing.md + wideSpacing } : null;
   const profileContentWideStyle = wideSpacing ? { gap: spacing.sm + wideSpacing * 1.45 } : null;
   const avatarBlockWideStyle = wideSpacing ? { width: moderateScale(96) + wideSpacing * 0.6 } : null;
@@ -98,7 +99,7 @@ export default function PatientIdCard({ name, birthdate, imageSource, isEmpty, i
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Profile ID card for ${name}`}
+      accessibilityLabel={isEmpty ? 'Open profile to add personal information' : `Open profile for ${resolvedName}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [

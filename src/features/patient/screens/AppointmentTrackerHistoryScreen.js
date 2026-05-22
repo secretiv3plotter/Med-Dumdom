@@ -463,6 +463,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
           visible={true}
           transparent
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setPendingDeleteTarget(null)}
         >
           <Pressable accessible={false} style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
@@ -473,6 +474,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
                 actions={[
                   {
                     label: 'Cancel',
+                    accessibilityLabel: 'Cancel deleting appointment history record',
                     variant: 'outline',
                     onPress: () => setPendingDeleteTarget(null),
                     style: styles.confirmCancelButton,
@@ -481,6 +483,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
                   },
                   {
                     label: 'Delete',
+                    accessibilityLabel: 'Confirm deleting appointment history record',
                     variant: 'solid',
                     onPress: confirmDeleteRecord,
                     style: styles.confirmSolidButton,
@@ -497,6 +500,11 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
       <LargePopup
         visible={Boolean(selectedRecord)}
         onClose={() => setSelectedRecord(null)}
+        accessibilityLabel={
+          selectedRecord
+            ? `Appointment history details for ${selectedRecord.concern}`
+            : 'Appointment history details'
+        }
         header={
           selectedRecord ? (
             <View style={styles.detailsHeaderRow}>
@@ -550,6 +558,7 @@ export default function AppointmentTrackerHistoryScreen({ navigation, realm = nu
             <View style={styles.footerActionsRow}>
               <ActionButton
                 label="Close"
+                accessibilityLabel={`Close appointment history details for ${selectedRecord.concern}`}
                 variant="outline"
                 onPress={() => setSelectedRecord(null)}
                 style={styles.closeButton}

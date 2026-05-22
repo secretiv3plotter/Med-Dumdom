@@ -8,6 +8,7 @@ export default function BackButton({
   label = 'Back',
   showLabel = true,
   disabled = false,
+  accessibilityLabel,
   style,
   iconStyle,
   labelStyle,
@@ -20,7 +21,7 @@ export default function BackButton({
       disabled={disabled}
       unstable_pressDelay={0}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel || (label === 'Back' ? 'Go back to the previous screen' : label)}
       hitSlop={spacing.xs}
       style={({ pressed }) => [
         styles.button,

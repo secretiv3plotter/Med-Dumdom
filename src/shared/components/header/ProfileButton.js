@@ -28,7 +28,7 @@ export default function ProfileButton({
       disabled={disabled}
       unstable_pressDelay={0}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={label === 'Profile' ? 'Open profile' : `Open ${label}`}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,

@@ -99,6 +99,7 @@ export function AppointmentEditorContent({
       <View style={styles.footerActionsRow}>
         <ActionButton
           label="Cancel"
+          accessibilityLabel="Cancel adding appointment"
           variant="outline"
           onPress={onCancel}
           style={[styles.footerButton, styles.appointmentOutlineButton]}
@@ -108,6 +109,7 @@ export function AppointmentEditorContent({
         {isDetailsStep ? (
           <ActionButton
             label="Next"
+            accessibilityLabel="Go to appointment schedule step"
             variant="solid"
             onPress={onNextStep}
             style={[styles.footerButton, styles.appointmentSolidButton]}

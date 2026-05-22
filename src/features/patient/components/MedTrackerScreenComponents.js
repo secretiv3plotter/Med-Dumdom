@@ -149,6 +149,7 @@ function SchedulePreviewCard({
   const isHourly = !!entry.intervalMinutes;
   const isAsNeeded = isAsNeededScheduleEntry(entry);
   const lastActionMessage = isHourly ? getLastActionMessage(medicine) : null;
+  const scheduleActionLabel = `${medicine.medName || 'medicine'} schedule ${index + 1}`;
 
   return (
     <View
@@ -195,6 +196,7 @@ function SchedulePreviewCard({
         <View style={[styles.scheduleActionRow, styles.revertStatusActionRow]}>
           <ActionButton
             label="Revert Status"
+            accessibilityLabel={`Revert ${scheduleActionLabel} status to pending`}
             onPress={(event) => {
               triggerImpact();
               event?.stopPropagation?.();
@@ -211,6 +213,7 @@ function SchedulePreviewCard({
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
+            accessibilityLabel={`Mark ${scheduleActionLabel} as skipped`}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={(event) => {
               triggerImpact();
@@ -223,6 +226,7 @@ function SchedulePreviewCard({
           />
           <ActionButton
             label="Taken"
+            accessibilityLabel={`Mark ${scheduleActionLabel} as taken`}
             onPress={(event) => {
               triggerSuccess();
               event?.stopPropagation?.();
@@ -321,6 +325,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
   const missedDisplayTime = isMissed
     ? getScheduleMissedDisplayTime(medicine, entry, index, observedNow)
     : null;
+  const scheduleActionLabel = `${medicine.medName || 'medicine'} schedule ${index + 1}`;
 
   return (
     <View style={[
@@ -366,6 +371,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
         <View style={[styles.scheduleActionRow, styles.revertStatusActionRow]}>
           <ActionButton
             label="Revert Status"
+            accessibilityLabel={`Revert ${scheduleActionLabel} status to pending`}
             onPress={(event) => {
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'clear');
@@ -381,6 +387,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
         <View style={styles.scheduleActionRow}>
           <ActionButton
             label={entry.status === 'skipped' ? 'Skipped' : 'Skip'}
+            accessibilityLabel={`Mark ${scheduleActionLabel} as skipped`}
             variant={entry.status === 'skipped' ? 'solid' : 'outline'}
             onPress={(event) => {
               event?.stopPropagation?.();
@@ -392,6 +399,7 @@ function MedicineDetailsScheduleCard({ entry, index, medicine, observedNow, onSc
           />
           <ActionButton
             label="Taken"
+            accessibilityLabel={`Mark ${scheduleActionLabel} as taken`}
             onPress={(event) => {
               event?.stopPropagation?.();
               onScheduleStatusChange(medicine, index, 'taken');

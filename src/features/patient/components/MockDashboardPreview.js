@@ -134,7 +134,7 @@ function DashboardAction({ iconName, iconSize, label, isCompact = false, onPress
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`Open ${label}`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [
@@ -158,7 +158,7 @@ function TrackerMockCard({ title, accentColor, alignTitleRight = false, onPress 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={`Open ${title}. No updates available yet.`}
       onPress={onPress}
       unstable_pressDelay={0}
       style={({ pressed }) => [styles.trackerCard, pressed && styles.trackerCardPressed]}

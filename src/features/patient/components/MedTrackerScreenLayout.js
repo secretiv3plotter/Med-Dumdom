@@ -26,7 +26,7 @@ export function MedTrackerHeader({ onBack, onCreate, pinHeader = true }) {
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
       <View style={styles.addButtonWrap}>
-        <AddButton onPress={onCreate} iconOnly />
+        <AddButton onPress={onCreate} iconOnly accessibilityLabel="Add medicine" />
         <Text style={styles.addButtonLabel}>Add</Text>
       </View>
     </View>
@@ -50,7 +50,7 @@ export function MedTrackerHeaderContent({ onCreate }) {
         <Text style={styles.subtitle}>Manage all your medications and supplements in one place.</Text>
       </View>
       <View style={styles.addButtonWrap}>
-        <AddButton onPress={onCreate} iconOnly />
+        <AddButton onPress={onCreate} iconOnly accessibilityLabel="Add medicine" />
         <Text style={styles.addButtonLabel}>Add</Text>
       </View>
     </View>
@@ -113,7 +113,7 @@ export function MedicineListSection({
         )}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Review previous records"
+          accessibilityLabel="Review previous medicine records"
           unstable_pressDelay={0}
           onPress={onReviewRecords}
           style={({ pressed }) => [styles.historyBar, pressed && styles.pressedControl]}
@@ -138,6 +138,7 @@ export function MedicineDetailsPopup({
     <LargePopup
       visible={visible && Boolean(medicine)}
       onClose={onClose}
+      accessibilityLabel={medicine ? `Medicine details for ${medicine.medName}` : 'Medicine details'}
       header={
         medicine ? (
           <View style={styles.detailsHeaderRow}>
@@ -148,12 +149,14 @@ export function MedicineDetailsPopup({
             <View style={styles.detailActionsTop}>
               <SmallHeaderAction
                 label="Edit"
+                accessibilityLabel={`Edit ${medicine.medName}`}
                 icon="create-outline"
                 color={colors.brand}
                 onPress={onEdit}
               />
               <SmallHeaderAction
                 label="Delete"
+                accessibilityLabel={`Delete ${medicine.medName}`}
                 icon="trash-outline"
                 color={colors.error || '#D32F2F'}
                 onPress={onDelete}
@@ -175,7 +178,12 @@ export function MedicineDetailsPopup({
           />
 
           <View style={styles.footerActionsRow}>
-            <ActionButton label="Close" variant="outline" onPress={onClose} />
+            <ActionButton
+              label="Close"
+              accessibilityLabel={medicine ? `Close medicine details for ${medicine.medName}` : 'Close medicine details'}
+              variant="outline"
+              onPress={onClose}
+            />
           </View>
         </>
       ) : null}
@@ -183,7 +191,7 @@ export function MedicineDetailsPopup({
   );
 }
 
-function SmallHeaderAction({ label, icon, color, onPress }) {
+function SmallHeaderAction({ label, accessibilityLabel, icon, color, onPress }) {
   return (
     <View style={styles.iconActionCol}>
       <Pressable
@@ -193,7 +201,7 @@ function SmallHeaderAction({ label, icon, color, onPress }) {
           pressed && styles.iconActionPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel || label}
       >
         <Ionicons name={icon} size={18} color={color} />
       </Pressable>
@@ -233,6 +241,7 @@ export function MedicineEditorPopup({
     <LargePopup
       visible={visible}
       onClose={onCancel}
+      accessibilityLabel={editorMode === 'edit' ? 'Edit medicine' : 'Add medicine'}
       header={
         <View style={styles.detailsHeaderRow}>
           <View style={styles.detailsHeaderTextBlock}>
@@ -289,7 +298,7 @@ export function ConfirmationDialogModal({
   confirmPressedStyle,
 }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" accessibilityViewIsModal onRequestClose={onCancel}>
       <Pressable accessible={false} style={styles.confirmOverlay} onPress={onCancel}>
         <Pressable accessible={false} style={styles.confirmDialog} onPress={(event) => event.stopPropagation()}>
           <DialogBox
@@ -298,6 +307,7 @@ export function ConfirmationDialogModal({
             actions={[
               {
                 label: 'Cancel',
+                accessibilityLabel: `Cancel ${title}`,
                 variant: 'outline',
                 onPress: onCancel,
                 style: cancelActionStyle,
@@ -306,6 +316,7 @@ export function ConfirmationDialogModal({
               },
               {
                 label: confirmLabel,
+                accessibilityLabel: `${confirmLabel} ${title}`,
                 variant: 'solid',
                 onPress: onConfirm,
                 style: confirmActionStyle,

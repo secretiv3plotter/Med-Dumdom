@@ -347,12 +347,14 @@ function InlineScheduleEditor({ entry, index, unit, formState, canEditStartTime 
       <View style={styles.inlineActionsRow}>
         <ActionButton
           label="Cancel"
+          accessibilityLabel="Cancel schedule entry edit"
           variant="outline"
           onPress={onCancel}
           style={styles.inlineBtn}
         />
         <ActionButton
           label="Save"
+          accessibilityLabel="Save schedule entry"
           variant="solid"
           onPress={handleSave}
           style={styles.inlineBtn}

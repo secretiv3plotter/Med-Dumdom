@@ -285,6 +285,7 @@ export default function SettingsScreen({ navigation, realm = null }) {
           transparent
           visible={true}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setShowConfirmLogOut(false)}
         >
           <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowConfirmLogOut(false)}>
@@ -293,8 +294,18 @@ export default function SettingsScreen({ navigation, realm = null }) {
                 title="Log Out?"
                 message="Are you sure you want to log out?"
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmLogOut(false) },
-                  { label: 'Log Out', variant: 'solid', onPress: confirmLogOut },
+                  {
+                    label: 'Cancel',
+                    accessibilityLabel: 'Cancel log out',
+                    variant: 'outline',
+                    onPress: () => setShowConfirmLogOut(false),
+                  },
+                  {
+                    label: 'Log Out',
+                    accessibilityLabel: 'Confirm log out',
+                    variant: 'solid',
+                    onPress: confirmLogOut,
+                  },
                 ]}
               />
             </Pressable>
@@ -307,6 +318,7 @@ export default function SettingsScreen({ navigation, realm = null }) {
           transparent
           visible={true}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setShowDeleteDialog(false)}
         >
           <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowDeleteDialog(false)}>
@@ -315,8 +327,18 @@ export default function SettingsScreen({ navigation, realm = null }) {
                 title="Delete Account?"
                 message="Are you sure you want to delete your account? This cannot be undone."
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setShowDeleteDialog(false) },
-                  { label: 'Delete', variant: 'solid', onPress: handleDeleteAccount },
+                  {
+                    label: 'Cancel',
+                    accessibilityLabel: 'Cancel account deletion',
+                    variant: 'outline',
+                    onPress: () => setShowDeleteDialog(false),
+                  },
+                  {
+                    label: 'Delete',
+                    accessibilityLabel: 'Confirm account deletion',
+                    variant: 'solid',
+                    onPress: handleDeleteAccount,
+                  },
                 ]}
               />
             </Pressable>
@@ -329,6 +351,7 @@ export default function SettingsScreen({ navigation, realm = null }) {
           transparent
           visible={true}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setShowConfirmPasswordChange(false)}
         >
           <Pressable accessible={false} style={styles.dialogOverlay} onPress={() => setShowConfirmPasswordChange(false)}>
@@ -337,8 +360,18 @@ export default function SettingsScreen({ navigation, realm = null }) {
                 title="Change Password?"
                 message="Are you sure you want to change your password?"
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmPasswordChange(false) },
-                  { label: 'Confirm', variant: 'solid', onPress: () => { setShowConfirmPasswordChange(false); handlePasswordChange(); } },
+                  {
+                    label: 'Cancel',
+                    accessibilityLabel: 'Cancel password change',
+                    variant: 'outline',
+                    onPress: () => setShowConfirmPasswordChange(false),
+                  },
+                  {
+                    label: 'Confirm',
+                    accessibilityLabel: 'Confirm password change',
+                    variant: 'solid',
+                    onPress: () => { setShowConfirmPasswordChange(false); handlePasswordChange(); },
+                  },
                 ]}
               />
             </Pressable>

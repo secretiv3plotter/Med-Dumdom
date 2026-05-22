@@ -109,15 +109,25 @@ export default function LoadingScreen({ navigation, realm: realmProp = null }) {
       </View>
 
       {showDeletedModal ? (
-        <Modal transparent visible animationType="fade">
+        <Modal transparent visible animationType="fade" accessibilityViewIsModal>
           <View style={styles.overlay}>
             <View style={styles.dialogContainer}>
               <DialogBox
                 title="Account Deleted"
                 message="This account has been deleted. Would you like to reactivate it?"
                 actions={[
-                  { label: 'No', variant: 'outline', onPress: handleDeclineReactivate },
-                  { label: 'Reactivate', variant: 'solid', onPress: handleReactivate },
+                  {
+                    label: 'No',
+                    accessibilityLabel: 'Do not reactivate account',
+                    variant: 'outline',
+                    onPress: handleDeclineReactivate,
+                  },
+                  {
+                    label: 'Reactivate',
+                    accessibilityLabel: 'Reactivate deleted account',
+                    variant: 'solid',
+                    onPress: handleReactivate,
+                  },
                 ]}
               />
             </View>

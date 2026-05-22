@@ -490,8 +490,19 @@ export default function ProfileScreen({ navigation, realm = null }) {
                 title="Are you Sure?"
                 message="You are about to save changes."
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setShowConfirmSave(false) },
-                  { label: isSaving ? 'Saving...' : 'Confirm Save', variant: 'solid', onPress: confirmSaveChanges, disabled: isSaving },
+                  {
+                    label: 'Cancel',
+                    accessibilityLabel: 'Cancel saving profile changes',
+                    variant: 'outline',
+                    onPress: () => setShowConfirmSave(false),
+                  },
+                  {
+                    label: isSaving ? 'Saving...' : 'Confirm Save',
+                    accessibilityLabel: 'Confirm saving profile changes',
+                    variant: 'solid',
+                    onPress: confirmSaveChanges,
+                    disabled: isSaving,
+                  },
                 ]}
               />
             </Pressable>

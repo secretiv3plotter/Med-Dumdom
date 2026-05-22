@@ -238,7 +238,12 @@ function ToggleRow({ label, value, onChange }) {
   return (
     <View style={styles.toggleRow}>
       <Text style={styles.toggleLabel}>{label}</Text>
-      <ToggleButton value={value} onChange={onChange} size={30} />
+      <ToggleButton
+        value={value}
+        onChange={onChange}
+        size={30}
+        accessibilityLabel={`${value ? 'Turn off' : 'Turn on'} ${label}`}
+      />
     </View>
   );
 }

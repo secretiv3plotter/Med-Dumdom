@@ -439,6 +439,7 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
           visible={true}
           transparent
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setPendingDeleteTarget(null)}
         >
           <Pressable accessible={false} style={styles.confirmOverlay} onPress={() => setPendingDeleteTarget(null)}>
@@ -447,8 +448,18 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
                 title="Delete history records?"
                 message={`Delete ${pendingDeleteTarget?.label || 'these records'}? You can undo this later.`}
                 actions={[
-                  { label: 'Cancel', variant: 'outline', onPress: () => setPendingDeleteTarget(null) },
-                  { label: 'Delete', variant: 'solid', onPress: confirmDeleteRecords },
+                  {
+                    label: 'Cancel',
+                    accessibilityLabel: 'Cancel deleting medicine history records',
+                    variant: 'outline',
+                    onPress: () => setPendingDeleteTarget(null),
+                  },
+                  {
+                    label: 'Delete',
+                    accessibilityLabel: 'Confirm deleting medicine history records',
+                    variant: 'solid',
+                    onPress: confirmDeleteRecords,
+                  },
                 ]}
               />
             </Pressable>
@@ -459,6 +470,11 @@ export default function MedTrackerHistoryScreen({ navigation, realm = null }) {
       <LargePopup
         visible={Boolean(selectedScheduleRecord)}
         onClose={() => setSelectedScheduleRecord(null)}
+        accessibilityLabel={
+          selectedScheduleRecord
+            ? `Medicine schedule history details for ${selectedScheduleRecord.record.medName}`
+            : 'Medicine schedule history details'
+        }
         header={
           selectedScheduleRecord ? (
             <View style={styles.detailsHeaderRow}>
@@ -545,6 +561,7 @@ function ScheduleRecordDetails({ record, entry, onClose }) {
       <View style={styles.footerActionsRow}>
         <ActionButton
           label="Close"
+          accessibilityLabel={`Close medicine schedule history details for ${record.medName}`}
           variant="outline"
           onPress={onClose}
           style={styles.closeButton}

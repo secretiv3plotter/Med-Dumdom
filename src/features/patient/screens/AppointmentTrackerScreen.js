@@ -188,6 +188,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
         <AddButton
           onPress={handleAddAppointment}
           iconOnly
+          accessibilityLabel="Add appointment"
           circleStyle={styles.appointmentAddCircle}
           textStyle={styles.appointmentAddText}
           pressedStyle={styles.appointmentAddPressed}
@@ -430,7 +431,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Review previous records"
+            accessibilityLabel="Review previous appointment records"
             unstable_pressDelay={0}
             onPress={() => navigation?.navigate?.(ROUTES.APPOINTMENT_TRACKER_HISTORY)}
             style={({ pressed }) => [styles.historyBar, pressed && styles.pressedControl]}
@@ -446,6 +447,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
           setIsEditingDetails(false);
           setIsDetailsVisible(false);
         }}
+        accessibilityLabel={selectedAppointment ? `Appointment details for ${selectedAppointment.concern}` : 'Appointment details'}
         header={
           selectedAppointment ? (
             <View style={styles.detailsHeaderRow}>
@@ -457,12 +459,14 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
                 <View style={styles.detailActionsTop}>
                   <SmallHeaderAction
                     label="Edit"
+                    accessibilityLabel={`Edit ${selectedAppointment.concern}`}
                     icon="create-outline"
                     color={APPOINTMENT_ACCENT}
                     onPress={handleEditAppointment}
                   />
                   <SmallHeaderAction
                     label="Delete"
+                    accessibilityLabel={`Delete ${selectedAppointment.concern}`}
                     icon="trash-outline"
                     color={colors.error || '#D32F2F'}
                     onPress={handleDeleteAppointment}
@@ -555,12 +559,27 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
             <View style={styles.footerActionsRow}>
               {isEditingDetails ? (
                 <>
-                  <ActionButton label="Cancel" variant="outline" onPress={() => setIsEditingDetails(false)} />
-                  <ActionButton label="Save" variant="solid" onPress={handleSaveDetails} />
+                  <ActionButton
+                    label="Cancel"
+                    accessibilityLabel="Cancel editing appointment details"
+                    variant="outline"
+                    onPress={() => setIsEditingDetails(false)}
+                  />
+                  <ActionButton
+                    label="Save"
+                    accessibilityLabel="Save appointment details"
+                    variant="solid"
+                    onPress={handleSaveDetails}
+                  />
                 </>
               ) : (
                 <ActionButton
                   label="Close"
+                  accessibilityLabel={
+                    selectedAppointment
+                      ? `Close appointment details for ${selectedAppointment.concern}`
+                      : 'Close appointment details'
+                  }
                   variant="outline"
                   style={styles.closeButton}
                   textStyle={styles.closeButtonText}
@@ -579,6 +598,7 @@ export default function AppointmentTrackerScreen({ navigation, realm = null, tra
       <LargePopup
         visible={editorMode === 'create'}
         onClose={() => resetEditor()}
+        accessibilityLabel="Add appointment"
         header={
           <View style={styles.detailsHeaderRow}>
             <View style={styles.detailsHeaderTextBlock}>
@@ -689,7 +709,7 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
           value={value}
           mode={mode}
           onChange={onChangeText}
-          accessibilityLabel={label}
+          accessibilityLabel={`Appointment ${label.toLowerCase()}`}
           minimumDate={minimumDate}
           focusBorderColor={APPOINTMENT_ACCENT}
           focusBackgroundColor={colors.brandSoft}
@@ -715,7 +735,7 @@ function EditableDetailItem({ label, value, editable, onChangeText, mode = null,
   );
 }
 
-function SmallHeaderAction({ label, icon, color, onPress }) {
+function SmallHeaderAction({ label, accessibilityLabel, icon, color, onPress }) {
   return (
     <View style={styles.iconActionCol}>
       <Pressable
@@ -725,7 +745,7 @@ function SmallHeaderAction({ label, icon, color, onPress }) {
           pressed && styles.iconActionPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel || label}
       >
         <Ionicons name={icon} size={18} color={color} />
       </Pressable>

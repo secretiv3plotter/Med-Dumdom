@@ -29,7 +29,7 @@ export default function HelpButton({
       disabled={disabled}
       unstable_pressDelay={0}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`Open ${label}`}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,

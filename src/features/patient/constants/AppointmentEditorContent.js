@@ -77,14 +77,33 @@ export function AppointmentEditorContent({
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
       <View style={styles.footerActionsRow}>
-        <ActionButton label="Cancel" variant="outline" onPress={onCancel} style={styles.footerButton} />
+        <ActionButton
+          label="Cancel"
+          accessibilityLabel="Cancel adding appointment"
+          variant="outline"
+          onPress={onCancel}
+          style={styles.footerButton}
+        />
         {isDetailsStep ? (
-          <ActionButton label="Next" variant="solid" onPress={onNextStep} style={styles.footerButton} />
+          <ActionButton
+            label="Next"
+            accessibilityLabel="Go to appointment schedule step"
+            variant="solid"
+            onPress={onNextStep}
+            style={styles.footerButton}
+          />
         ) : (
           <>
-            <ActionButton label="Back" variant="outline" onPress={onPreviousStep} style={styles.footerButton} />
+            <ActionButton
+              label="Back"
+              accessibilityLabel="Go back to appointment details step"
+              variant="outline"
+              onPress={onPreviousStep}
+              style={styles.footerButton}
+            />
             <ActionButton
               label="Add Appointment"
+              accessibilityLabel="Add appointment to tracker"
               variant="solid"
               onPress={onSaveAppointment}
               style={styles.footerButton}

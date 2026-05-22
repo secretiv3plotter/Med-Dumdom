@@ -15,6 +15,7 @@ export default function LargePopup({
   contentContainerStyle,
   sheetStyle,
   headerStyle,
+  accessibilityLabel = 'Dialog',
 }) {
   const { height: viewportHeight } = useWindowDimensions();
   const hiddenOffset = Math.max(viewportHeight, 480);
@@ -71,6 +72,9 @@ export default function LargePopup({
     <View style={[styles.backdrop, Platform.OS === 'web' && styles.webBackdrop]} pointerEvents="box-none">
         <Pressable accessible={false} style={styles.dismissArea} onPress={onClose} />
         <Animated.View
+          accessibilityViewIsModal
+          accessibilityRole="dialog"
+          accessibilityLabel={accessibilityLabel}
           style={[
             styles.sheet,
             sheetStyle,
@@ -100,7 +104,7 @@ export default function LargePopup({
   }
 
   return (
-    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible={mounted} transparent animationType="none" accessibilityViewIsModal onRequestClose={onClose}>
       {popupContent}
     </Modal>
   );

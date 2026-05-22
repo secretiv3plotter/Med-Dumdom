@@ -841,10 +841,16 @@ export default function NativeDateTimeField({
           transparent
           visible={isPickerVisible}
           animationType="fade"
+          accessibilityViewIsModal
           onRequestClose={() => setPickerVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.scrollerCard}>
+            <View
+              style={styles.scrollerCard}
+              accessibilityRole="dialog"
+              accessibilityViewIsModal
+              accessibilityLabel={`${mode === 'day' ? 'Select day' : (mode === 'month' ? 'Select month' : (mode === 'monthDay' ? 'Select day' : (mode === 'duration' ? 'Select time period' : (mode === 'date' ? 'Select date' : 'Select time'))))} for ${resolvedLabel}`}
+            >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
                   {mode === 'day' ? 'Select Day' : (mode === 'month' ? 'Select Month' : (mode === 'monthDay' ? 'Select Day' : (mode === 'duration' ? 'Select Time Period' : (mode === 'date' ? 'Select Date' : 'Select Time'))))}

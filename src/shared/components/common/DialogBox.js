@@ -24,6 +24,9 @@ export default function DialogBox({
 
   return (
     <View
+      accessibilityRole="alert"
+      accessibilityViewIsModal
+      accessibilityLabel={title}
       style={[
         styles.card,
         {
@@ -43,6 +46,8 @@ export default function DialogBox({
             value={field.value}
             onChangeText={field.onChangeText}
             placeholder={field.placeholder || ''}
+            accessibilityLabel={field.accessibilityLabel || field.label || field.placeholder || `Dialog field ${index + 1}`}
+            accessibilityHint={field.accessibilityHint}
             secureTextEntry={field.secureTextEntry || false}
             keyboardType={field.keyboardType || 'default'}
             style={[
@@ -57,7 +62,11 @@ export default function DialogBox({
         ))}
       </View>
 
-      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+      {errorMessage ? (
+        <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="polite">
+          {errorMessage}
+        </Text>
+      ) : null}
 
       {normalizedActions.length ? (
         <View style={[styles.actionsRow, { gap: scaleLayoutValue(spacing.sm) }]}>
@@ -65,6 +74,8 @@ export default function DialogBox({
             <View key={`${action.label || 'action'}-${index}`} style={styles.actionSlot}>
               <ActionButton
                 label={action.label}
+                accessibilityLabel={action.accessibilityLabel || (title ? `${action.label} ${title}` : action.label)}
+                accessibilityHint={action.accessibilityHint}
                 onPress={action.onPress}
                 variant={action.variant || 'solid'}
                 disabled={action.disabled}

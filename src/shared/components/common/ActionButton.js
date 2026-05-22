@@ -13,6 +13,8 @@ export default function ActionButton({
   textStyle,
   pressedTextStyle,
   disabled = false,
+  accessibilityLabel,
+  accessibilityHint,
   preserveFontSize = false,
   hitSlop = { top: 8, bottom: 8, left: 8, right: 8 },
 }) {
@@ -54,7 +56,8 @@ export default function ActionButton({
       onPressOut={() => setIsPressed(false)}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.button,

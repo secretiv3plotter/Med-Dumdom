@@ -22,6 +22,8 @@ export default function CrudButton({
   variant = 'solid',
   iconOnly = false,
   disabled = false,
+  accessibilityLabel,
+  accessibilityHint,
   style,
   pressedStyle,
   circleStyle,
@@ -39,6 +41,15 @@ export default function CrudButton({
   const iconOnlySolidBackground = darkModeEnabled ? 'rgb(56, 189, 248)' : 'rgb(2, 132, 199)';
   const pressedBackgroundColor = darkModeEnabled ? 'rgba(148, 163, 184, 0.16)' : '#C7DBFF';
   const showLabel = !iconOnly && Boolean(label);
+  const resolvedAccessibilityLabel = accessibilityLabel || (
+    label === 'Add'
+      ? 'Add item'
+      : label === 'Edit'
+      ? 'Edit item'
+      : label === 'Delete'
+      ? 'Delete item'
+      : label || 'Action button'
+  );
 
   return (
     <Pressable
@@ -46,7 +57,8 @@ export default function CrudButton({
       disabled={disabled}
       unstable_pressDelay={0}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={resolvedAccessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.container,

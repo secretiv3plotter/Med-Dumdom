@@ -21,12 +21,16 @@ function Card({
   onPress,
   onAddPress,
   darkModeEnabled = false,
+  accessibilityLabel,
+  addAccessibilityLabel,
 }) {
   const hasContent = Boolean(content?.trim());
 
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || `Open ${title.replace(/\s+/g, ' ')} tracker`}
       style={({ pressed }) => [
         styles.card,
         pressed && {
@@ -95,6 +99,8 @@ function Card({
         <View style={styles.header}>
           {buttonPosition === 'left' && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={addAccessibilityLabel || `Add item to ${title.replace(/\s+/g, ' ')} tracker`}
               style={({ pressed }) => [
                 styles.actionButton,
                 { backgroundColor: accent },
@@ -128,6 +134,8 @@ function Card({
 
           {buttonPosition === 'right' && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={addAccessibilityLabel || `Add item to ${title.replace(/\s+/g, ' ')} tracker`}
               style={({ pressed }) => [
                 styles.actionButton,
                 { backgroundColor: accent },
@@ -198,6 +206,8 @@ export default function TrackerActionCard({
         onPress={onMedPress}
         onAddPress={onMedAddPress}
         darkModeEnabled={darkModeEnabled}
+        accessibilityLabel={medContent ? `Open Med Tracker. ${medLabel || 'Next medicine update'}: ${medContent}` : 'Open Med Tracker. No medicine updates available yet.'}
+        addAccessibilityLabel="Add a medicine"
       />
 
       <Card
@@ -209,6 +219,8 @@ export default function TrackerActionCard({
         onPress={onApptPress}
         onAddPress={onApptAddPress}
         darkModeEnabled={darkModeEnabled}
+        accessibilityLabel={apptContent ? `Open Appointment Tracker. ${apptLabel || 'Next appointment update'}: ${apptContent}` : 'Open Appointment Tracker. No appointment updates available yet.'}
+        addAccessibilityLabel="Add an appointment"
       />
     </View>
   );
