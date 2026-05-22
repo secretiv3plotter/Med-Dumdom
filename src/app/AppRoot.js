@@ -1,10 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, BackHandler, Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { TextScaleProvider, useTextScale } from '../shared/theme/textScale';
+import { useHapticFeedback } from '../shared/hooks/useHapticFeedback';
 import { colors } from '../shared/theme';
 import { RealmProvider, useRealm } from '../localdb/realm/RealmContext';
 import RealmSettingsPreferenceRepository from '../localdb/realm/RealmSettingsPreferenceRepository';
@@ -85,7 +86,8 @@ const AUTH_ROUTES = new Set([ROUTES.LOG_IN, ROUTES.SIGN_UP]);
 function AppContent() {
   const realm = useRealm();
   const { firebase, currentUser } = useFirebase();
-  const { textScale, darkModeEnabled, colorBlindModeEnabled, hapticEnabled, setDarkModeEnabled, setTextScale, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
+  const { textScale, darkModeEnabled, colorBlindModeEnabled, setDarkModeEnabled, setTextScale, setColorBlindModeEnabled, setHapticEnabled, setHighContrastEnabled } = useTextScale();
+  const { triggerImpact } = useHapticFeedback();
   const [history, setHistory] = useState([{ routeName: ROUTES.LOG_IN, params: {} }]);
   const currentEntry = history[history.length - 1];
   const currentRoute = currentEntry.routeName;
@@ -180,30 +182,24 @@ function AppContent() {
     return () => subscription.remove();
   }, [history, navigation]);
 
-  const handleGlobalTouch = () => {
-    if (!hapticEnabled) return;
-    import('expo-haptics').then((Haptics) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    });
-  };
+  const handleGlobalTouch = useCallback(() => {
+    triggerImpact();
+  }, [triggerImpact]);
 
   // Web: attach a global document click listener since onTouchStart doesn't fire in browsers
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     const listener = (e) => {
-      if (!hapticEnabled) return;
       // Only fire if the click landed on something interactive
       const isClickable = e.target?.closest(
         'button, a, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [tabindex]'
       );
       if (!isClickable) return;
-      import('expo-haptics').then((Haptics) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      });
+      triggerImpact();
     };
     document.addEventListener('click', listener, true);
     return () => document.removeEventListener('click', listener, true);
-  }, [hapticEnabled]);
+  }, [triggerImpact]);
 
   const { width: windowWidth } = useWindowDimensions();
   const translateX = useRef(new Animated.Value(0)).current;
