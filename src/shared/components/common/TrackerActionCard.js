@@ -20,6 +20,7 @@ function Card({
   buttonPosition = 'right',
   onPress,
   onAddPress,
+  darkModeEnabled = false,
 }) {
   const hasContent = Boolean(content?.trim());
 
@@ -156,7 +157,14 @@ function Card({
               <Text style={styles.cardText} numberOfLines={3}>{content}</Text>
             </>
           ) : (
-            <Text style={[styles.cardText, styles.placeholderText]} numberOfLines={4}>
+            <Text
+              style={[
+                styles.cardText,
+                styles.placeholderText,
+                darkModeEnabled && styles.placeholderTextDark,
+              ]}
+              numberOfLines={4}
+            >
               No updates available yet...
             </Text>
           )}
@@ -176,7 +184,7 @@ export default function TrackerActionCard({
   onApptPress,
   onApptAddPress,
 }) {
-  const { colorBlindModeEnabled } = useTextScale();
+  const { colorBlindModeEnabled, darkModeEnabled } = useTextScale();
   const apptAccent = colorBlindModeEnabled ? '#D55E00' : '#52b788';
 
   return (
@@ -189,6 +197,7 @@ export default function TrackerActionCard({
         buttonPosition="right"
         onPress={onMedPress}
         onAddPress={onMedAddPress}
+        darkModeEnabled={darkModeEnabled}
       />
 
       <Card
@@ -199,6 +208,7 @@ export default function TrackerActionCard({
         buttonPosition="left"
         onPress={onApptPress}
         onAddPress={onApptAddPress}
+        darkModeEnabled={darkModeEnabled}
       />
     </View>
   );
@@ -278,6 +288,10 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: 'rgba(0,0,0,0.45)',
     fontStyle: 'italic',
+  },
+
+  placeholderTextDark: {
+    color: 'rgba(255,255,255,0.82)',
   },
 
   waveContainer: {

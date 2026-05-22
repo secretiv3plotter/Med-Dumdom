@@ -361,11 +361,19 @@ export function TextScaleProvider({ children, userId = DEFAULT_USER_ID, settings
     [userId, settingsService]
   );
 
-  const updateHighContrast = useCallback((enabled) => {
-    const nextEnabled = Boolean(enabled);
-    currentHighContrastEnabled = nextEnabled;
-    setHighContrastEnabledState(nextEnabled);
-  }, []);
+  const updateHighContrast = useCallback(
+    (enabled) => {
+      const nextEnabled = Boolean(enabled);
+      currentHighContrastEnabled = nextEnabled;
+      setHighContrastEnabledState(nextEnabled);
+
+      const currentSettings = settingsService.getAccessibilitySettings(userId);
+      if (Boolean(currentSettings.highContrastEnabled) !== nextEnabled) {
+        settingsService.toggleHighContrast(userId);
+      }
+    },
+    [userId, settingsService]
+  );
 
   const updateColorBlindMode = useCallback(
     (enabled) => {

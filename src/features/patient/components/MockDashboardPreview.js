@@ -153,6 +153,7 @@ function DashboardAction({ iconName, iconSize, label, isCompact = false, onPress
 
 function TrackerMockCard({ title, accentColor, alignTitleRight = false, onPress }) {
   const [firstWord, secondWord] = title.split(' ');
+  const { darkModeEnabled } = useTextScale();
 
   return (
     <Pressable
@@ -182,7 +183,7 @@ function TrackerMockCard({ title, accentColor, alignTitleRight = false, onPress 
         )}
       </View>
 
-      <Text style={styles.emptyText}>
+      <Text style={[styles.emptyText, darkModeEnabled && styles.emptyTextDark]}>
         No updates
         {'\n'}
         available yet...
@@ -329,6 +330,9 @@ const styles = StyleSheet.create({
     lineHeight: getLineHeight(30),
     fontStyle: 'italic',
     marginTop: spacing.xxl,
+  },
+  emptyTextDark: {
+    color: 'rgba(255,255,255,0.82)',
   },
   waveWrap: {
     position: 'absolute',
