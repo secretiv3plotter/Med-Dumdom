@@ -130,7 +130,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   const { currentUser } = useFirebase();
   const { colorBlindModeEnabled } = useTextScale();
   const [containerWidth, setContainerWidth] = useState(0);
-  const isCompact = containerWidth > 0 && containerWidth < 385;
+  const isCompact = containerWidth > 0 && containerWidth < 340;
   const wideProfileSpacing = getWideProfileSpacing(containerWidth);
 
   const fallbackPatientName = navigation?.currentParams?.patientName || 'Patient';
