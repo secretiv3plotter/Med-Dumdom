@@ -76,6 +76,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   const returnRoute = navigation?.currentParams?.returnTo || ROUTES.HOME;
   const { textScale } = useTextScale();
   const { firebase, currentUser } = useFirebase();
+  const userId = currentUser?.uid ?? 'current-user';
   const pinHeader = textScale < 1.5;
   const footerNav = useScrollAwareFooterNav();
   const profileRepository = useMemo(
@@ -84,12 +85,12 @@ export default function ProfileScreen({ navigation, realm = null }) {
   );
 
   const [profile, setProfile] = useState(() => {
-    const currentProfile = profileRepository.getProfile(currentUser.uid);
+    const currentProfile = profileRepository.getProfile(userId);
     if (currentProfile?.fullName || currentProfile?.birthDate || currentProfile?.address) {
       return currentProfile;
     }
 
-    return profileRepository.saveProfile(currentUser.uid, FALLBACK_PROFILE);
+    return profileRepository.saveProfile(userId, FALLBACK_PROFILE);
   });
   const [draft, setDraft] = useState(() => toDraft(profile));
   const [isEditing, setIsEditing] = useState(false);
@@ -121,7 +122,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
   };
 
   const syncDraft = (nextProfile) => {
-    const savedProfile = profileRepository.saveProfile(currentUser.uid, nextProfile);
+    const savedProfile = profileRepository.saveProfile(userId, nextProfile);
     setProfile(savedProfile);
     setDraft(toDraft(savedProfile));
   };
@@ -174,7 +175,7 @@ export default function ProfileScreen({ navigation, realm = null }) {
         return;
       }
     }
-    const savedProfile = profileRepository.saveProfile(currentUser.uid, {
+    const savedProfile = profileRepository.saveProfile(userId, {
       ...profile,
       profilePicture: resolvedUrl,
     });
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   contentWithFooter: {
     paddingBottom: 150,

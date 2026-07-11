@@ -19,7 +19,7 @@ import Slider from '@react-native-community/slider';
 import {
   MAX_TEXT_SCALE,
   MIN_TEXT_SCALE,
-  useTextScale,
+  useTextScale, 
 } from '../../../shared/theme/textScale';
 
 const TAB_KEY_TO_ROUTE = {

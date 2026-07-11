@@ -139,6 +139,7 @@ const buildMostDueAppointment = (appointments, now) => {
 
 export default function PatientDashboardScreen({ navigation, realm = null }) {
   const { currentUser } = useFirebase();
+  const userId = currentUser?.uid ?? 'current-user';
   const fallbackPatientName = navigation?.currentParams?.patientName || 'Patient';
   const [patientFirstName, setPatientFirstName] = useState(fallbackPatientName);
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
@@ -163,7 +164,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   );
 
   const refreshProfileSummary = () => {
-    const profile = activeProfileService.getProfile(currentUser.uid);
+    const profile = activeProfileService.getProfile(userId);
     const firstName = String(profile?.fullName || '')
       .trim()
       .split(/\s+/)[0];
@@ -173,7 +174,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   };
 
   const refreshAccessibilitySettings = () => {
-    const settings = activeSettingsService.getAccessibilitySettings(currentUser.uid);
+    const settings = activeSettingsService.getAccessibilitySettings(userId);
     const nextTextSizeLevel = Number(settings?.textSizeLevel);
     setTextSizeLevel(Number.isNaN(nextTextSizeLevel) ? 1 : nextTextSizeLevel);
   };
@@ -192,7 +193,7 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
         unsubscribeFocus();
       }
     };
-  }, [navigation, activeProfileService, activeSettingsService, fallbackPatientName]);
+  }, [navigation, activeProfileService, activeSettingsService, fallbackPatientName, userId]);
 
   useEffect(() => {
     const intervalId = setInterval(() => setObservedNow(new Date()), 30000);
@@ -211,21 +212,21 @@ export default function PatientDashboardScreen({ navigation, realm = null }) {
   const footerNav = useScrollAwareFooterNav();
   const mostDueMedSchedule = useMemo(() => {
     try {
-      return buildMostDueMedSchedule(activeMedTrackerService.listMedEntries(currentUser.uid), observedNow);
+      return buildMostDueMedSchedule(activeMedTrackerService.listMedEntries(userId), observedNow);
     } catch (error) {
       console.warn('Failed to load dashboard medicine schedule:', error);
       return null;
     }
-  }, [activeMedTrackerService, observedNow]);
+  }, [activeMedTrackerService, observedNow, userId]);
 
   const mostDueAppointment = useMemo(() => {
     try {
-      return buildMostDueAppointment(activeApptTrackerService.listApptEntries(currentUser.uid), observedNow);
+      return buildMostDueAppointment(activeApptTrackerService.listApptEntries(userId), observedNow);
     } catch (error) {
       console.warn('Failed to load dashboard appointment schedule:', error);
       return null;
     }
-  }, [activeApptTrackerService, observedNow]);
+  }, [activeApptTrackerService, observedNow, userId]);
 
   const onTabNavigate = (tabKey) => {
     const targetRoute = TAB_KEY_TO_ROUTE[tabKey];
@@ -374,14 +375,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bgImageStyle: {
-    opacity: 0.9,
+    opacity: 1,
     width: '100%',
     height: '100%',
   },
   bgOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.pageBg,
-    opacity: 0.5,
+    backgroundColor: 'rgba(15, 23, 42, 0.18)',
   },
   transparentScroll: {
     backgroundColor: 'transparent',

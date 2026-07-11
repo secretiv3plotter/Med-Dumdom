@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
-    gap: spacing.xs,
+    gap: spacing.xxs,
     flexDirection: 'row',
   },
 });

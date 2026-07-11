@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: APPOINTMENT_GREEN_SOFT,
   },
   faqList: {
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   faqCardWrap: {
     position: 'relative',
